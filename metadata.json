@@ -1,0 +1,8 @@
+{
+  "name": "meetAdr - Healthcare Appointment Booking",
+  "description": "Book a doctor's appointment in a single click. Fast, simple, and human. In-person medical appointments across UAE hospitals and clinics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

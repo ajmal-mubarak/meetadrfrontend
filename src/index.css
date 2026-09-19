@@ -1,0 +1,154 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    /* Clean Off-White & Soft Medical Teal Healthcare Palette */
+    --hospital-navy: #1E293B;
+    --hospital-navy-dark: #0F172A;
+    --hospital-primary: #2DA7B5;
+    --hospital-primary-dark: #248D9A;
+    --hospital-primary-light: #E8F6F8;
+    --hospital-accent: #2DA7B5;
+    --hospital-bg: #F4F7F9;
+    --hospital-card: #FFFFFF;
+    --hospital-border: #E2EBF0;
+    --hospital-text: #1E293B;
+    --hospital-muted: #64748B;
+  }
+
+  html, body {
+    overflow-x: clip;
+    max-width: 100%;
+  }
+
+  html {
+    background-color: #F4F7F9;
+    color: #1E293B;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color-scheme: light;
+  }
+  html[lang="ar"], [dir="rtl"] {
+    font-family: 'Cairo', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Tahoma, Arial, sans-serif;
+  }
+  body {
+    background-color: #F4F7F9;
+    color: #1E293B;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    position: relative;
+  }
+  #root {
+    overflow-x: clip;
+    width: 100%;
+    min-height: 100vh;
+    background-color: #F4F7F9;
+  }
+}
+
+/* Pure Dark Utilities — Zero Shadows, Solid Dark Palette */
+.palette-bar-active {
+  background-color: #007B8A !important;
+  box-shadow: none !important;
+}
+
+.palette-btn-primary {
+  background-color: #007B8A !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  border: 1px solid #005F6B !important;
+  box-shadow: none !important;
+  transition: all 0.2s ease !important;
+}
+
+.palette-btn-primary:hover {
+  background-color: #005F6B !important;
+  border-color: #007B8A !important;
+  box-shadow: none !important;
+}
+
+.palette-badge {
+  background-color: #0C1A22 !important;
+  border: 1px solid #1E293B !important;
+  color: #E2E8F0 !important;
+  box-shadow: none !important;
+}
+
+.palette-pill-active {
+  background-color: #007B8A !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  border: 1px solid #007B8A !important;
+  box-shadow: none !important;
+}
+
+.palette-pill-inactive {
+  background-color: #0C1A22 !important;
+  border: 1px solid #1E293B !important;
+  color: #94A3B8 !important;
+  box-shadow: none !important;
+}
+.palette-pill-inactive:hover {
+  background-color: #1E293B !important;
+  color: #FFFFFF !important;
+}
+
+/* Custom modern dark scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #081217;
+}
+::-webkit-scrollbar-thumb {
+  background: #005F6B;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #007B8A;
+}
+
+/* Two-line infinite marquee animation for specialties */
+@keyframes slide-right {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0%);
+  }
+}
+
+@keyframes slide-left {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-slide-right {
+  display: flex;
+  width: max-content;
+  animation: slide-right 30s linear infinite;
+  will-change: transform;
+}
+
+.animate-slide-left {
+  display: flex;
+  width: max-content;
+  animation: slide-left 30s linear infinite;
+  will-change: transform;
+}
+
+.animate-slide-right:hover,
+.animate-slide-left:hover {
+  animation-play-state: paused;
+}
+
+/* Ensure marquee wrappers maintain strict LTR coordinate space to prevent RTL offset issues */
+.marquee-track-container {
+  direction: ltr !important;
+  text-align: left !important;
+}
