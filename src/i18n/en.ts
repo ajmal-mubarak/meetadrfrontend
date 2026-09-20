@@ -174,8 +174,8 @@ export const en = {
   },
   "home": {
     "badge": "UAE HEALTHCARE APPOINTMENT SYSTEM",
-    "trustPill": "Accredited UAE Healthcare Network",
-    "heroAccreditedTitle": "Connect with leading doctors at leading hospitals.",
+    "trustPill": "Accredited Healthcare Network",
+    "heroAccreditedTitle": "Connect with doctors at leading hospitals.",
     "heroAccreditedSubtitle": "Discover the right specialist, check availability, and book your appointment with ease.",
     "heroTitle": "Book a doctor’s appointment in a",
     "heroHighlight": "single click.",

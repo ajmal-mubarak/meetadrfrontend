@@ -11,7 +11,6 @@ export const SPECIALTIES = [
   'Pulmonology',
   'Gastroenterology',
   'Endocrinology',
-  'Skin Care',
   'Dental',
   'Physiotherapy',
   'Radiology',
