@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
@@ -21,6 +21,7 @@ import { SPECIALTIES, LOCATIONS, matchesLocation } from '../../data/mockSpecialt
 import { useTranslation } from '../../i18n';
 import { useUserLocation } from '../../context/LocationContext';
 import { useToast } from '../../context/ToastContext';
+import { CustomDropdown, DropdownOption } from '../../components/common/CustomDropdown';
 
 export const SearchPage: React.FC = () => {
   const {
@@ -43,6 +44,34 @@ export const SearchPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState(initialQuery);
   const [specialty, setSpecialty] = useState(initialSpecialty);
   const [location, setLocation] = useState(initialLocation);
+
+  const specialtyOptions: DropdownOption[] = useMemo(() => [
+    { value: 'All', label: t('doctorList.allSpecialties') },
+    ...SPECIALTIES.map((s) => ({
+      value: s,
+      label: translateSpecialty(s),
+    })),
+  ], [t, translateSpecialty]);
+
+  const locationOptions: DropdownOption[] = useMemo(() => [
+    {
+      value: 'current',
+      label: locationStatus === 'detecting'
+        ? (translateLocation('Detecting...') || 'Detecting...')
+        : detectedLoc
+        ? `${t('location.currentLocation')}: ${isArabic ? detectedLoc.emirateNameAr : detectedLoc.emirateName}`
+        : `${t('location.useCurrentLocation')}`,
+      badge: detectedLoc ? 'GPS' : undefined,
+      icon: <LocateFixed className="w-3.5 h-3.5 text-[#2DA7B5]" />,
+    },
+    { value: 'divider-1', label: '', isDivider: true },
+    { value: 'All', label: t('hospitals.allLocations') },
+    ...LOCATIONS.map((loc) => ({
+      value: loc,
+      label: translateLocation(loc),
+      icon: <MapPin className="w-3.5 h-3.5 text-slate-400" />,
+    })),
+  ], [locationStatus, detectedLoc, isArabic, t, translateLocation]);
   const [providerType, setProviderType] = useState(initialType);
 
   const handleAutoDetectLocation = async () => {
@@ -189,18 +218,14 @@ export const SearchPage: React.FC = () => {
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   {t('search.specialty')}
                 </label>
-                <select
+                <CustomDropdown
                   value={specialty}
-                  onChange={(e) => setSpecialty(e.target.value)}
-                  className="w-full py-2.5 px-3 border border-[#E2EBF0] rounded-xl text-xs sm:text-sm text-slate-800 focus:border-[#2DA7B5] focus:outline-hidden bg-[#F8FAFC] focus:bg-white transition-all cursor-pointer font-medium"
-                >
-                  <option value="All">{t('doctorList.allSpecialties')}</option>
-                  {SPECIALTIES.map((s) => (
-                    <option key={s} value={s}>
-                      {translateSpecialty(s)}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setSpecialty(val)}
+                  options={specialtyOptions}
+                  placeholder={t('doctorList.allSpecialties')}
+                  icon={<Stethoscope className="w-3.5 h-3.5 text-[#2DA7B5]" />}
+                  buttonClassName="rounded-xl border-[#E2EBF0] text-xs sm:text-sm font-medium py-2 px-3"
+                />
               </div>
 
               <div className="sm:col-span-1 md:col-span-2">
@@ -208,35 +233,21 @@ export const SearchPage: React.FC = () => {
                   {t('search.location')}
                 </label>
                 <div className="flex items-center gap-1.5">
-                  <div className="relative flex-1">
-                    <MapPin className="w-4 h-4 text-[#0D5C54] absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <select
+                  <div className="flex-1 min-w-0">
+                    <CustomDropdown
                       value={location}
-                      onChange={(e) => {
-                        if (e.target.value === 'current') {
+                      onChange={(val) => {
+                        if (val === 'current') {
                           handleAutoDetectLocation();
                         } else {
-                          setLocation(e.target.value);
+                          setLocation(val);
                         }
                       }}
-                      className="w-full pl-10 rtl:pl-4 rtl:pr-10 pr-9 py-2.5 px-3 border border-[#CBD5E1] hover:border-[#0D5C54] focus:border-[#0D5C54] rounded-2xl text-xs sm:text-sm text-slate-800 focus:outline-hidden bg-[#F8FAFC] focus:bg-white transition-all cursor-pointer font-semibold appearance-none shadow-2xs"
-                    >
-                      <option value="current" className="font-bold text-[#0E7490]">
-                        {locationStatus === 'detecting'
-                          ? (translateLocation('Detecting...') || 'Detecting...')
-                          : detectedLoc
-                          ? `${t('location.currentLocation')}: ${detectedLoc.emirateName}`
-                          : `${t('location.useCurrentLocation')}`}
-                      </option>
-                      <option disabled className="text-slate-300">──────────</option>
-                      <option value="All">{t('hospitals.allLocations')}</option>
-                      {LOCATIONS.map((loc) => (
-                        <option key={loc} value={loc}>
-                          {translateLocation(loc)}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="w-4 h-4 text-slate-700 absolute right-3.5 rtl:right-auto rtl:left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      options={locationOptions}
+                      placeholder={t('hospitals.allLocations')}
+                      icon={<MapPin className="w-3.5 h-3.5 text-[#0D5C54]" />}
+                      buttonClassName="rounded-xl border-[#CBD5E1] text-xs sm:text-sm font-semibold py-2 px-3"
+                    />
                   </div>
 
                   <button
@@ -244,7 +255,7 @@ export const SearchPage: React.FC = () => {
                     onClick={handleAutoDetectLocation}
                     disabled={locationStatus === 'detecting'}
                     title={t('location.detectLocationTooltip')}
-                    className="w-10 h-10 rounded-2xl bg-[#2DA7B5] hover:bg-[#23929F] active:scale-95 text-white transition-all cursor-pointer shrink-0 disabled:opacity-50 flex items-center justify-center shadow-xs"
+                    className="w-9 h-9 rounded-xl bg-[#2DA7B5] hover:bg-[#23929F] active:scale-95 text-white transition-all cursor-pointer shrink-0 disabled:opacity-50 flex items-center justify-center shadow-xs"
                   >
                     {locationStatus === 'detecting' ? (
                       <Loader2 className="w-4 h-4 animate-spin text-white" />

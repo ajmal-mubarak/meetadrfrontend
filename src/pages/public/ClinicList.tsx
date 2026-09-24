@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Building2, MapPin, Star, Phone, Clock, Search, Sparkles, ArrowRight } from 'lucide-react';
+import { Building2, MapPin, Star, Phone, Clock, Search, Sparkles, ArrowRight, Stethoscope } from 'lucide-react';
 import { clinicService } from '../../services/clinicService';
 import { Clinic } from '../../types';
 import { SPECIALTIES } from '../../data/mockSpecialties';
 import { useTranslation } from '../../i18n';
+import { CustomDropdown, DropdownOption } from '../../components/common/CustomDropdown';
 
 export const ClinicList: React.FC = () => {
   const { t, translateSpecialty, translateLocation } = useTranslation();
@@ -13,6 +14,14 @@ export const ClinicList: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [specialty, setSpecialty] = useState('All');
+
+  const specialtyOptions: DropdownOption[] = useMemo(() => [
+    { value: 'All', label: t('clinics.allSpecialties') },
+    ...SPECIALTIES.map((s) => ({
+      value: s,
+      label: translateSpecialty(s),
+    })),
+  ], [t, translateSpecialty]);
 
   useEffect(() => {
     async function load() {
@@ -75,18 +84,14 @@ export const ClinicList: React.FC = () => {
           </div>
 
           <div className="sm:col-span-4">
-            <select
+            <CustomDropdown
               value={specialty}
-              onChange={(e) => setSpecialty(e.target.value)}
-              className="w-full py-2 px-3 text-sm border border-[#E2EBF0] rounded-xl text-slate-800 focus:border-[#2DA7B5] focus:bg-white focus:outline-none bg-[#F8FAFC] transition-colors cursor-pointer"
-            >
-              <option value="All">{t('clinics.allSpecialties')}</option>
-              {SPECIALTIES.map((s) => (
-                <option key={s} value={s}>
-                  {translateSpecialty(s)}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setSpecialty(val)}
+              options={specialtyOptions}
+              placeholder={t('clinics.allSpecialties')}
+              icon={<Stethoscope className="w-3.5 h-3.5 text-[#2DA7B5]" />}
+              buttonClassName="rounded-xl border-[#E2EBF0] text-sm"
+            />
           </div>
         </div>
 

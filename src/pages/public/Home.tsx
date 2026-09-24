@@ -13,6 +13,7 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Stethoscope,
   Building2,
   Hospital,
@@ -41,6 +42,7 @@ import { HEALTH_CONDITIONS, CONDITION_LETTERS, ALPHABET_LETTERS } from '../../da
 import { SPECIALTIES } from '../../data/mockSpecialties';
 import { useToast } from '../../context/ToastContext';
 import { useUserLocation } from '../../context/LocationContext';
+import { UAE_EMIRATES } from '../../services/locationService';
 import { HospitalBrandLogo } from '../../components/common/HospitalLogos';
 
 // Helper for displaying hospital names in one single word
@@ -135,12 +137,14 @@ export const Home: React.FC = () => {
   // Autocomplete dropdown visibilities
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [showConditionDropdown, setShowConditionDropdown] = useState(false);
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
 
   // Category filter state for doctors
   const [doctorCategory, setDoctorCategory] = useState('All');
 
   const searchRef = useRef<HTMLDivElement>(null);
   const conditionRef = useRef<HTMLDivElement>(null);
+  const locationRef = useRef<HTMLDivElement>(null);
 
   const getSpecialtyName = (spec: { name: string; specialtyQuery: string }) => {
     if (!isArabic) return spec.name;
@@ -198,6 +202,9 @@ export const Home: React.FC = () => {
       if (conditionRef.current && !conditionRef.current.contains(target)) {
         setShowConditionDropdown(false);
       }
+      if (locationRef.current && !locationRef.current.contains(target)) {
+        setShowLocationDropdown(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -230,6 +237,7 @@ export const Home: React.FC = () => {
     if (emirateParam) params.append('emirate', emirateParam);
     setShowSearchDropdown(false);
     setShowConditionDropdown(false);
+    setShowLocationDropdown(false);
     navigate(`/search?${params.toString()}`);
   };
 
@@ -436,6 +444,40 @@ export const Home: React.FC = () => {
 
   // Top hospital partners (8 hospitals across 2 lines)
   const partnerHospitals = INITIAL_HOSPITALS.slice(0, 8);
+
+  // Current Emirate display text and airport/IATA tag
+  const currentEmirateDisplay = (() => {
+    if (selectedEmirate === 'auto') {
+      if (locationStatus === 'detecting') {
+        return {
+          name: isArabic ? 'جارٍ تحديد موقعك...' : 'Detecting location...',
+          iata: '',
+        };
+      }
+      if (detectedLoc) {
+        return {
+          name: isArabic ? detectedLoc.emirateNameAr : detectedLoc.emirateName,
+          iata: detectedLoc.emirateCode === 'Dxb' ? 'DXB' : UAE_EMIRATES.find((e) => e.code === detectedLoc.emirateCode)?.iata || detectedLoc.emirateCode,
+        };
+      }
+      return {
+        name: isArabic ? t('location.useCurrentLocation') : 'Current Location',
+        iata: '',
+      };
+    }
+
+    const found = UAE_EMIRATES.find((e) => e.code === selectedEmirate);
+    if (found) {
+      return {
+        name: isArabic ? found.nameAr : found.name,
+        iata: found.iata,
+      };
+    }
+    return {
+      name: selectedEmirate,
+      iata: '',
+    };
+  })();
 
   return (
     <div className="bg-[#F4F7F9] text-slate-900 min-h-screen selection:bg-teal-100 selection:text-teal-950">
@@ -764,51 +806,166 @@ export const Home: React.FC = () => {
 
               <div className="hidden sm:block w-px h-8 bg-[#E2EBF0]" />
 
-              {/* Field 3: Emirate - Precise Options with Auto-Detect */}
-              <div className="flex items-center px-3 py-3 sm:py-2.5 bg-[#F8FAFC] sm:bg-transparent rounded-xl sm:rounded-none sm:w-56 min-w-0 gap-1.5">
-                <button
-                  type="button"
-                  onClick={handleAutoDetect}
-                  disabled={locationStatus === 'detecting'}
-                  title={t('location.detectLocationTooltip')}
-                  className="w-8 h-8 rounded-xl bg-[#2DA7B5] hover:bg-[#23929F] active:scale-95 text-white transition-all cursor-pointer shrink-0 disabled:opacity-50 flex items-center justify-center shadow-2xs"
-                >
-                  {locationStatus === 'detecting' ? (
-                    <Loader2 className="w-4 h-4 text-white animate-spin" />
-                  ) : (
-                    <LocateFixed className="w-4 h-4 text-white stroke-[2.5]" />
-                  )}
-                </button>
+              {/* Field 3: Emirate - Modern Custom Dropdown with Auto-Detect */}
+              <div className="relative min-w-0 sm:w-48 w-full" ref={locationRef}>
+                <div className="flex items-center px-2.5 py-2.5 sm:py-2 bg-[#F8FAFC] sm:bg-transparent rounded-xl sm:rounded-none gap-2">
+                  {/* Quick GPS auto-detect button */}
+                  <button
+                    type="button"
+                    onClick={handleAutoDetect}
+                    disabled={locationStatus === 'detecting'}
+                    title={t('location.detectLocationTooltip')}
+                    className="w-8 h-8 rounded-xl bg-[#2DA7B5] hover:bg-[#23929F] active:scale-95 text-white transition-all cursor-pointer shrink-0 disabled:opacity-50 flex items-center justify-center shadow-2xs"
+                  >
+                    {locationStatus === 'detecting' ? (
+                      <Loader2 className="w-4 h-4 text-white animate-spin" />
+                    ) : (
+                      <LocateFixed className="w-4 h-4 text-white stroke-[2.5]" />
+                    )}
+                  </button>
 
-                <select
-                  value={selectedEmirate}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setSelectedEmirate(val);
-                    if (val === 'auto') {
-                      handleAutoDetect();
-                    } else {
-                      setManualLocation(val);
-                    }
-                  }}
-                  className="w-full bg-transparent text-xs font-bold text-slate-900 focus:outline-hidden cursor-pointer [&>option]:bg-white [&>option]:text-slate-900 truncate"
-                >
-                  <option value="auto" className="font-bold text-[#0E7490]">
-                    {locationStatus === 'detecting'
-                      ? (isArabic ? 'جارٍ تحديد موقعك...' : 'Detecting location...')
-                      : detectedLoc
-                      ? (isArabic ? `${t('location.currentLocation')}: ${detectedLoc.emirateNameAr}` : `${t('location.currentLocation')}: ${detectedLoc.emirateName}`)
-                      : (isArabic ? `${t('location.useCurrentLocation')}` : `${t('location.useCurrentLocation')}`)}
-                  </option>
-                  <option disabled className="text-slate-300">──────────</option>
-                  <option value="Dxb">{t('emirates.dubai')} (DXB)</option>
-                  <option value="Abu Dhabi">{t('emirates.abuDhabi')} (AUH)</option>
-                  <option value="Sharjah">{t('emirates.sharjah')} (SHJ)</option>
-                  <option value="Ajman">{t('emirates.ajman')} (AJM)</option>
-                  <option value="Ras Al Khaimah">{t('emirates.rasAlKhaimah')} (RAK)</option>
-                  <option value="Fujairah">{t('emirates.fujairah')} (FUJ)</option>
-                  <option value="Umm Al Quwain">{t('emirates.ummAlQuwain')} (UAQ)</option>
-                </select>
+                  {/* Dropdown trigger button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowLocationDropdown((prev) => !prev);
+                      setShowSearchDropdown(false);
+                      setShowConditionDropdown(false);
+                    }}
+                    className="flex-1 min-w-0 flex items-center justify-between text-left rtl:text-right cursor-pointer py-1 group"
+                  >
+                    <div className="truncate flex items-center gap-1.5 min-w-0 pr-1 rtl:pr-0 rtl:pl-1">
+                      <span className="text-xs font-bold text-slate-800 group-hover:text-[#0E7490] transition-colors truncate">
+                        {currentEmirateDisplay.name}
+                      </span>
+                      {currentEmirateDisplay.iata && (
+                        <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 group-hover:bg-[#E8F6F8] group-hover:text-[#0E7490] px-1.5 py-0.5 rounded-md transition-colors shrink-0">
+                          {currentEmirateDisplay.iata}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown
+                      className={`w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-transform duration-200 shrink-0 ${
+                        showLocationDropdown ? 'rotate-180 text-[#0E7490]' : ''
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Custom Styled Animated Dropdown */}
+                <AnimatePresence>
+                  {showLocationDropdown && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 6, scale: 0.98 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute left-0 right-0 sm:left-auto sm:right-0 rtl:sm:right-auto rtl:sm:left-0 top-full mt-2 sm:w-64 bg-white rounded-2xl shadow-xl border border-[#E2EBF0] p-2 z-50 overflow-hidden text-slate-900"
+                    >
+                      {/* Top Action: Detect & Use Current Location */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedEmirate('auto');
+                          handleAutoDetect();
+                          setShowLocationDropdown(false);
+                        }}
+                        className={`w-full flex items-center gap-2.5 p-2 rounded-xl text-left rtl:text-right transition-colors cursor-pointer mb-1 ${
+                          selectedEmirate === 'auto' || (detectedLoc && selectedEmirate === detectedLoc.emirateCode)
+                            ? 'bg-[#E8F6F8] border border-[#CDEBF0] text-[#0E7490]'
+                            : 'hover:bg-slate-50 text-slate-700'
+                        }`}
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-[#2DA7B5] text-white flex items-center justify-center shrink-0 shadow-2xs">
+                          {locationStatus === 'detecting' ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <LocateFixed className="w-4 h-4 stroke-[2.5]" />
+                          )}
+                        </div>
+                        <div className="truncate flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold truncate">
+                              {isArabic ? 'تحديد موقعي الحالي' : 'Use Current Location'}
+                            </span>
+                            {detectedLoc && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#2DA7B5]/15 text-[#0E7490]">
+                                GPS
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] text-slate-500 block truncate">
+                            {locationStatus === 'detecting'
+                              ? (isArabic ? 'جارٍ الفحص عبر GPS...' : 'Detecting GPS...')
+                              : detectedLoc
+                              ? (isArabic
+                                  ? `${t('location.currentLocation')}: ${detectedLoc.emirateNameAr}`
+                                  : `${t('location.currentLocation')}: ${detectedLoc.emirateName}`)
+                              : (isArabic ? 'اضغط للتحديد التلقائي' : 'Click to auto-detect')}
+                          </span>
+                        </div>
+                        {(selectedEmirate === 'auto' || (detectedLoc && selectedEmirate === detectedLoc.emirateCode)) && (
+                          <Check className="w-4 h-4 text-[#0E7490] shrink-0" />
+                        )}
+                      </button>
+
+                      {/* Divider with Section Label */}
+                      <div className="flex items-center gap-2 px-2 py-1 my-0.5">
+                        <div className="h-px bg-slate-100 flex-1" />
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">
+                          {isArabic ? 'الإمارات' : 'UAE Emirates'}
+                        </span>
+                        <div className="h-px bg-slate-100 flex-1" />
+                      </div>
+
+                      {/* Emirates List */}
+                      <div className="space-y-0.5 max-h-56 overflow-y-auto pr-1">
+                        {UAE_EMIRATES.map((em) => {
+                          const isSelected = selectedEmirate === em.code;
+                          return (
+                            <button
+                              key={em.code}
+                              type="button"
+                              onClick={() => {
+                                setSelectedEmirate(em.code);
+                                setManualLocation(em.code);
+                                setShowLocationDropdown(false);
+                              }}
+                              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left rtl:text-right transition-colors cursor-pointer group ${
+                                isSelected
+                                  ? 'bg-[#E8F6F8] text-[#0E7490] font-bold'
+                                  : 'hover:bg-slate-50 text-slate-700 font-medium'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 truncate">
+                                <MapPin
+                                  className={`w-3.5 h-3.5 shrink-0 ${
+                                    isSelected ? 'text-[#0E7490]' : 'text-slate-400 group-hover:text-[#2DA7B5]'
+                                  }`}
+                                />
+                                <span className="text-xs truncate">
+                                  {isArabic ? em.nameAr : em.name}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span
+                                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${
+                                    isSelected
+                                      ? 'bg-[#2DA7B5]/20 text-[#0E7490]'
+                                      : 'bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-slate-700'
+                                  }`}
+                                >
+                                  {em.iata}
+                                </span>
+                                {isSelected && <Check className="w-4 h-4 text-[#0E7490]" />}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               {/* Action CTA Button */}

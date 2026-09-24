@@ -25,6 +25,7 @@ import { SPECIALTIES, LOCATIONS, matchesLocation } from '../../data/mockSpecialt
 import { useTranslation } from '../../i18n';
 import { useUserLocation } from '../../context/LocationContext';
 import { useToast } from '../../context/ToastContext';
+import { CustomDropdown, DropdownOption } from '../../components/common/CustomDropdown';
 
 export const DoctorList: React.FC = () => {
   const {
@@ -45,6 +46,34 @@ export const DoctorList: React.FC = () => {
   const [location, setLocation] = useState('All');
   const [search, setSearch] = useState('');
   const [nearMeOnly, setNearMeOnly] = useState(false);
+
+  const specialtyOptions: DropdownOption[] = useMemo(() => [
+    { value: 'All', label: t('doctors.allSpecialties') },
+    ...SPECIALTIES.map((s) => ({
+      value: s,
+      label: translateSpecialty(s),
+    })),
+  ], [t, translateSpecialty]);
+
+  const locationOptions: DropdownOption[] = useMemo(() => [
+    {
+      value: 'current',
+      label: locationStatus === 'detecting'
+        ? (isArabic ? 'جارٍ تحديد موقعك...' : 'Detecting location...')
+        : detectedLoc
+        ? (isArabic ? `${t('location.currentLocation')}: ${detectedLoc.emirateNameAr}` : `${t('location.currentLocation')}: ${detectedLoc.emirateName}`)
+        : (isArabic ? `${t('location.useCurrentLocation')}` : `${t('location.useCurrentLocation')}`),
+      badge: detectedLoc ? 'GPS' : undefined,
+      icon: <LocateFixed className="w-3.5 h-3.5 text-[#2DA7B5]" />,
+    },
+    { value: 'divider-1', label: '', isDivider: true },
+    { value: 'All', label: t('doctors.allLocations') },
+    ...LOCATIONS.map((l) => ({
+      value: l,
+      label: translateLocation(l),
+      icon: <MapPin className="w-3.5 h-3.5 text-slate-400" />,
+    })),
+  ], [locationStatus, isArabic, detectedLoc, t, translateLocation]);
 
   useEffect(() => {
     async function load() {
@@ -203,52 +232,34 @@ export const DoctorList: React.FC = () => {
 
             {/* Specialty Selector */}
             <div className="sm:col-span-3">
-              <select
+              <CustomDropdown
                 value={specialty}
-                onChange={(e) => setSpecialty(e.target.value)}
-                className="w-full py-2.5 px-3 text-xs font-bold border border-[#E2EBF0] rounded-xl text-slate-800 focus:outline-hidden focus:border-[#2DA7B5] bg-[#F8FAFC] focus:bg-white transition-colors cursor-pointer"
-              >
-                <option value="All">{t('doctors.allSpecialties')}</option>
-                {SPECIALTIES.map((s) => (
-                  <option key={s} value={s}>
-                    {translateSpecialty(s)}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setSpecialty(val)}
+                options={specialtyOptions}
+                placeholder={t('doctors.allSpecialties')}
+                icon={<Stethoscope className="w-3.5 h-3.5 text-[#2DA7B5]" />}
+                buttonClassName="rounded-xl border-[#E2EBF0] text-xs font-bold"
+              />
             </div>
 
             {/* Location Selector */}
             <div className="sm:col-span-3 flex items-center gap-1.5">
-              <div className="relative flex-1">
-                <MapPin className="w-4 h-4 text-[#0D5C54] absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <select
+              <div className="flex-1 min-w-0">
+                <CustomDropdown
                   value={nearMeOnly ? 'current' : location}
-                  onChange={(e) => {
-                    if (e.target.value === 'current') {
+                  onChange={(val) => {
+                    if (val === 'current') {
                       handleNearMeToggle();
                     } else {
-                      setLocation(e.target.value);
+                      setLocation(val);
                       if (nearMeOnly) setNearMeOnly(false);
                     }
                   }}
-                  className="w-full pl-10 rtl:pl-4 rtl:pr-10 pr-9 py-2.5 px-3 text-xs font-semibold border border-[#CBD5E1] hover:border-[#0D5C54] focus:border-[#0D5C54] rounded-2xl text-slate-800 focus:outline-hidden bg-[#F8FAFC] focus:bg-white transition-all cursor-pointer appearance-none shadow-2xs"
-                >
-                  <option value="current" className="font-bold text-[#0E7490]">
-                    {locationStatus === 'detecting'
-                      ? (isArabic ? 'جارٍ تحديد موقعك...' : 'Detecting location...')
-                      : detectedLoc
-                      ? (isArabic ? `${t('location.currentLocation')}: ${detectedLoc.emirateNameAr}` : `${t('location.currentLocation')}: ${detectedLoc.emirateName}`)
-                      : (isArabic ? `${t('location.useCurrentLocation')}` : `${t('location.useCurrentLocation')}`)}
-                  </option>
-                  <option disabled className="text-slate-300">──────────</option>
-                  <option value="All">{t('doctors.allLocations')}</option>
-                  {LOCATIONS.map((l) => (
-                    <option key={l} value={l}>
-                      {translateLocation(l)}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-4 h-4 text-slate-700 absolute right-3.5 rtl:right-auto rtl:left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  options={locationOptions}
+                  placeholder={t('doctors.allLocations')}
+                  icon={<MapPin className="w-3.5 h-3.5 text-[#0D5C54]" />}
+                  buttonClassName="rounded-xl border-[#CBD5E1] text-xs font-semibold"
+                />
               </div>
 
               {/* Auto-detect Near Me button */}
@@ -257,7 +268,7 @@ export const DoctorList: React.FC = () => {
                 onClick={handleNearMeToggle}
                 disabled={locationStatus === 'detecting'}
                 title={t('location.detectLocationTooltip')}
-                className="w-10 h-10 rounded-2xl bg-[#2DA7B5] hover:bg-[#23929F] active:scale-95 text-white transition-all cursor-pointer shrink-0 disabled:opacity-50 flex items-center justify-center shadow-xs"
+                className="w-9 h-9 rounded-xl bg-[#2DA7B5] hover:bg-[#23929F] active:scale-95 text-white transition-all cursor-pointer shrink-0 disabled:opacity-50 flex items-center justify-center shadow-xs"
               >
                 {locationStatus === 'detecting' ? (
                   <Loader2 className="w-4 h-4 animate-spin text-white" />

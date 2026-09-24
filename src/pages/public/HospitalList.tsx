@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Building2, MapPin, Star, Phone, Clock, Search, ShieldCheck, Activity, ArrowRight, ChevronDown } from 'lucide-react';
@@ -6,6 +6,7 @@ import { hospitalService } from '../../services/hospitalService';
 import { Hospital } from '../../types';
 import { LOCATIONS, matchesLocation } from '../../data/mockSpecialties';
 import { useTranslation } from '../../i18n';
+import { CustomDropdown, DropdownOption } from '../../components/common/CustomDropdown';
 
 export const HospitalList: React.FC = () => {
   const { t, translateSpecialty, translateLocation, isArabic, translateHospitalName, translateHospitalAbout } = useTranslation();
@@ -13,6 +14,15 @@ export const HospitalList: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [location, setLocation] = useState('All');
+
+  const locationOptions: DropdownOption[] = useMemo(() => [
+    { value: 'All', label: t('hospitals.allLocations') },
+    ...LOCATIONS.map((l) => ({
+      value: l,
+      label: translateLocation(l),
+      icon: <MapPin className="w-3.5 h-3.5 text-slate-400" />,
+    })),
+  ], [t, translateLocation]);
 
   useEffect(() => {
     async function load() {
@@ -73,21 +83,15 @@ export const HospitalList: React.FC = () => {
             />
           </div>
 
-          <div className="sm:col-span-4 relative">
-            <MapPin className="w-4 h-4 text-[#0D5C54] absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <select
+          <div className="sm:col-span-4">
+            <CustomDropdown
               value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="w-full pl-10 rtl:pl-4 rtl:pr-10 pr-9 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold border border-[#CBD5E1] hover:border-[#0D5C54] focus:border-[#0D5C54] rounded-2xl text-slate-800 focus:outline-hidden bg-[#F8FAFC] focus:bg-white transition-all cursor-pointer appearance-none shadow-2xs"
-            >
-              <option value="All">{t('hospitals.allLocations')}</option>
-              {LOCATIONS.map((l) => (
-                <option key={l} value={l}>
-                  {translateLocation(l)}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="w-4 h-4 text-slate-700 absolute right-3.5 rtl:right-auto rtl:left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              onChange={(val) => setLocation(val)}
+              options={locationOptions}
+              placeholder={t('hospitals.allLocations')}
+              icon={<MapPin className="w-4 h-4 text-[#0D5C54]" />}
+              buttonClassName="rounded-2xl border-[#CBD5E1] py-2.5 sm:py-3 text-xs sm:text-sm font-semibold"
+            />
           </div>
         </div>
 
