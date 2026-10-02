@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, Mail, Phone, Heart, Save, Plus, Trash2, Users, AlertCircle, Edit3, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useTranslation } from '../../i18n';
+import { patientService } from '../../services/patientService';
 
 interface Dependent {
   id: string;
@@ -19,36 +20,72 @@ export const PatientProfile: React.FC = () => {
 
   // Edit Mode state (Default: locked / non-editable)
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
 
   // Personal info
-  const [name, setName] = useState(user?.name || 'Sarah Jenkins');
-  const [email, setEmail] = useState(user?.email || 'patient@meetadr.demo');
-  const [phone, setPhone] = useState(user?.phone || '+971 52 412 2794');
-  const [bloodGroup, setBloodGroup] = useState('O+');
-  const [emergencyContact, setEmergencyContact] = useState('+971 55 987 6543 (Spouse)');
-  const [allergies, setAllergies] = useState('Penicillin (Mild)');
-  const [insuranceProvider, setInsuranceProvider] = useState('Daman — National Health Insurance Company');
-  const [insuranceNumber, setInsuranceNumber] = useState('DAM-9482-UAE-2024');
+  const [name, setName] = useState(user?.name || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [phone, setPhone] = useState(user?.phone || '');
+  const [bloodGroup, setBloodGroup] = useState('');
+  const [emergencyContact, setEmergencyContact] = useState('');
+  const [allergies, setAllergies] = useState('');
+  const [insuranceProvider, setInsuranceProvider] = useState('');
+  const [insuranceNumber, setInsuranceNumber] = useState('');
 
   // Saved snapshot for Cancel button
   const [savedData, setSavedData] = useState({
-    name: user?.name || 'Sarah Jenkins',
-    email: user?.email || 'patient@meetadr.demo',
-    phone: user?.phone || '+971 52 412 2794',
-    bloodGroup: 'O+',
-    emergencyContact: '+971 55 987 6543 (Spouse)',
-    allergies: 'Penicillin (Mild)',
-    insuranceProvider: 'Daman — National Health Insurance Company',
-    insuranceNumber: 'DAM-9482-UAE-2024',
+    name: user?.name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    bloodGroup: '',
+    emergencyContact: '',
+    allergies: '',
+    insuranceProvider: '',
+    insuranceNumber: '',
   });
 
-  // Dependents (PDF: "Profile & Dependents")
-  const [dependents, setDependents] = useState<Dependent[]>([
-    { id: 'd1', name: 'James Jenkins', relation: 'Spouse', dob: '1985-06-12', bloodGroup: 'A+' },
-    { id: 'd2', name: 'Lily Jenkins', relation: 'Child', dob: '2015-03-20', bloodGroup: 'O+' },
-  ]);
+  // Dependents
+  const [dependents, setDependents] = useState<Dependent[]>([]);
   const [showAddDependent, setShowAddDependent] = useState(false);
   const [newDep, setNewDep] = useState<Omit<Dependent, 'id'>>({ name: '', relation: 'Spouse', dob: '', bloodGroup: 'O+' });
+
+  // Load real profile from backend
+  useEffect(() => {
+    setProfileLoading(true);
+    patientService.getProfile()
+      .then((profile) => {
+        setBloodGroup(profile.bloodGroup || '');
+        setEmergencyContact(profile.emergencyContact || '');
+        setAllergies(profile.allergies || '');
+        setInsuranceProvider(profile.insuranceProvider || '');
+        setInsuranceNumber(profile.insuranceNumber || '');
+        setSavedData((prev) => ({
+          ...prev,
+          bloodGroup: profile.bloodGroup || '',
+          emergencyContact: profile.emergencyContact || '',
+          allergies: profile.allergies || '',
+          insuranceProvider: profile.insuranceProvider || '',
+          insuranceNumber: profile.insuranceNumber || '',
+        }));
+        setDependents(
+          (profile.dependents || []).map((d: any) => ({
+            id: d.id,
+            name: d.name,
+            relation: d.relation,
+            dob: d.dob || '',
+            bloodGroup: d.bloodGroup || '',
+          }))
+        );
+      })
+      .catch(() => {
+        // Backend unreachable — keep empty defaults, page still renders
+      })
+      .finally(() => {
+        setProfileLoading(false);
+      });
+  }, []);
+
 
   const relationLabels: Record<string, string> = {
     Spouse: isArabic ? 'الزوج / الزوجة' : 'Spouse',
@@ -58,20 +95,34 @@ export const PatientProfile: React.FC = () => {
     Other: isArabic ? 'آخر' : 'Other',
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSavedData({
-      name,
-      email,
-      phone,
-      bloodGroup,
-      emergencyContact,
-      allergies,
-      insuranceProvider,
-      insuranceNumber,
-    });
-    setIsEditing(false);
-    showToast(isArabic ? 'تم تحديث الملف الصحي بنجاح.' : 'Patient health profile updated successfully.', 'success');
+    setIsSaving(true);
+    try {
+      await patientService.updateProfile({
+        blood_group: bloodGroup,
+        emergency_contact: emergencyContact,
+        allergies,
+        insurance_provider: insuranceProvider,
+        insurance_number: insuranceNumber,
+      });
+      setSavedData({
+        name,
+        email,
+        phone,
+        bloodGroup,
+        emergencyContact,
+        allergies,
+        insuranceProvider,
+        insuranceNumber,
+      });
+      setIsEditing(false);
+      showToast(isArabic ? 'تم تحديث الملف الصحي بنجاح.' : 'Patient health profile updated successfully.', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update profile. Please try again.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancel = () => {
@@ -86,21 +137,43 @@ export const PatientProfile: React.FC = () => {
     setIsEditing(false);
   };
 
-  const handleAddDependent = () => {
+  const handleAddDependent = async () => {
     if (!newDep.name.trim() || !newDep.dob) {
       showToast(isArabic ? 'يرجى إدخال اسم التابع وتاريخ الميلاد.' : 'Please enter dependent name and date of birth.', 'error');
       return;
     }
-    setDependents((prev) => [...prev, { ...newDep, id: `d${Date.now()}` }]);
-    setNewDep({ name: '', relation: 'Spouse', dob: '', bloodGroup: 'O+' });
-    setShowAddDependent(false);
-    showToast(isArabic ? `تمت إضافة ${newDep.name} بنجاح.` : `${newDep.name} added as a dependent.`, 'success');
+    try {
+      const created = await patientService.createDependent({
+        name: newDep.name.trim(),
+        relation: newDep.relation,
+        gender: 'Other',
+        dob: newDep.dob,
+        blood_group: newDep.bloodGroup || '',
+      });
+      setDependents((prev) => [...prev, {
+        id: created.id,
+        name: created.name,
+        relation: created.relation,
+        dob: created.dob,
+        bloodGroup: created.bloodGroup || newDep.bloodGroup,
+      }]);
+      setNewDep({ name: '', relation: 'Spouse', dob: '', bloodGroup: 'O+' });
+      setShowAddDependent(false);
+      showToast(isArabic ? `تمت إضافة ${newDep.name} بنجاح.` : `${newDep.name} added as a dependent.`, 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to add dependent. Please try again.', 'error');
+    }
   };
 
-  const handleRemoveDependent = (id: string) => {
+  const handleRemoveDependent = async (id: string) => {
     const dep = dependents.find((d) => d.id === id);
-    setDependents((prev) => prev.filter((d) => d.id !== id));
-    showToast(isArabic ? `تم حذف ${dep?.name} من التابعين.` : `${dep?.name} removed from dependents.`, 'info');
+    try {
+      await patientService.deleteDependent(id);
+      setDependents((prev) => prev.filter((d) => d.id !== id));
+      showToast(isArabic ? `تم حذف ${dep?.name} من التابعين.` : `${dep?.name} removed from dependents.`, 'info');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to remove dependent. Please try again.', 'error');
+    }
   };
 
   // Common styling for inputs depending on edit mode

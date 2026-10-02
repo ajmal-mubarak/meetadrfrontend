@@ -11,6 +11,9 @@ import {
 } from 'lucide-react';
 import { useTranslation } from '../../i18n';
 
+import { realDoctorService } from '../../services/realDoctorService';
+import { Doctor } from '../../types';
+
 export interface SpecialtyItem {
   id: string;
   name: string;
@@ -331,6 +334,30 @@ export const SpecialtiesPage: React.FC = () => {
 
   const [search, setSearch] = useState('');
   const [selectedGroup, setSelectedGroup] = useState('all');
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+
+  React.useEffect(() => {
+    realDoctorService.getAllDoctors()
+      .then((docs) => setDoctors(docs || []))
+      .catch(() => setDoctors([]));
+  }, []);
+
+  const getDoctorCount = React.useCallback((specName: string, specId: string) => {
+    if (!doctors || doctors.length === 0) return 0;
+    const nameLower = specName.toLowerCase();
+    const idLower = specId.toLowerCase();
+
+    return doctors.filter((d) => {
+      const dSpec = (d.specialty || '').toLowerCase();
+      if (!dSpec) return false;
+      return (
+        nameLower.includes(dSpec) ||
+        dSpec.includes(nameLower) ||
+        idLower.includes(dSpec) ||
+        dSpec.includes(idLower)
+      );
+    }).length;
+  }, [doctors]);
 
   // Filtered specialties
   const filteredSpecialties = useMemo(() => {
@@ -473,11 +500,19 @@ export const SpecialtiesPage: React.FC = () => {
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
                     
-                    {/* Badge: Doctor count */}
-                    <div className="absolute top-3 right-3 rtl:right-auto rtl:left-3 bg-white/95 backdrop-blur-xs px-2.5 py-1 rounded-full text-[11px] font-semibold text-slate-800 border border-[#E2EBF0] flex items-center gap-1.5 shadow-xs">
-                      <Stethoscope className="w-3.5 h-3.5 text-[#2DA7B5]" />
-                      <span>{item.doctorCount} Doctors</span>
-                    </div>
+                    {/* Badge: Real Doctor count */}
+                    {(() => {
+                      const count = getDoctorCount(item.name, item.id);
+                      if (count > 0) {
+                        return (
+                          <div className="absolute top-3 right-3 rtl:right-auto rtl:left-3 bg-white/95 backdrop-blur-xs px-2.5 py-1 rounded-full text-[11px] font-semibold text-slate-800 border border-[#E2EBF0] flex items-center gap-1.5 shadow-xs">
+                            <Stethoscope className="w-3.5 h-3.5 text-[#2DA7B5]" />
+                            <span>{count} {isArabic ? 'أطباء' : (count === 1 ? 'Doctor' : 'Doctors')}</span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
 
                     {/* Group pill on image */}
                     <div className="absolute bottom-3 left-3 rtl:left-auto rtl:right-3 bg-white/95 backdrop-blur-xs px-2.5 py-1 rounded-lg text-[10px] font-bold text-slate-800 border border-[#E2EBF0] shadow-xs">

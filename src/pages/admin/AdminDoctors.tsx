@@ -19,7 +19,7 @@ import {
   MapPin,
   GraduationCap,
 } from 'lucide-react';
-import { doctorService } from '../../services/doctorService';
+import { realAdminService } from '../../services/realAdminService';
 import { Doctor } from '../../types';
 import { useToast } from '../../context/ToastContext';
 
@@ -35,8 +35,11 @@ export const AdminDoctors: React.FC = () => {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const data = await doctorService.getAllDoctors();
+      const data = await realAdminService.getDoctors();
       setDoctors(data);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to load doctors roster';
+      showToast(msg, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -49,7 +52,7 @@ export const AdminDoctors: React.FC = () => {
   const handleToggleStatus = async (doctor: Doctor, newStatus: 'Active' | 'Deactivated') => {
     setIsUpdatingStatus(true);
     try {
-      await doctorService.updateDoctorStatus(doctor.id, newStatus);
+      await realAdminService.updateDoctorStatus(doctor.id, newStatus);
       setDoctors((prev) =>
         prev.map((d) => (d.id === doctor.id ? { ...d, status: newStatus } : d))
       );

@@ -21,115 +21,12 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useTranslation } from '../../i18n';
-import { bookingService } from '../../services/bookingService';
+import { realBookingService } from '../../services/realBookingService';
 import { Appointment } from '../../types';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { CancelModal } from '../../components/common/CancelModal';
+import { AppointmentReviewModal } from '../../components/common/AppointmentReviewModal';
 import { getAppointmentTimestamp, formatCountdown } from './PatientDashboard';
-
-// ─── Inline Review Modal ─────────────────────────────────────────────────────
-interface ReviewModalProps {
-  appointment: Appointment;
-  onClose: () => void;
-  onSubmit: (rating: number, comment: string) => void;
-}
-
-const ReviewModal: React.FC<ReviewModalProps> = ({ appointment, onClose, onSubmit }) => {
-  const { t, translateSpecialty, isArabic } = useTranslation();
-  const [rating, setRating] = useState(0);
-  const [hovered, setHovered] = useState(0);
-  const [comment, setComment] = useState('');
-  const labels = isArabic
-    ? ['', 'ضعيف', 'مقبول', 'جيد', 'جيد جداً', 'ممتاز']
-    : ['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-5 border border-[#E2EBF0] shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-200/60">
-              <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900">{t('patientPortal.rateVisitModalTitle')}</h3>
-              <p className="text-[11px] text-slate-500">{t('patientPortal.rateVisitModalSubtitle')}</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="bg-[#F8FAFC] rounded-2xl p-3.5 flex items-center gap-3 border border-[#E2EBF0]">
-          <img
-            src={appointment.doctorPhoto || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150'}
-            alt={appointment.doctorName}
-            className="w-12 h-12 rounded-xl object-cover border border-[#E2EBF0] shrink-0"
-            referrerPolicy="no-referrer"
-          />
-          <div className="truncate">
-            <p className="text-sm font-bold text-slate-900 truncate">{appointment.doctorName}</p>
-            <p className="text-xs text-[#0E7490] font-semibold">{translateSpecialty(appointment.specialty)}</p>
-            <p className="text-[11px] text-slate-500 truncate">{appointment.facilityName || appointment.hospitalName}</p>
-          </div>
-        </div>
-
-        <div className="text-center space-y-2">
-          <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">{t('patientPortal.rateExperience')}</p>
-          <div className="flex items-center justify-center gap-2">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <button
-                key={star}
-                type="button"
-                onClick={() => setRating(star)}
-                onMouseEnter={() => setHovered(star)}
-                onMouseLeave={() => setHovered(0)}
-                className="transition-transform hover:scale-110 cursor-pointer p-1"
-              >
-                <Star className={`w-8 h-8 transition-colors ${star <= (hovered || rating) ? 'fill-amber-400 text-amber-400' : 'text-slate-200'}`} />
-              </button>
-            ))}
-          </div>
-          {(hovered || rating) > 0 && (
-            <p className="text-sm font-bold text-amber-500">{labels[hovered || rating]}</p>
-          )}
-        </div>
-
-        <textarea
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          placeholder={t('patientPortal.sharePlaceholder')}
-          rows={3}
-          className="w-full text-xs border border-[#E2EBF0] rounded-xl px-4 py-3 focus:outline-none focus:border-[#2DA7B5] focus:ring-1 focus:ring-[#2DA7B5] resize-none text-slate-700 placeholder:text-slate-400 transition-all bg-white"
-        />
-
-        <div className="flex gap-2.5">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl border border-[#E2EBF0] text-xs font-bold text-slate-600 hover:bg-[#F8FAFC] transition-colors cursor-pointer"
-          >
-            {t('patientPortal.skipForNow')}
-          </button>
-          <button
-            type="button"
-            disabled={rating === 0}
-            onClick={() => onSubmit(rating, comment)}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors ${
-              rating === 0
-                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                : 'bg-[#2DA7B5] hover:bg-[#23929F] text-white shadow-xs'
-            }`}
-          >
-            <Star className="w-3.5 h-3.5" />
-            {t('patientPortal.submitReview')}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // ─── Main PatientBookings Component ─────────────────────────────────────────
 export const PatientBookings: React.FC = () => {
@@ -144,14 +41,20 @@ export const PatientBookings: React.FC = () => {
   const [now, setNow] = useState<number>(Date.now());
   const [isLoading, setIsLoading] = useState(true);
   const [cancellingAppt, setCancellingAppt] = useState<Appointment | null>(null);
-  const [reviewingAppt, setReviewingAppt] = useState<Appointment | null>(null);
-  const [reviewedIds, setReviewedIds] = useState<Set<string>>(new Set());
+  const [reviewModalState, setReviewModalState] = useState<{
+    appointment: Appointment;
+    initialTarget: 'doctor' | 'facility';
+  } | null>(null);
 
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const data = await bookingService.getAllAppointments();
+      const data = await realBookingService.getMyAppointments();
       setAppointments(data);
+    } catch (err: any) {
+      // If user is not authenticated or backend returns error, show empty list gracefully
+      console.error('Failed to load appointments:', err);
+      setAppointments([]);
     } finally {
       setIsLoading(false);
     }
@@ -170,7 +73,7 @@ export const PatientBookings: React.FC = () => {
   const handleCancelConfirm = async (reason: string) => {
     if (!cancellingAppt) return;
     try {
-      await bookingService.cancelAppointment(cancellingAppt.id, reason, 'patient', user?.name || 'Patient');
+      await realBookingService.cancelAppointment(cancellingAppt.id, reason);
       showToast(isArabic ? 'تم إلغاء الموعد بنجاح.' : 'Appointment successfully cancelled.', 'info');
       setCancellingAppt(null);
       loadData();
@@ -179,16 +82,38 @@ export const PatientBookings: React.FC = () => {
     }
   };
 
-  const handleReviewSubmit = (rating: number, comment: string) => {
-    if (!reviewingAppt) return;
-    setReviewedIds((prev) => new Set([...prev, reviewingAppt.id]));
-    setReviewingAppt(null);
-    showToast(
-      isArabic
-        ? `تم إرسال تقييم ${rating}★ للدكتور ${reviewingAppt.doctorName}. شكراً لك!`
-        : `${rating}★ review submitted for ${reviewingAppt.doctorName}. Thank you!`,
-      'success'
-    );
+  const handleOpenReview = (appt: Appointment, target: 'doctor' | 'facility' = 'doctor') => {
+    setReviewModalState({ appointment: appt, initialTarget: target });
+  };
+
+  const handleReviewSubmit = async (target: 'doctor' | 'facility', rating: number, comment: string) => {
+    if (!reviewModalState) return;
+    const { appointment } = reviewModalState;
+    try {
+      if (target === 'doctor') {
+        await realBookingService.submitDoctorReview(appointment.id, rating, comment);
+        showToast(
+          isArabic
+            ? `تم إرسال تقييم الطبيب (${rating}★) للدكتور ${appointment.doctorName}. شكراً لك!`
+            : `${rating}★ doctor review submitted for Dr. ${appointment.doctorName}. Thank you!`,
+          'success'
+        );
+      } else {
+        await realBookingService.submitFacilityReview(appointment.id, rating, comment);
+        const facility = appointment.facilityName || appointment.hospitalName || 'the facility';
+        showToast(
+          isArabic
+            ? `تم إرسال تقييم المنشأة (${rating}★). شكراً لك!`
+            : `${rating}★ facility review submitted for ${facility}. Thank you!`,
+          'success'
+        );
+      }
+      setReviewModalState(null);
+      // Refresh to pick up updated reviews from backend
+      loadData();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to submit review. Please try again.', 'error');
+    }
   };
 
   // Counts
@@ -353,7 +278,15 @@ export const PatientBookings: React.FC = () => {
       ) : (
         <div className="space-y-4">
           {filtered.map((appt) => {
-            const isReviewed = reviewedIds.has(appt.id);
+            const isDoctorReviewed = Boolean(
+              appt.isDoctorReviewed ||
+              (appt.doctorReview && appt.doctorReview.rating) ||
+              (appt.review && appt.review.rating)
+            );
+            const isFacilityReviewed = Boolean(
+              appt.isFacilityReviewed ||
+              (appt.facilityReview && appt.facilityReview.rating)
+            );
             const isConfirmed = appt.status?.toLowerCase() === 'confirmed';
             const isCancelled = appt.status?.toLowerCase() === 'cancelled';
             const isCompleted = appt.status?.toLowerCase() === 'completed';
@@ -451,24 +384,61 @@ export const PatientBookings: React.FC = () => {
                       </button>
                     )}
 
-                    {/* Rate & Review Visit — ONLY for completed visits (Step 11: Post-Visit Review) */}
-                    {isCompleted && !isReviewed && (
-                      <button
-                        type="button"
-                        onClick={() => setReviewingAppt(appt)}
-                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-50 border border-amber-200 text-xs font-bold text-amber-800 hover:bg-amber-100 transition-colors cursor-pointer"
-                      >
-                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                        <span>{t('patientPortal.rateVisit')}</span>
-                      </button>
-                    )}
+                    {/* Rate Doctor & Rate Facility — ONLY for completed visits */}
+                    {isCompleted && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* 1. Doctor Review */}
+                        {!isDoctorReviewed ? (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenReview(appt, 'doctor')}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-xs font-bold text-amber-800 hover:bg-amber-100 transition-colors cursor-pointer"
+                          >
+                            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                            <span>{t('patientPortal.rateDoctor')}</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenReview(appt, 'doctor')}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 shadow-2xs hover:bg-emerald-100/70 transition-colors cursor-pointer"
+                            title="Click to view doctor review"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>{t('patientPortal.doctorReviewedBadge')}</span>
+                            <span className="inline-flex items-center gap-0.5 text-amber-500 font-bold ml-0.5">
+                              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                              <span>{appt.doctorReview?.rating || appt.review?.rating || 5}</span>
+                            </span>
+                          </button>
+                        )}
 
-                    {/* Reviewed badge — only for completed visits that were reviewed */}
-                    {isCompleted && isReviewed && (
-                      <span className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#F8FAFC] border border-[#E2EBF0] text-xs font-bold text-slate-800">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>{t('patientPortal.reviewed')}</span>
-                      </span>
+                        {/* 2. Facility Review */}
+                        {!isFacilityReviewed ? (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenReview(appt, 'facility')}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-cyan-50 border border-cyan-200 text-xs font-bold text-[#0E7490] hover:bg-cyan-100 transition-colors cursor-pointer"
+                          >
+                            <Building2 className="w-3.5 h-3.5 text-[#0E7490]" />
+                            <span>{t('patientPortal.rateHospital')}</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenReview(appt, 'facility')}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 shadow-2xs hover:bg-emerald-100/70 transition-colors cursor-pointer"
+                            title="Click to view hospital review"
+                          >
+                            <Building2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>{t('patientPortal.facilityReviewedBadge')}</span>
+                            <span className="inline-flex items-center gap-0.5 text-amber-500 font-bold ml-0.5">
+                              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                              <span>{appt.facilityReview?.rating || 5}</span>
+                            </span>
+                          </button>
+                        )}
+                      </div>
                     )}
 
                     {/* Rebook on Cancelled */}
@@ -486,23 +456,14 @@ export const PatientBookings: React.FC = () => {
                     {isConfirmed && (
                       <button
                         type="button"
-                        onClick={() => navigate(`/book/doctor/${appt.doctorId}`)}
+                        onClick={() => navigate(`/book/doctor/${appt.doctorId}?reschedule=${appt.id}`)}
                         className="px-3.5 py-2 rounded-xl border border-[#E2EBF0] text-xs font-bold text-slate-700 hover:bg-[#F8FAFC] transition-colors cursor-pointer"
                       >
                         {t('patientPortal.reschedule')}
                       </button>
                     )}
 
-                    {/* Cancel button */}
-                    {isConfirmed && (
-                      <button
-                        type="button"
-                        onClick={() => setCancellingAppt(appt)}
-                        className="px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
-                      >
-                        {t('patientPortal.cancel')}
-                      </button>
-                    )}
+
                   </div>
                 </div>
               </div>
@@ -520,10 +481,11 @@ export const PatientBookings: React.FC = () => {
         />
       )}
 
-      {reviewingAppt && (
-        <ReviewModal
-          appointment={reviewingAppt}
-          onClose={() => setReviewingAppt(null)}
+      {reviewModalState && (
+        <AppointmentReviewModal
+          appointment={reviewModalState.appointment}
+          initialTarget={reviewModalState.initialTarget}
+          onClose={() => setReviewModalState(null)}
           onSubmit={handleReviewSubmit}
         />
       )}

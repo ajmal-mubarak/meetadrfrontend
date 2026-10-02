@@ -23,16 +23,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useTranslation } from '../../i18n';
 import { LanguageSwitcher } from '../common/LanguageSwitcher';
-
-interface PatientNotification {
-  id: string;
-  title: string;
-  description: string;
-  time: string;
-  unread: boolean;
-  type: 'appointment' | 'prescription' | 'reminder';
-}
-
+import { NotificationBell } from '../common/NotificationBell';
 export const Header: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const { showToast } = useToast();
@@ -41,43 +32,12 @@ export const Header: React.FC = () => {
   const location = useLocation();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
-  const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   const aboutRef = useRef<HTMLDivElement>(null);
-
-  const [notifications, setNotifications] = useState<PatientNotification[]>([
-    {
-      id: 'notif_1',
-      title: 'Appointment Confirmed',
-      description: 'Dr. Sarah Chen at American Hospital Dubai • Today at 10:30 AM',
-      time: '15m ago',
-      unread: true,
-      type: 'appointment',
-    },
-    {
-      id: 'notif_2',
-      title: 'Digital Prescription Ready',
-      description: 'Prescription from Dr. Tariq Al-Mansoor ready for pharmacy pickup',
-      time: '2h ago',
-      unread: true,
-      type: 'prescription',
-    },
-    {
-      id: 'notif_3',
-      title: 'Pre-Visit Check-in Reminder',
-      description: 'Please confirm your insurance card details prior to consultation',
-      time: '1d ago',
-      unread: false,
-      type: 'reminder',
-    },
-  ]);
-
-  const unreadCount = notifications.filter((n) => n.unread).length;
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 10);
@@ -87,7 +47,6 @@ export const Header: React.FC = () => {
 
   useEffect(() => {
     setMobileMenuOpen(false);
-    setNotificationsOpen(false);
     setProfileOpen(false);
     setAboutOpen(false);
   }, [location.pathname]);
@@ -95,7 +54,6 @@ export const Header: React.FC = () => {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
-      if (notifRef.current && !notifRef.current.contains(target)) setNotificationsOpen(false);
       if (profileRef.current && !profileRef.current.contains(target)) setProfileOpen(false);
       if (aboutRef.current && !aboutRef.current.contains(target)) setAboutOpen(false);
     };
@@ -107,11 +65,6 @@ export const Header: React.FC = () => {
     await logout();
     showToast('Signed out successfully.', 'info');
     navigate('/');
-  };
-
-  const markAllNotificationsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
-    showToast('All notifications marked as read', 'info');
   };
 
   // Core discovery nav links (client flow: Search & Discover)
@@ -294,86 +247,10 @@ export const Header: React.FC = () => {
                   </Link>
                 )}
 
-                {/* Notification Bell (for patients) */}
-                {user.role === 'patient' && (
-                  <div className="relative" ref={notifRef}>
-                  <button
-                    id="header-nav-notification-button"
-                    type="button"
-                    onClick={() => {
-                      setNotificationsOpen((prev) => !prev);
-                      setProfileOpen(false);
-                    }}
-                    className="relative p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-white transition-colors cursor-pointer border border-transparent hover:border-[#E2EBF0]"
-                    aria-label={t('navigation.notifications')}
-                  >
-                    <Bell className="w-4 h-4" />
-                    {unreadCount > 0 && (
-                      <span className="absolute top-1 right-1 rtl:right-auto rtl:left-1 w-2.5 h-2.5 rounded-full bg-rose-500 border-2 border-white animate-pulse" />
-                    )}
-                  </button>
-
-                  <AnimatePresence>
-                    {notificationsOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 8, scale: 0.96 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 6, scale: 0.96 }}
-                        transition={{ duration: 0.15 }}
-                        className="absolute right-0 rtl:right-auto rtl:left-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl border border-[#E2EBF0] shadow-2xl p-4 z-50 backdrop-blur-xl text-slate-900"
-                      >
-                        <div className="flex items-center justify-between pb-3 border-b border-[#E2EBF0]">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-slate-900">{t('navigation.notifications')}</span>
-                            {unreadCount > 0 && (
-                              <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-rose-50 text-rose-700 border border-rose-200">
-                                {t('navigation.newNotifications', { count: unreadCount })}
-                              </span>
-                            )}
-                          </div>
-                          {unreadCount > 0 && (
-                            <button
-                              type="button"
-                              onClick={markAllNotificationsRead}
-                              className="text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
-                            >
-                              {t('navigation.markAllRead')}
-                            </button>
-                          )}
-                        </div>
-
-                        <div className="divide-y divide-slate-100 max-h-72 overflow-y-auto mt-2 space-y-1">
-                          {notifications.map((notif) => (
-                            <div
-                              key={notif.id}
-                              className={`p-2.5 rounded-xl transition-colors ${
-                                notif.unread ? 'bg-[#E8F6F8]/60' : 'hover:bg-slate-50'
-                              }`}
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <span className="text-xs font-bold text-slate-900">{notif.title}</span>
-                                <span className="text-[10px] text-slate-400 shrink-0">{notif.time}</span>
-                              </div>
-                              <p className="text-xs text-slate-600 mt-1 leading-snug">{notif.description}</p>
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="pt-3 mt-2 border-t border-[#E2EBF0]">
-                          <Link
-                            to="/patient/bookings"
-                            onClick={() => setNotificationsOpen(false)}
-                            className="text-xs font-bold text-[#0E7490] hover:text-[#08596F] flex items-center gap-1 cursor-pointer"
-                          >
-                            <span>{t('navigation.viewInPatientPortal')}</span>
-                            <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
-                          </Link>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              )}
+                {/* Notification Bell */}
+                {user && (
+                  <NotificationBell id="header-nav-notification-button" />
+                )}
 
                 {/* Profile Dropdown */}
                 <div className="relative" ref={profileRef}>
@@ -382,7 +259,6 @@ export const Header: React.FC = () => {
                     type="button"
                     onClick={() => {
                       setProfileOpen((prev) => !prev);
-                      setNotificationsOpen(false);
                     }}
                     className="flex items-center gap-2 p-1.5 pr-2.5 rtl:pr-1.5 rtl:pl-2.5 rounded-xl border border-[#E2EBF0] hover:bg-white transition-all cursor-pointer bg-white/60"
                   >
@@ -500,9 +376,14 @@ export const Header: React.FC = () => {
             {/* Mobile compact language switcher */}
             <LanguageSwitcher variant="compact" />
 
+            {/* Notification in mobile view after language button */}
+            {user && (
+              <NotificationBell id="mobile-header-notification-button" />
+            )}
+
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg text-slate-700 hover:bg-slate-100 transition-colors"
+              className="p-2 rounded-lg text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
               aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}

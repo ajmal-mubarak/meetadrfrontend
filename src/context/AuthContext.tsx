@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { User, UserRole } from '../types';
-import { authService } from '../services/authService';
+import { authService } from '../services/realAuthService';
 
 interface AuthContextType {
   user: User | null;
@@ -17,8 +17,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const initialized = useRef(false);
 
   useEffect(() => {
+    // React StrictMode executes effects twice in development.
+    // Guard the session restoration so we only issue ONE refresh request.
+    if (initialized.current) return;
+    initialized.current = true;
+
     async function loadSession() {
       try {
         const sessionUser = await authService.getCurrentSession();
@@ -26,7 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(sessionUser);
         }
       } catch (err) {
-        console.error('Failed to load session:', err);
+        console.error('Failed to restore session:', err);
       } finally {
         setIsLoading(false);
       }
@@ -45,6 +51,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  /**
+   * Registration accepts a 'role' parameter for interface compatibility,
+   * but the backend enforces PATIENT only. The role parameter is intentionally
+   * ignored by the real auth service.
+   */
   const register = async (name: string, email: string, password: string, mobile: string, role: UserRole = 'patient') => {
     setIsLoading(true);
     try {
@@ -57,8 +68,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    await authService.logout();
-    setUser(null);
+    try {
+      await authService.logout();
+    } finally {
+      setUser(null);
+    }
   };
 
   const quickLoginAs = async (role: UserRole): Promise<User> => {

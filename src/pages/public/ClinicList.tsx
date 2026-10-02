@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Building2, MapPin, Star, Phone, Clock, Search, Sparkles, ArrowRight, Stethoscope } from 'lucide-react';
-import { clinicService } from '../../services/clinicService';
+import { realClinicService } from '../../services/realFacilityService';
 import { Clinic } from '../../types';
 import { SPECIALTIES } from '../../data/mockSpecialties';
 import { useTranslation } from '../../i18n';
@@ -27,8 +27,10 @@ export const ClinicList: React.FC = () => {
     async function load() {
       setIsLoading(true);
       try {
-        const data = await clinicService.getAllClinics();
-        setClinics(data);
+        const data = await realClinicService.getAllClinics();
+        setClinics(data || []);
+      } catch {
+        setClinics([]);
       } finally {
         setIsLoading(false);
       }
@@ -131,10 +133,13 @@ export const ClinicList: React.FC = () => {
                     <span className="text-xs font-semibold px-2.5 py-0.5 bg-[#E8F6F8] text-[#0E7490] rounded-md border border-[#CDEBF0]">
                       {translateSpecialty(clinic.specialty)}
                     </span>
-                    <div className="flex items-center gap-1 text-xs font-bold text-slate-800 bg-[#F8FAFC] px-2 py-0.5 rounded-md border border-[#E2EBF0]">
-                      <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                      <span>{clinic.rating}</span>
-                    </div>
+                    {clinic.rating > 0 && clinic.reviewCount > 0 && (
+                      <div className="flex items-center gap-1 text-xs font-bold text-slate-800 bg-[#F8FAFC] px-2 py-0.5 rounded-md border border-[#E2EBF0]">
+                        <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                        <span>{Number(clinic.rating).toFixed(1)}</span>
+                        <span className="text-slate-400 font-normal text-[10px]">({clinic.reviewCount})</span>
+                      </div>
+                    )}
                   </div>
 
                   <h3 className="text-lg font-bold text-slate-900 mb-1 leading-snug">{clinic.name}</h3>

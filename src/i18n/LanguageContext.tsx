@@ -195,15 +195,24 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const translateLocation = useCallback(
     (location: string): string => {
       if (!location) return '';
-      const direct = getNestedValue(dictionaries[language], `locations.${location}`);
+      if (language !== 'ar') return location;
+
+      const locDict = (dictionaries.ar as any)?.locations || {};
+      const direct = locDict[location];
       if (direct) return direct;
+
+      // Case-insensitive lookup (e.g. "dubai", "DUBAI" -> "دبي")
+      const lower = location.trim().toLowerCase();
+      const foundKey = Object.keys(locDict).find((k) => k.toLowerCase() === lower);
+      if (foundKey) return locDict[foundKey];
 
       // If location contains hyphen separator (e.g. "Dubai - Downtown"), translate each part
       if (location.includes(' - ')) {
         const parts = location.split(' - ').map((part) => {
           const trimmed = part.trim();
-          const translatedPart = getNestedValue(dictionaries[language], `locations.${trimmed}`);
-          return translatedPart || trimmed;
+          const trimmedLower = trimmed.toLowerCase();
+          const matchKey = Object.keys(locDict).find((k) => k.toLowerCase() === trimmedLower);
+          return matchKey ? locDict[matchKey] : trimmed;
         });
         return parts.join(' - ');
       }
@@ -237,6 +246,11 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       const nameMap: Record<string, string> = {
         'American Hospital Dubai': 'المستشفى الأمريكي دبي',
+        'Mediclinic City Hospital': 'مستشفى ميديكلينيك سيتي',
+        'Cleveland Clinic Abu Dhabi': 'كليفلاند كلينيك أبوظبي',
+        'Dubai Hospital': 'مستشفى دبي',
+        'Burjeel Hospital Abu Dhabi': 'مستشفى برجيل أبوظبي',
+        'Aster Hospital Mankhool': 'مستشفى أستر المنخول',
         'City Care Hospital': 'مستشفى سيتي كير التخصصي',
         'Emirates Apex Medical Center': 'مركز الإمارات أبكس الطبي',
         'Al Noor Royal Hospital': 'مستشفى النور الملكي',
@@ -258,7 +272,23 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         'American Hospital': 'المستشفى الأمريكي',
       };
 
-      return nameMap[name] || name;
+      if (nameMap[name]) return nameMap[name];
+
+      // Auto-translate common hospital phrases in English
+      let autoTitle = name
+        .replace(/\bSpecialty Hospital\b/gi, 'مستشفى تخصصي')
+        .replace(/\bGeneral Hospital\b/gi, 'مستشفى عام')
+        .replace(/\bHospital\b/gi, 'مستشفى')
+        .replace(/\bMedical Center\b/gi, 'مركز طبي')
+        .replace(/\bClinic\b/gi, 'عيادة');
+
+      // If no Arabic characters at all, prepend hospital prefix for medical clarity
+      const hasArabic = /[\u0600-\u06FF]/.test(autoTitle);
+      if (!hasArabic) {
+        return `مستشفى ${name}`;
+      }
+
+      return autoTitle;
     },
     [language]
   );
@@ -285,6 +315,19 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       if (id && aboutMap[id]) return aboutMap[id];
 
+      // Auto-translate onboarding template sentences
+      const hospMatch = about.match(/^(.+?)\s+is an accredited medical hospital affiliated with MeetAdr\.?$/i);
+      if (hospMatch) {
+        const facName = hospMatch[1].trim();
+        return `${translateHospitalName(facName)} صرح طبي معتمد شريك مع منصة MeetAdr يقدم رعاية صحية متعددة التخصصات.`;
+      }
+
+      const clinicMatch = about.match(/^(.+?)\s+is an accredited specialized outpatient clinic affiliated with MeetAdr\.?$/i);
+      if (clinicMatch) {
+        const facName = clinicMatch[1].trim();
+        return `${facName} عيادة طبية تخصصية معتمدة شريكة مع منصة MeetAdr للرعاية الصحية.`;
+      }
+
       // Match by keyword in about text if id not provided
       const lower = about.toLowerCase();
       if (lower.includes('marina')) return aboutMap['hosp_5'];
@@ -301,7 +344,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       return about;
     },
-    [language]
+    [language, translateHospitalName]
   );
 
   // Translate doctor name

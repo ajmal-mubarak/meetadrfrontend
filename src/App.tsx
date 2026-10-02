@@ -49,6 +49,8 @@ import {
 
 // Auth Pages
 import { LoginPage } from './pages/auth/LoginPage';
+import { RegisterPage } from './pages/auth/RegisterPage';
+import { ProviderSetupPage } from './pages/auth/ProviderSetupPage';
 
 // Booking Page
 import { BookingPage } from './pages/booking/BookingPage';
@@ -60,6 +62,7 @@ import { PatientProfile } from './pages/patient/PatientProfile';
 
 // Doctor Portal
 import { DoctorDashboard } from './pages/doctor/DoctorDashboard';
+import { DoctorBookings } from './pages/doctor/DoctorBookings';
 import { DoctorSchedule } from './pages/doctor/DoctorSchedule';
 import { DoctorPatients } from './pages/doctor/DoctorPatients';
 
@@ -173,10 +176,12 @@ export default function App() {
 
                   {/* Auth Routes - With Header Navbar & Footer */}
                   <Route path="/login" element={<LoginPage />} />
+                  <Route path="/register" element={<RegisterPage />} />
                   <Route path="/patient/login" element={<LoginPage forcedRole="patient" />} />
                   <Route path="/doctor/login" element={<LoginPage forcedRole="doctor" />} />
                   <Route path="/hospital/login" element={<LoginPage forcedRole="hospital" />} />
                   <Route path="/admin/login" element={<LoginPage forcedRole="admin" />} />
+                  <Route path="/provider-setup" element={<ProviderSetupPage />} />
                 </Route>
 
 
@@ -206,6 +211,7 @@ export default function App() {
                 >
                   <Route index element={<Navigate to="/doctor/dashboard" replace />} />
                   <Route path="dashboard" element={<DoctorDashboard />} />
+                  <Route path="bookings" element={<DoctorBookings />} />
                   <Route path="schedule" element={<DoctorSchedule />} />
                   <Route path="patients" element={<DoctorPatients />} />
                 </Route>

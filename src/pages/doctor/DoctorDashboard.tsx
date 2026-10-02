@@ -13,7 +13,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useTranslation } from '../../i18n';
-import { bookingService } from '../../services/bookingService';
+import { realDoctorPortalService } from '../../services/realDoctorPortalService';
 import { Appointment } from '../../types';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { CancelModal } from '../../components/common/CancelModal';
@@ -50,19 +50,11 @@ export const DoctorDashboard: React.FC = () => {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const all = await bookingService.getAllAppointments();
-      // Filter for current doctor if authenticated as doctor
-      const targetDocId = user?.doctorId || 'doc_1';
-      const targetDocName = (user?.name || 'Dr. Tariq Al-Mansoor').toLowerCase();
-
-      const doctorAppts = all.filter((a) => {
-        if (a.doctorId && a.doctorId === targetDocId) return true;
-        if (a.doctorName && a.doctorName.toLowerCase().includes(targetDocName)) return true;
-        return false;
-      });
-
-      // If specific doctor appointments found, display them; otherwise display all mock appointments
-      setAppointments(doctorAppts.length > 0 ? doctorAppts : all);
+      const data = await realDoctorPortalService.getMyAppointments();
+      setAppointments(data);
+    } catch (err: any) {
+      showToast(err.message || (isArabic ? 'فشل تحميل مواعيد الطبيب' : 'Failed to load doctor appointments'), 'error');
+      setAppointments([]);
     } finally {
       setIsLoading(false);
     }
@@ -74,7 +66,7 @@ export const DoctorDashboard: React.FC = () => {
 
   const handleMarkCompleted = async (id: string) => {
     try {
-      await bookingService.completeAppointment(id);
+      await realDoctorPortalService.completeAppointment(id);
       showToast(isArabic ? 'تم إكمال الاستشارة بنجاح.' : 'Consultation marked completed successfully.', 'success');
       loadData();
     } catch (err: any) {
@@ -85,12 +77,7 @@ export const DoctorDashboard: React.FC = () => {
   const handleCancelConfirm = async (reason: string) => {
     if (!cancellingAppt) return;
     try {
-      await bookingService.cancelAppointment(
-        cancellingAppt.id,
-        reason,
-        'doctor',
-        user?.name || (isArabic ? 'د. طارق المنصور' : 'Dr. Tariq Al-Mansoor')
-      );
+      await realDoctorPortalService.cancelAppointment(cancellingAppt.id, reason);
       showToast(isArabic ? 'تم إلغاء الموعد وتحرير الفترة الزمنية.' : 'Appointment cancelled and time slot released.', 'info');
       setCancellingAppt(null);
       loadData();
@@ -117,14 +104,12 @@ export const DoctorDashboard: React.FC = () => {
     ? Math.round((completed.length / appointments.length) * 100)
     : 0;
 
-  // Dynamic Weekly Load from real appointments
+  // Dynamic Weekly Load strictly from real appointments
   const weeklyLoad = useMemo(() => {
     const daysEn = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const daysAr = ['الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'];
     
-    // Group appointments by day of week if possible
-    const dayCounts = [4, 6, 8, 12, 7, 3, 2];
-    // Add real counts
+    const dayCounts = [0, 0, 0, 0, 0, 0, 0];
     appointments.forEach((a) => {
       if (a.date) {
         const d = new Date(a.date);
@@ -141,20 +126,37 @@ export const DoctorDashboard: React.FC = () => {
     }));
   }, [appointments, isArabic]);
 
-  // Monthly Overview comparison
-  const monthlyTrend = useMemo(() => [
-    { week: isArabic ? 'الأسبوع 1' : 'Week 1', [isArabic ? 'مكتمل' : 'Completed']: completed.length + 5, [isArabic ? 'ملغى' : 'Cancelled']: cancelled.length },
-    { week: isArabic ? 'الأسبوع 2' : 'Week 2', [isArabic ? 'مكتمل' : 'Completed']: completed.length + 8, [isArabic ? 'ملغى' : 'Cancelled']: 1 },
-    { week: isArabic ? 'الأسبوع 3' : 'Week 3', [isArabic ? 'مكتمل' : 'Completed']: completed.length + 4, [isArabic ? 'ملغى' : 'Cancelled']: 2 },
-    { week: isArabic ? 'الأسبوع 4' : 'Week 4', [isArabic ? 'مكتمل' : 'Completed']: completed.length + 11, [isArabic ? 'ملغى' : 'Cancelled']: cancelled.length + 1 },
-  ], [completed.length, cancelled.length, isArabic]);
+  // Monthly Overview comparison based on real appointments
+  const monthlyTrend = useMemo(() => {
+    const weeksEn = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
+    const weeksAr = ['الأسبوع 1', 'الأسبوع 2', 'الأسبوع 3', 'الأسبوع 4'];
+    return weeksEn.map((w, i) => {
+      const completedInWeek = completed.filter((a) => {
+        if (!a.date) return false;
+        const dayOfMonth = parseInt(a.date.split('-')[2] || '1', 10);
+        return Math.min(Math.floor((dayOfMonth - 1) / 7), 3) === i;
+      }).length;
 
-  // Donut chart status breakdown
+      const cancelledInWeek = cancelled.filter((a) => {
+        if (!a.date) return false;
+        const dayOfMonth = parseInt(a.date.split('-')[2] || '1', 10);
+        return Math.min(Math.floor((dayOfMonth - 1) / 7), 3) === i;
+      }).length;
+
+      return {
+        week: isArabic ? weeksAr[i] : w,
+        [isArabic ? 'مكتمل' : 'Completed']: completedInWeek,
+        [isArabic ? 'ملغى' : 'Cancelled']: cancelledInWeek,
+      };
+    });
+  }, [completed, cancelled, isArabic]);
+
+  // Donut chart status breakdown (strictly real counts, filtered > 0)
   const statusPieData = useMemo(() => [
-    { name: isArabic ? 'مؤكد' : 'Confirmed', value: confirmed.length || 1, color: '#0284c7' },
-    { name: isArabic ? 'مكتمل' : 'Completed', value: completed.length || 1, color: '#2563EB' },
-    { name: isArabic ? 'ملغى' : 'Cancelled', value: cancelled.length || 1, color: '#f43f5e' },
-  ], [confirmed.length, completed.length, cancelled.length, isArabic]);
+    { name: isArabic ? 'مؤكد' : 'Confirmed', value: confirmed.length, color: '#0284c7' },
+    { name: isArabic ? 'مكتمل' : 'Completed', value: completed.length, color: '#2563EB' },
+    { name: isArabic ? 'ملغى' : 'Cancelled', value: cancelled.length, color: '#f43f5e' },
+  ].filter((item) => item.value > 0), [confirmed.length, completed.length, cancelled.length, isArabic]);
 
   return (
     <div className="space-y-6 w-full max-w-full">
@@ -167,7 +169,7 @@ export const DoctorDashboard: React.FC = () => {
             <span>{t('doctorPortal.badge')}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
-            {user?.name || (isArabic ? 'د. طارق المنصور' : 'Dr. Tariq Al-Mansoor')}
+            {user?.name || (isArabic ? 'طبيب معتمد' : 'Doctor')}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-xl">
             {t('doctorPortal.subtitle')}

@@ -17,19 +17,13 @@ import {
   Stethoscope,
   Activity,
 } from 'lucide-react';
-import { hospitalService } from '../../services/hospitalService';
-import { clinicService } from '../../services/clinicService';
+import { realAdminService, ProviderItem } from '../../services/realAdminService';
 import { Hospital, Clinic } from '../../types';
 import { useToast } from '../../context/ToastContext';
 
-type ProviderItem = (Hospital | Clinic) & {
-  providerCategory: 'Hospital' | 'Clinic';
-};
-
 export const AdminProviders: React.FC = () => {
   const { showToast } = useToast();
-  const [hospitals, setHospitals] = useState<Hospital[]>([]);
-  const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [providers, setProviders] = useState<ProviderItem[]>([]);
   const [type, setType] = useState<'all' | 'hospital' | 'clinic'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'Active' | 'Deactivated'>('all');
   const [search, setSearch] = useState('');
@@ -41,12 +35,11 @@ export const AdminProviders: React.FC = () => {
     async function load() {
       setIsLoading(true);
       try {
-        const [h, c] = await Promise.all([
-          hospitalService.getAllHospitals(),
-          clinicService.getAllClinics(),
-        ]);
-        setHospitals(h);
-        setClinics(c);
+        const data = await realAdminService.getProviders();
+        setProviders(data);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to load providers';
+        showToast(msg, 'error');
       } finally {
         setIsLoading(false);
       }
@@ -57,20 +50,13 @@ export const AdminProviders: React.FC = () => {
   const handleToggleStatus = async (item: ProviderItem, newStatus: 'Active' | 'Deactivated') => {
     setIsUpdatingStatus(true);
     try {
-      if (item.providerCategory === 'Hospital') {
-        await hospitalService.updateHospitalStatus(item.id, newStatus);
-        setHospitals((prev) =>
-          prev.map((h) => (h.id === item.id ? { ...h, status: newStatus } : h))
-        );
-      } else {
-        await clinicService.updateClinicStatus(item.id, newStatus);
-        setClinics((prev) =>
-          prev.map((c) => (c.id === item.id ? { ...c, status: newStatus } : c))
-        );
-      }
+      await realAdminService.updateProviderStatus(item.id, newStatus);
+      setProviders((prev) =>
+        prev.map((p) => (p.id === item.id ? ({ ...p, status: newStatus } as ProviderItem) : p))
+      );
 
       if (selectedProvider && selectedProvider.id === item.id) {
-        setSelectedProvider({ ...selectedProvider, status: newStatus });
+        setSelectedProvider({ ...selectedProvider, status: newStatus } as ProviderItem);
       }
 
       showToast(
@@ -86,10 +72,7 @@ export const AdminProviders: React.FC = () => {
     }
   };
 
-  const allProviders: ProviderItem[] = [
-    ...hospitals.map((h) => ({ ...h, providerCategory: 'Hospital' as const })),
-    ...clinics.map((c) => ({ ...c, providerCategory: 'Clinic' as const })),
-  ];
+  const allProviders: ProviderItem[] = providers;
 
   const filtered = allProviders.filter((p) => {
     if (type !== 'all' && p.providerCategory.toLowerCase() !== type) return false;

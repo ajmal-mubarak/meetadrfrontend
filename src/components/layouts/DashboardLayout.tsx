@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard,
   Calendar,
+  CalendarDays,
   Users,
   Building2,
   Stethoscope,
@@ -18,6 +19,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useTranslation } from '../../i18n';
 import { LanguageSwitcher } from '../common/LanguageSwitcher';
+import { NotificationBell } from '../common/NotificationBell';
 
 interface DashboardLayoutProps {
   children?: React.ReactNode;
@@ -76,6 +78,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     if (user.role === 'doctor') {
       return [
         { name: t('navigation.doctorDashboard'), path: '/doctor/dashboard', icon: LayoutDashboard },
+        { name: t('navigation.bookings') || 'Bookings', path: '/doctor/bookings', icon: CalendarDays },
         { name: t('navigation.weeklySchedule'), path: '/doctor/schedule', icon: Calendar },
         { name: t('navigation.patientDirectory'), path: '/doctor/patients', icon: Users },
       ];
@@ -105,6 +108,36 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   };
 
   const navItems = getNavItems();
+  const isHospital = user?.role === 'hospital';
+  const displayName = isHospital
+    ? (user?.facility_name || user?.facilityName || (user?.name && !user.name.startsWith('Dr.') ? user.name : 'American Hospital Dubai'))
+    : (user?.name || 'User');
+  const roleLabel = isHospital
+    ? (isArabic ? 'إدارة المستشفى' : 'Hospital Administration')
+    : getPortalLabel(user?.role);
+
+  const renderAvatar = (size: 'sm' | 'md' = 'md') => {
+    if (isHospital) {
+      return (
+        <div
+          className={`${
+            size === 'sm' ? 'w-8 h-8 rounded-xl text-xs' : 'w-10 h-10 rounded-xl text-base'
+          } bg-[#E8F6F8] text-[#0E7490] flex items-center justify-center font-bold border border-[#CDEBF0] shrink-0`}
+        >
+          <Building2 className={size === 'sm' ? 'w-4 h-4' : 'w-5 h-5'} />
+        </div>
+      );
+    }
+    return (
+      <div
+        className={`${
+          size === 'sm' ? 'w-8 h-8 rounded-xl text-xs' : 'w-10 h-10 rounded-xl text-base'
+        } bg-[#E8F6F8] text-[#0E7490] flex items-center justify-center font-bold border border-[#CDEBF0] shrink-0`}
+      >
+        {user?.name.charAt(0) || 'U'}
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-[#F4F7F9] text-slate-900 flex flex-col md:flex-row selection:bg-teal-100 selection:text-slate-800 overflow-x-clip w-full max-w-full">
@@ -129,13 +162,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             {/* Drawer Header */}
             <div className="p-4 border-b border-[#E2EBF0] flex items-center justify-between bg-[#F8FAFC]">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-[#E8F6F8] text-[#0E7490] flex items-center justify-center font-bold text-base border border-[#CDEBF0] shrink-0">
-                  {user?.name.charAt(0) || 'U'}
-                </div>
+                {renderAvatar('md')}
                 <div className="min-w-0">
-                  <p className="text-xs font-bold text-slate-900 truncate max-w-[150px]">{user?.name}</p>
+                  <p className="text-xs font-bold text-slate-900 truncate max-w-[150px]">{displayName}</p>
                   <span className="inline-block mt-0.5 capitalize text-[10px] font-bold bg-[#E8F6F8] text-[#0E7490] border border-[#CDEBF0] px-2 py-0.5 rounded-full truncate">
-                    {getPortalLabel(user?.role)}
+                    {roleLabel}
                   </span>
                 </div>
               </div>
@@ -203,14 +234,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       <aside className="hidden md:flex md:w-64 bg-white border-r rtl:border-r-0 rtl:border-l border-[#E2EBF0] shrink-0 flex-col h-screen sticky top-0 z-20">
         {/* User Card */}
         <div className="p-5 border-b border-[#E2EBF0] flex items-center gap-3 bg-[#F8FAFC]">
-          <div className="w-10 h-10 rounded-xl bg-[#E8F6F8] text-[#0E7490] flex items-center justify-center font-bold text-base border border-[#CDEBF0] shrink-0">
-            {user?.name.charAt(0) || 'U'}
-          </div>
+          {renderAvatar('md')}
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-slate-900 truncate">{user?.name}</p>
+            <p className="text-sm font-bold text-slate-900 truncate">{displayName}</p>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="capitalize text-[10px] font-bold bg-[#E8F6F8] text-[#0E7490] border border-[#CDEBF0] px-2 py-0.5 rounded-full truncate">
-                {getPortalLabel(user?.role)}
+                {roleLabel}
               </span>
             </div>
           </div>
@@ -287,6 +316,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             {/* Language Switcher */}
             <LanguageSwitcher variant="header" />
 
+            {/* Notification Bell */}
+            <NotificationBell id="dashboard-nav-notification-button" />
+
             <Link
               to="/"
               className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 px-3 py-1.5 rounded-xl hover:bg-slate-100 transition-colors"
@@ -298,11 +330,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
             <div className="w-px h-5 bg-slate-200 hidden sm:block" />
 
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-xl bg-[#2DA7B5] text-white flex items-center justify-center font-bold text-xs shrink-0">
-                {user?.name.charAt(0) || 'U'}
-              </div>
-              <span className="text-xs font-bold text-slate-800 hidden lg:block max-w-[120px] truncate">
-                {user?.name}
+              {renderAvatar('sm')}
+              <span className="text-xs font-bold text-slate-800 hidden lg:block max-w-[160px] truncate">
+                {displayName}
               </span>
             </div>
 

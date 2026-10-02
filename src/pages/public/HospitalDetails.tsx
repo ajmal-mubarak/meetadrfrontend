@@ -22,8 +22,8 @@ import {
   AlertCircle,
   Navigation,
 } from 'lucide-react';
-import { hospitalService } from '../../services/hospitalService';
-import { doctorService } from '../../services/doctorService';
+import { realHospitalService } from '../../services/realFacilityService';
+import { realDoctorService } from '../../services/realDoctorService';
 import { Hospital, Doctor } from '../../types';
 import { useTranslation } from '../../i18n';
 import { HospitalBrandLogo } from '../../components/common/HospitalLogos';
@@ -54,8 +54,8 @@ export const HospitalDetails: React.FC = () => {
       setIsLoading(true);
       try {
         const [hosp, docs] = await Promise.all([
-          hospitalService.getHospitalById(id),
-          doctorService.getDoctorsByHospital(id),
+          realHospitalService.getHospitalById(id),
+          realDoctorService.getAllDoctors({ hospital_id: id }),
         ]);
         setHospital(hosp);
         setDoctors(docs);
@@ -203,13 +203,15 @@ export const HospitalDetails: React.FC = () => {
               </div>
             </div>
 
-            <div className="absolute top-4 right-4 rtl:right-auto rtl:left-4 z-10">
-              <div className="bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-900 flex items-center gap-1.5 border border-[#E2EBF0] shadow-xs">
-                <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-                <span>{hospital.rating}</span>
-                <span className="text-slate-500 font-normal text-[11px]">(4.9/5.0)</span>
+            {hospital.rating > 0 && hospital.reviewCount > 0 && (
+              <div className="absolute top-4 right-4 rtl:right-auto rtl:left-4 z-10">
+                <div className="bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-900 flex items-center gap-1.5 border border-[#E2EBF0] shadow-xs">
+                  <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                  <span>{Number(hospital.rating).toFixed(1)}</span>
+                  <span className="text-slate-500 font-normal text-[11px]">({hospital.reviewCount})</span>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Bottom Hero Header Info */}
             <div className="absolute bottom-4 sm:bottom-6 inset-x-4 sm:inset-x-8 z-10">
@@ -258,7 +260,16 @@ export const HospitalDetails: React.FC = () => {
               <div>
                 <p className="text-xs text-slate-500 font-medium">Quality Rating</p>
                 <p className="text-sm sm:text-base font-bold text-slate-900">
-                  {hospital.rating} <span className="text-xs text-slate-500 font-normal">/ 5.0 (Top Care)</span>
+                  {hospital.rating > 0 && hospital.reviewCount > 0 ? (
+                    <>
+                      {Number(hospital.rating).toFixed(1)}{' '}
+                      <span className="text-xs text-slate-500 font-normal">
+                        / 5.0 ({hospital.reviewCount} {hospital.reviewCount === 1 ? 'Review' : 'Reviews'})
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-xs text-slate-400 font-normal">No reviews yet</span>
+                  )}
                 </p>
               </div>
             </div>
@@ -582,30 +593,32 @@ export const HospitalDetails: React.FC = () => {
                   {t('hospitals.acceptedInsurance')}
                 </h3>
               </div>
-              <p className="text-xs text-slate-600 leading-relaxed mb-4">
-                {t('hospitals.insuranceNote')}
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  'NextCare',
-                  'AXA / GIG',
-                  'MetLife',
-                  'Daman National',
-                  'Thiqa',
-                  'Sukoon (Oman)',
-                  'Cigna Global',
-                  'Allianz Care',
-                  'MedNet',
-                  'Neuron',
-                ].map((ins) => (
-                  <span
-                    key={ins}
-                    className="px-2.5 py-1 bg-[#F8FAFC] border border-[#E2EBF0] rounded-lg text-[11px] font-medium text-slate-700"
-                  >
-                    {ins}
-                  </span>
-                ))}
-              </div>
+              {(() => {
+                const plans = hospital.insurancePlans
+                  ? hospital.insurancePlans.split(',').map(p => p.trim()).filter(Boolean)
+                  : [];
+                return plans.length > 0 ? (
+                  <>
+                    <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                      {t('hospitals.insuranceNote')}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {plans.map((ins) => (
+                        <span
+                          key={ins}
+                          className="px-2.5 py-1 bg-[#F8FAFC] border border-[#E2EBF0] rounded-lg text-[11px] font-medium text-slate-700"
+                        >
+                          {ins}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-slate-400 italic">
+                    {isArabic ? 'لم يتم تحديد خطط التأمين المقبولة بعد.' : 'No accepted insurance plans have been added yet.'}
+                  </p>
+                );
+              })()}
             </div>
 
             {/* Quality & Safety Assurance */}

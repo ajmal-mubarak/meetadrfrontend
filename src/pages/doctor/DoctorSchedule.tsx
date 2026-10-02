@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, Check, Plus, Save } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
+import { realDoctorPortalService } from '../../services/realDoctorPortalService';
 
 const ALL_DAYS = [
   'Monday',
@@ -49,6 +50,25 @@ export const DoctorSchedule: React.FC = () => {
     '16:00 - 16:30',
   ]);
 
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    async function loadSchedule() {
+      try {
+        const data = await realDoctorPortalService.getSchedule();
+        if (data && Array.isArray(data.available_days) && data.available_days.length > 0) {
+          setActiveDays(data.available_days);
+        }
+        if (data && Array.isArray(data.standard_slots) && data.standard_slots.length > 0) {
+          setActiveSlots(data.standard_slots);
+        }
+      } catch (err) {
+        console.warn('Unable to load doctor schedule from backend:', err);
+      }
+    }
+    loadSchedule();
+  }, []);
+
   const toggleDay = (day: string) => {
     setActiveDays((prev) =>
       prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
@@ -61,8 +81,20 @@ export const DoctorSchedule: React.FC = () => {
     );
   };
 
-  const handleSave = () => {
-    showToast('Consultation schedule updated successfully.', 'success');
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await realDoctorPortalService.updateSchedule({
+        available_days: activeDays,
+        standard_slots: activeSlots,
+        slot_duration_minutes: 30,
+      });
+      showToast('Consultation schedule updated successfully.', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update schedule.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -76,10 +108,11 @@ export const DoctorSchedule: React.FC = () => {
         </div>
         <button
           onClick={handleSave}
-          className="px-5 py-2.5 bg-[#2DA7B5] hover:bg-[#23929F] text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
+          disabled={isSaving}
+          className="px-5 py-2.5 bg-[#2DA7B5] hover:bg-[#23929F] text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-50"
         >
           <Save className="w-4 h-4" />
-          <span>Save Changes</span>
+          <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
         </button>
       </div>
 

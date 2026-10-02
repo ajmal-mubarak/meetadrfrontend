@@ -10,6 +10,10 @@ export interface User {
   hospitalId?: string;
   doctorId?: string;
   avatar?: string;
+  facility_id?: string;
+  facility_type?: string;
+  facility_name?: string;
+  facilityName?: string;
 }
 
 export interface Doctor {
@@ -50,12 +54,14 @@ export interface Hospital {
   doctorIds: string[];
   doctorCount: number;
   rating: number;
+  reviewCount?: number;
   emergencyAvailable: boolean;
   phone: string;
   operatingHours: string;
   operatingHoursAr?: string;
   about: string;
   aboutAr?: string;
+  insurancePlans?: string;  // comma-separated list from backend
   status?: 'Active' | 'Deactivated';
 }
 
@@ -69,6 +75,7 @@ export interface Clinic {
   doctorIds: string[];
   doctorCount: number;
   rating: number;
+  reviewCount?: number;
   phone: string;
   operatingHours: string;
   about: string;
@@ -125,6 +132,26 @@ export interface Appointment {
   cancelledBy?: string;
   cancelledByName?: string;
   createdAt: string;
+  isReviewed?: boolean;
+  isDoctorReviewed?: boolean;
+  isFacilityReviewed?: boolean;
+  doctorReview?: {
+    id?: string;
+    rating: number;
+    comment?: string;
+  } | null;
+  facilityReview?: {
+    id?: string;
+    rating: number;
+    comment?: string;
+  } | null;
+  review?: {
+    id?: string;
+    rating: number;
+    comment?: string;
+  } | null;
+  isDependent?: boolean;
+  dependentId?: string | null;
 }
 
 export interface HealthCondition {
@@ -162,5 +189,18 @@ export interface FilterOptions {
   specialty?: string;
   location?: string;
   availability?: string;
+}
+
+export interface AppNotification {
+  id: string;
+  title: string;
+  description: string;
+  notificationType: string;
+  type?: string;
+  link?: string;
+  isRead: boolean;
+  unread: boolean;
+  createdAt: string;
+  time?: string;
 }
 

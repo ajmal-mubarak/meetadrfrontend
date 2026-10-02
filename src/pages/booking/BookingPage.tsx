@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   Calendar,
   Clock,
@@ -12,6 +12,7 @@ import {
   Phone,
   Mail,
   User,
+  Users,
   ExternalLink,
   X,
   Stethoscope,
@@ -25,14 +26,15 @@ import {
   ShieldAlert,
   LayoutDashboard,
   LogOut,
+  RefreshCw,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { bookingService } from '../../services/bookingService';
-import { doctorService } from '../../services/doctorService';
+import { realBookingService } from '../../services/realBookingService';
+import { realDoctorService } from '../../services/realDoctorService';
 import { Doctor, Appointment } from '../../types';
 import { useToast } from '../../context/ToastContext';
-import { INITIAL_DOCTORS } from '../../data/mockDoctors';
 import { useTranslation } from '../../i18n';
+import { patientService, FrontendDependent } from '../../services/patientService';
 
 // ─── Guest Login Modal (intercepts booking when not authenticated) ────────────
 interface GuestLoginModalProps {
@@ -47,9 +49,9 @@ const GuestLoginModal: React.FC<GuestLoginModalProps> = ({ onSuccess, onClose, d
   const { t } = useTranslation();
 
   const [mode, setMode] = useState<'options' | 'email' | 'otp'>('options');
-  const [email, setEmail] = useState('patient@meetadr.demo');
-  const [password, setPassword] = useState('Patient@123');
-  const [mobile, setMobile] = useState('52 412 2794');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [mobile, setMobile] = useState('');
   const [countryCode, setCountryCode] = useState('+971');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
@@ -310,6 +312,22 @@ export const BookingPage: React.FC = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   // Pending booking flag — set to true when user fills form but isn't logged in yet
   const [pendingBooking, setPendingBooking] = useState(false);
+  const [searchParams] = useSearchParams();
+  const rescheduleApptId = searchParams.get('reschedule');
+  const [rescheduleApptData, setRescheduleApptData] = useState<Appointment | null>(null);
+
+  React.useEffect(() => {
+    if (!rescheduleApptId) return;
+    realBookingService.getAppointmentById(rescheduleApptId)
+      .then((appt) => {
+        if (appt) {
+          setRescheduleApptData(appt);
+          setCurrentStep(2);
+        }
+      })
+      .catch(() => {});
+  }, [rescheduleApptId]);
+
   const { showToast } = useToast();
   const { t, language, translateSpecialty, isArabic } = useTranslation();
 
@@ -332,9 +350,27 @@ export const BookingPage: React.FC = () => {
     ? (language === 'ar' ? 'لوحة تحكم المستشفى' : 'Hospital Dashboard')
     : (language === 'ar' ? 'لوحة تحكم الطبيب' : 'Doctor Dashboard');
 
-// ─── Schedule Time Parsing & Full Daily Slots Generator ──────────────────────
-const parseTimeToMinutes = (timeStr: string): number => {
-  const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+// ─── Standard Consultation Slots & Normalization Helpers ──────────────────────
+const STANDARD_CLINICAL_SLOTS = [
+  '09:00 - 09:30',
+  '09:30 - 10:00',
+  '10:00 - 10:30',
+  '10:30 - 11:00',
+  '11:00 - 11:30',
+  '11:30 - 12:00',
+  '14:00 - 14:30',
+  '14:30 - 15:00',
+  '15:00 - 15:30',
+  '15:30 - 16:00',
+  '16:00 - 16:30',
+  '16:30 - 17:00',
+];
+
+// Extracts start time in minutes (0 - 1439) from "09:00 - 09:30", "09:00 AM", "14:30", etc.
+const parseSlotStartMinutes = (timeStr: string): number => {
+  if (!timeStr) return 0;
+  const startPart = timeStr.split('-')[0].trim();
+  const match = startPart.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
   if (!match) return 0;
   let h = parseInt(match[1], 10);
   const m = parseInt(match[2], 10);
@@ -344,61 +380,78 @@ const parseTimeToMinutes = (timeStr: string): number => {
   return h * 60 + m;
 };
 
-const generateFullScheduleSlots = (doctorSlots: string[]): string[] => {
-  const has20 = doctorSlots.some((s) => s.includes(':20') || s.includes(':40'));
-  const slotSet = new Set<string>();
-
-  // Full day clinical schedule: 09:00 AM to 05:00 PM
-  if (has20) {
-    const startMins = 9 * 60; // 09:00 AM
-    const endMins = 17 * 60; // 05:00 PM
-    for (let m = startMins; m <= endMins; m += 20) {
-      const hours24 = Math.floor(m / 60);
-      const mins = m % 60;
-      const meridiem = hours24 >= 12 ? 'PM' : 'AM';
-      const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
-      const formatted = `${String(hours12).padStart(2, '0')}:${String(mins).padStart(2, '0')} ${meridiem}`;
-      slotSet.add(formatted);
-    }
-  } else {
-    const hasEarly = doctorSlots.some((s) => s.startsWith('08:'));
-    const startMins = hasEarly ? 8 * 60 + 30 : 9 * 60;
-    const endMins = 17 * 60;
-    for (let m = startMins; m <= endMins; m += 30) {
-      const hours24 = Math.floor(m / 60);
-      const mins = m % 60;
-      const meridiem = hours24 >= 12 ? 'PM' : 'AM';
-      const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12;
-      const formatted = `${String(hours12).padStart(2, '0')}:${String(mins).padStart(2, '0')} ${meridiem}`;
-      slotSet.add(formatted);
-    }
-  }
-
-  // Always include all doctor's specifically configured slots
-  doctorSlots.forEach((s) => slotSet.add(s.trim()));
-
-  return Array.from(slotSet).sort((a, b) => parseTimeToMinutes(a) - parseTimeToMinutes(b));
+// Robust slot matching (handles exact strings, equivalent intervals, and 12h formats)
+const areSlotsMatching = (slotA: string, slotB: string): boolean => {
+  if (!slotA || !slotB) return false;
+  if (slotA.trim().toLowerCase() === slotB.trim().toLowerCase()) return true;
+  return parseSlotStartMinutes(slotA) === parseSlotStartMinutes(slotB);
 };
 
-  const [allDoctors, setAllDoctors] = useState<Doctor[]>(INITIAL_DOCTORS);
+const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
+  const slotSet = new Set<string>();
+
+  // Full platform standard intervals
+  STANDARD_CLINICAL_SLOTS.forEach((s) => slotSet.add(s));
+
+  // Also include doctor's configured standard slots
+  (doctorSlots || []).forEach((s) => {
+    if (s && s.trim()) slotSet.add(s.trim());
+  });
+
+  return Array.from(slotSet).sort((a, b) => parseSlotStartMinutes(a) - parseSlotStartMinutes(b));
+};
+
+  const [allDoctors, setAllDoctors] = useState<Doctor[]>([]);
+  const [currentDoctorDetail, setCurrentDoctorDetail] = useState<Doctor | null>(null);
+  const [loadingDoctors, setLoadingDoctors] = useState<boolean>(true);
+  const [doctorLoadError, setDoctorLoadError] = useState<string | null>(null);
+  const [selectedDocId, setSelectedDocId] = useState<string>(doctorId || '');
 
   React.useEffect(() => {
-    doctorService.getAllDoctors().then((docs) => {
-      if (docs && docs.length > 0) setAllDoctors(docs);
-    });
-  }, []);
+    setLoadingDoctors(true);
+    setDoctorLoadError(null);
+    realDoctorService.getAllDoctors()
+      .then((docs) => {
+        const docList = docs || [];
+        setAllDoctors(docList);
+        if (docList.length > 0) {
+          if (doctorId && docList.some((d) => d.id === doctorId)) {
+            setSelectedDocId(doctorId);
+          } else {
+            setSelectedDocId(docList[0].id);
+          }
+        }
+      })
+      .catch((err) => {
+        setDoctorLoadError(err.message || 'Failed to load doctors');
+        setAllDoctors([]);
+      })
+      .finally(() => {
+        setLoadingDoctors(false);
+      });
+  }, [doctorId]);
 
-  // Selected doctor (defaulting to Dr. Sarah Chen or the param)
-  const [selectedDocId, setSelectedDocId] = useState<string>(
-    doctorId || 'doc_sarah_chen'
-  );
+  // Fetch complete doctor profile to ensure latest practicing days and consultation fee
+  React.useEffect(() => {
+    if (!selectedDocId) return;
+    realDoctorService.getDoctorById(selectedDocId)
+      .then((detail) => {
+        if (detail) setCurrentDoctorDetail(detail);
+      })
+      .catch(() => {});
+  }, [selectedDocId]);
 
   const doctor = useMemo(() => {
-    return allDoctors.find((d) => d.id === selectedDocId) || allDoctors[0];
-  }, [allDoctors, selectedDocId]);
+    if (currentDoctorDetail && currentDoctorDetail.id === selectedDocId) {
+      return currentDoctorDetail;
+    }
+    if (!allDoctors || allDoctors.length === 0) return null;
+    return allDoctors.find((d) => d.id === selectedDocId) || allDoctors[0] || null;
+  }, [currentDoctorDetail, allDoctors, selectedDocId]);
 
   // Departments that THIS specific doctor actually has
   const doctorDepartments = useMemo(() => {
+    if (!doctor) return ['Specialist Consultation'];
     const spec = (doctor.specialty || '').trim();
     const lower = spec.toLowerCase();
 
@@ -433,11 +486,50 @@ const generateFullScheduleSlots = (doctorSlots: string[]): string[] => {
 
   const [patientName, setPatientName] = useState(user ? user.name : '');
   const [countryCode, setCountryCode] = useState('+971');
-  const [mobileNumber, setMobileNumber] = useState(user ? user.phone || '524122794' : '');
+  const [mobileNumber, setMobileNumber] = useState(user?.phone || '');
   const [patientEmail, setPatientEmail] = useState(user ? user.email : '');
   const [termsAccepted, setTermsAccepted] = useState(true);
 
-  // Generate date options (today + next 7 days)
+  // Beneficiary selector: 'self' | 'dependent' | 'other'
+  const [beneficiaryType, setBeneficiaryType] = useState<'self' | 'dependent' | 'other'>('self');
+  const [dependents, setDependents] = useState<FrontendDependent[]>([]);
+  const [selectedDependentId, setSelectedDependentId] = useState<string | null>(null);
+  const [loadingDependents, setLoadingDependents] = useState(false);
+
+  // Load dependents for logged in patient
+  React.useEffect(() => {
+    if (user && user.role === 'patient') {
+      setLoadingDependents(true);
+      patientService.getDependents()
+        .then((deps) => {
+          setDependents(deps || []);
+        })
+        .catch(() => {
+          setDependents([]);
+        })
+        .finally(() => {
+          setLoadingDependents(false);
+        });
+    }
+  }, [user]);
+
+  // Sync patient contact info if user is authenticated or rescheduling
+  React.useEffect(() => {
+    if (rescheduleApptData) {
+      if (rescheduleApptData.patientName) setPatientName(rescheduleApptData.patientName);
+      if (rescheduleApptData.patientPhone) setMobileNumber(rescheduleApptData.patientPhone);
+    }
+  }, [rescheduleApptData]);
+
+  React.useEffect(() => {
+    if (user && beneficiaryType === 'self') {
+      if (!patientName && user.name) setPatientName(user.name);
+      if (!mobileNumber && user.phone) setMobileNumber(user.phone);
+      if (!patientEmail && user.email) setPatientEmail(user.email);
+    }
+  }, [user, beneficiaryType]);
+
+  // Generate date options (today + next 7 days) with practicing day calculation
   const nextDates = useMemo(() => {
     const dates = [];
     const today = new Date();
@@ -445,68 +537,89 @@ const generateFullScheduleSlots = (doctorSlots: string[]): string[] => {
       const d = new Date();
       d.setDate(today.getDate() + i);
       const iso = d.toISOString().split('T')[0];
+      const dayEnglish = d.toLocaleDateString('en-US', { weekday: 'long' });
+      const isPracticing = doctor?.availableDays && doctor.availableDays.length > 0
+        ? doctor.availableDays.some((ad) => ad.toLowerCase() === dayEnglish.toLowerCase())
+        : true;
       const dayName = i === 0 ? t('booking.today') : i === 1 ? t('booking.tomorrow') : d.toLocaleDateString(language === 'ar' ? 'ar-AE' : 'en-US', { weekday: 'short' });
       const display = d.toLocaleDateString(language === 'ar' ? 'ar-AE' : 'en-US', { month: 'short', day: 'numeric' });
       const fullDisplay = d.toLocaleDateString(language === 'ar' ? 'ar-AE' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-      dates.push({ date: iso, dayName, display, fullDisplay });
+      dates.push({ date: iso, dayName, display, fullDisplay, dayEnglish, isPracticing });
     }
     return dates;
-  }, [language, t]);
+  }, [language, t, doctor?.availableDays]);
 
   const [selectedDateObj, setSelectedDateObj] = useState(nextDates[0]);
-  const [selectedSlot, setSelectedSlot] = useState(doctor.availableSlots[0] || '10:00 AM');
+  const [selectedSlot, setSelectedSlot] = useState<string>('');
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
-  const [existingAppointments, setExistingAppointments] = useState<Appointment[]>([]);
 
-  // Load existing bookings from the database
+  // Automatically select the first practicing day if current selection is an off-day
   React.useEffect(() => {
-    bookingService.getAllAppointments().then((data) => {
-      if (data) setExistingAppointments(data);
-    });
-  }, []);
-
-  // Compute which slots are already booked for this doctor on the selected date
-  const bookedSlotsForDate = useMemo(() => {
-    const dateStr = selectedDateObj.date;
-    const set = new Set<string>();
-    existingAppointments.forEach((a) => {
-      const isDocMatch =
-        a.doctorId === doctor.id ||
-        (a.doctorName && a.doctorName.toLowerCase().trim() === doctor.name.toLowerCase().trim());
-      if (!isDocMatch) return;
-      if (a.date !== dateStr) return;
-      if (a.status?.toLowerCase() === 'cancelled') return;
-
-      const slotTime = (a.timeSlot || a.time || '').trim();
-      if (slotTime) set.add(slotTime);
-    });
-    return set;
-  }, [existingAppointments, doctor, selectedDateObj.date]);
-
-  // Generate full daily schedule of slots (all times across the clinical day)
-  const fullScheduleSlots = useMemo(() => {
-    const base = generateFullScheduleSlots(doctor.availableSlots || []);
-    bookedSlotsForDate.forEach((s) => {
-      if (!base.includes(s)) base.push(s);
-    });
-    return base.sort((a, b) => parseTimeToMinutes(a) - parseTimeToMinutes(b));
-  }, [doctor.availableSlots, bookedSlotsForDate]);
-
-  // Keep selectedSlot on an available and unbooked slot
-  React.useEffect(() => {
-    const isAvailable = (doctor.availableSlots || []).includes(selectedSlot);
-    const isBooked = bookedSlotsForDate.has(selectedSlot);
-    if (!isAvailable || isBooked) {
-      const firstValid = fullScheduleSlots.find(
-        (s) => (doctor.availableSlots || []).includes(s) && !bookedSlotsForDate.has(s)
+    if (nextDates.length > 0 && doctor?.availableDays && doctor.availableDays.length > 0) {
+      const isCurrentValid = nextDates.some(
+        (d) => d.date === selectedDateObj?.date && d.isPracticing
       );
-      if (firstValid) {
-        setSelectedSlot(firstValid);
-      } else {
-        setSelectedSlot('');
+      if (!isCurrentValid) {
+        const firstPracticing = nextDates.find((d) => d.isPracticing);
+        if (firstPracticing) {
+          setSelectedDateObj(firstPracticing);
+        }
       }
     }
-  }, [doctor, selectedDateObj.date, fullScheduleSlots, bookedSlotsForDate]);
+  }, [doctor?.availableDays, nextDates]);
+
+  // Date-specific availability state loaded directly from the backend
+  const [dayAvailable, setDayAvailable] = useState<boolean>(true);
+  const [availableSlotsForDate, setAvailableSlotsForDate] = useState<string[]>([]);
+  const [bookedSlotsForDate, setBookedSlotsForDate] = useState<string[]>([]);
+  const [loadingAvailability, setLoadingAvailability] = useState<boolean>(false);
+
+  // Load existing availability & bookings from the backend for this doctor/date combo
+  React.useEffect(() => {
+    if (!doctor?.id || !selectedDateObj?.date) return;
+    setLoadingAvailability(true);
+    realDoctorService.getAvailability(doctor.id, selectedDateObj.date)
+      .then((avail) => {
+        if (avail) {
+          setDayAvailable(avail.available);
+          setAvailableSlotsForDate(avail.slots || []);
+          setBookedSlotsForDate(avail.booked_slots || []);
+        }
+      })
+      .catch(() => {
+        const isPracticing = (doctor.availableDays || []).some(
+          (d) => d.toLowerCase() === (selectedDateObj.dayEnglish || '').toLowerCase()
+        );
+        setDayAvailable(isPracticing);
+        setAvailableSlotsForDate(isPracticing ? (doctor.availableSlots || []) : []);
+        setBookedSlotsForDate([]);
+      })
+      .finally(() => {
+        setLoadingAvailability(false);
+      });
+  }, [doctor?.id, selectedDateObj?.date, selectedDateObj?.dayEnglish, doctor?.availableDays, doctor?.availableSlots]);
+
+  // Generate full daily schedule for the clinical slot grid
+  const fullScheduleSlots = useMemo(() => {
+    const slotSet = new Set<string>();
+    STANDARD_CLINICAL_SLOTS.forEach((s) => slotSet.add(s));
+    (doctor?.availableSlots || []).forEach((s) => slotSet.add(s));
+    availableSlotsForDate.forEach((s) => slotSet.add(s));
+    bookedSlotsForDate.forEach((s) => slotSet.add(s));
+    return Array.from(slotSet).sort((a, b) => parseSlotStartMinutes(a) - parseSlotStartMinutes(b));
+  }, [doctor?.availableSlots, availableSlotsForDate, bookedSlotsForDate]);
+
+  // Keep selectedSlot valid and auto-select first available slot when slots load
+  React.useEffect(() => {
+    if (!dayAvailable || availableSlotsForDate.length === 0) {
+      setSelectedSlot('');
+      return;
+    }
+    const isCurrentValid = availableSlotsForDate.some((s) => areSlotsMatching(s, selectedSlot));
+    if (!isCurrentValid) {
+      setSelectedSlot(availableSlotsForDate[0] || '');
+    }
+  }, [dayAvailable, availableSlotsForDate, selectedSlot]);
 
   // Booking completion state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -514,60 +627,68 @@ const generateFullScheduleSlots = (doctorSlots: string[]): string[] => {
   const [showMapModal, setShowMapModal] = useState(false);
 
   // Form validation for dynamic button styling
-  const isStep1Valid = doctor.status !== 'Deactivated' && Boolean(selectedSpecialty);
-  const isStep2Valid =
-    Boolean(selectedSlot) &&
-    (doctor.availableSlots || []).includes(selectedSlot) &&
-    !bookedSlotsForDate.has(selectedSlot);
+  const isSlotValid = Boolean(
+    selectedSlot &&
+    dayAvailable &&
+    availableSlotsForDate.some((s) => areSlotsMatching(s, selectedSlot)) &&
+    !bookedSlotsForDate.some((s) => areSlotsMatching(s, selectedSlot))
+  );
+
+  const isStep1Valid = Boolean(doctor && doctor.status !== 'Deactivated' && selectedSpecialty);
+  const isStep2Valid = isSlotValid;
 
   const isFormValid = useMemo(() => {
     return (
       patientName.trim().length > 0 &&
       mobileNumber.trim().length >= 7 &&
-      Boolean(selectedSlot) &&
-      (doctor.availableSlots || []).includes(selectedSlot) &&
-      !bookedSlotsForDate.has(selectedSlot) &&
+      isSlotValid &&
       termsAccepted
     );
-  }, [patientName, mobileNumber, selectedSlot, doctor.availableSlots, bookedSlotsForDate, termsAccepted]);
+  }, [patientName, mobileNumber, isSlotValid, termsAccepted]);
 
   const handleSelectDoctor = (id: string) => {
     setSelectedDocId(id);
-    const found = allDoctors.find((d) => d.id === id);
-    if (found) {
-      const foundSlots = generateFullScheduleSlots(found.availableSlots || []);
-      const firstValid = foundSlots.find(
-        (s) => (found.availableSlots || []).includes(s) && !bookedSlotsForDate.has(s)
-      );
-      setSelectedSlot(firstValid || '');
-    }
   };
 
   // Core booking logic — called directly when authenticated
   const submitBooking = async () => {
+    if (!doctor) return;
     setIsSubmitting(true);
     try {
-      const fullPhone = `${countryCode} ${mobileNumber.trim()}`;
-      const newAppt = await bookingService.createAppointment({
-        patientId: user ? user.id : 'guest_patient',
-        patientName: patientName.trim(),
-        patientPhone: fullPhone,
-        patientEmail: patientEmail.trim() || undefined,
-        doctorId: doctor.id,
-        doctorName: doctor.name,
-        doctorPhoto: doctor.photo,
-        specialty: selectedSpecialty,
-        hospitalId: doctor.hospitalId || 'hosp_cmc',
-        facilityName: doctor.hospitalName || 'American Hospital Dubai',
-        date: selectedDateObj.date,
-        timeSlot: selectedSlot,
-      });
-      setBookedAppointment(newAppt);
-      setExistingAppointments((prev) => [...prev, newAppt]);
-      showToast(t('booking.bookingConfirmedTitle'), 'success');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (rescheduleApptId) {
+        // Reschedule existing appointment in-place
+        const updatedAppt = await realBookingService.rescheduleAppointment(
+          rescheduleApptId,
+          selectedDateObj.date,
+          selectedSlot
+        );
+        setBookedAppointment(updatedAppt);
+        setBookedSlotsForDate((prev) => [...prev, selectedSlot]);
+        showToast(
+          isArabic ? 'تم تعديل موعدك بنجاح!' : 'Appointment successfully rescheduled!',
+          'success'
+        );
+        window.dispatchEvent(new CustomEvent('meetadr:notification_updated'));
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        // New appointment booking
+        const fullPhone = `${countryCode} ${mobileNumber.trim()}`;
+        const newAppt = await realBookingService.createBooking({
+          doctor_id: doctor.id,
+          date: selectedDateObj.date,
+          time_slot: selectedSlot,
+          dependent_id: beneficiaryType === 'dependent' ? selectedDependentId : undefined,
+          notes: '',
+          patient_phone: fullPhone,
+        });
+        setBookedAppointment(newAppt);
+        setBookedSlotsForDate((prev) => [...prev, selectedSlot]);
+        window.dispatchEvent(new CustomEvent('meetadr:notification_updated'));
+        showToast(t('booking.bookingConfirmedTitle'), 'success');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     } catch (err: any) {
-      showToast(err.message || 'Failed to place booking.', 'error');
+      showToast(err.message || (rescheduleApptId ? 'Failed to reschedule appointment.' : 'Failed to place booking.'), 'error');
     } finally {
       setIsSubmitting(false);
       setPendingBooking(false);
@@ -638,7 +759,7 @@ const generateFullScheduleSlots = (doctorSlots: string[]): string[] => {
       return;
     }
 
-    if (doctor.status === 'Deactivated') {
+    if (doctor?.status === 'Deactivated') {
       showToast(
         language === 'ar'
           ? 'عذراً، هذا الطبيب غير متاح للحجز حالياً.'
@@ -674,6 +795,35 @@ const generateFullScheduleSlots = (doctorSlots: string[]): string[] => {
     // Logged in — proceed directly
     await submitBooking();
   };
+
+  if (loadingDoctors) {
+    return (
+      <div className="bg-[#F4F7F9] min-h-screen py-16 px-4 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-[#2DA7B5] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (!doctor) {
+    return (
+      <div className="bg-[#F4F7F9] min-h-screen py-16 px-4 flex items-center justify-center">
+        <div className="bg-white rounded-3xl border border-[#E2EBF0] p-8 max-w-md w-full text-center shadow-xs">
+          <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto mb-4" />
+          <h2 className="text-lg font-bold text-slate-900 mb-2">Doctor Not Found</h2>
+          <p className="text-xs text-slate-500 mb-6">
+            {doctorLoadError || 'The requested doctor could not be loaded or is unavailable.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate('/doctors')}
+            className="w-full py-3 px-4 bg-[#2DA7B5] text-white text-xs font-bold rounded-xl hover:bg-[#23929F] transition-all cursor-pointer"
+          >
+            Browse Doctors
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#F4F7F9] min-h-screen py-8 px-4 sm:px-6 lg:px-8 font-sans text-slate-800">
@@ -757,7 +907,12 @@ const generateFullScheduleSlots = (doctorSlots: string[]): string[] => {
 
                 <div className="space-y-1">
                   <span className="text-slate-500 block">{t('booking.feeNote')}:</span>
-                  <p className="font-semibold text-[#0E7490]">{t('booking.payAtReception')} ({t('booking.zeroUpfrontPayment')})</p>
+                  <p className="font-extrabold text-[#0E7490]">
+                    AED {doctor.consultationFee || 500}{' '}
+                    <span className="font-normal text-xs text-slate-500">
+                      ({t('booking.payAtReception')} • {t('booking.zeroUpfrontPayment')})
+                    </span>
+                  </p>
                 </div>
               </div>
 
@@ -788,7 +943,7 @@ const generateFullScheduleSlots = (doctorSlots: string[]): string[] => {
             {/* The 2 Primary Action Buttons */}
             <div className="mt-8 flex flex-col sm:flex-row items-center gap-3">
               <Link
-                to="/patient/dashboard"
+                to="/patient/bookings"
                 className="w-full sm:w-1/2 py-3.5 px-5 bg-[#2DA7B5] hover:bg-[#23929F] text-white text-xs sm:text-sm font-bold rounded-xl text-center transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
               >
                 <Eye className="w-4 h-4" />
@@ -877,12 +1032,56 @@ const generateFullScheduleSlots = (doctorSlots: string[]): string[] => {
               {/* Page Header */}
               <div className="pb-5 border-b border-[#E2EBF0]">
                 <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                  {t('booking.pageTitle')}
+                  {rescheduleApptId
+                    ? (language === 'ar' ? 'إعادة جدولة الموعد' : 'Reschedule Appointment')
+                    : t('booking.pageTitle')}
                 </h1>
                 <p className="text-xs text-slate-500 mt-1">
-                  {t('booking.pageSubtitle')}
+                  {rescheduleApptId
+                    ? (language === 'ar' ? 'اختر تاريخاً ووقتاً جديدين لتحديث حجزك الحالي مباشرة دون إنشاء موعد جديد' : 'Select a new date and time slot to update your existing booking directly')
+                    : t('booking.pageSubtitle')}
                 </p>
               </div>
+
+              {/* Reschedule Mode Banner */}
+              {rescheduleApptId && (
+                <div className="mt-5 p-4 rounded-2xl bg-[#E8F6F8] border border-[#2DA7B5]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs animate-in fade-in duration-200">
+                  <div className="flex items-start sm:items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#2DA7B5]/15 border border-[#2DA7B5]/30 text-[#0E7490] flex items-center justify-center shrink-0">
+                      <RefreshCw className="w-5 h-5 text-[#2DA7B5]" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm font-bold text-slate-900">
+                          {language === 'ar' ? 'وضع إعادة الجدولة نشط' : 'Rescheduling Existing Appointment'}
+                        </h3>
+                        {rescheduleApptData?.id && (
+                          <span className="font-mono text-[11px] font-bold bg-white text-[#0E7490] px-2 py-0.5 rounded-md border border-[#2DA7B5]/30 shadow-2xs">
+                            #{rescheduleApptData.id.slice(-6).toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-600 mt-0.5">
+                        {rescheduleApptData ? (
+                          language === 'ar'
+                            ? `الموعد الحالي: ${rescheduleApptData.date} (${rescheduleApptData.timeSlot}). سيتم تحديث هذا الموعد فور تأكيدك.`
+                            : `Current booking: ${rescheduleApptData.date} (${rescheduleApptData.timeSlot}). Selecting a slot updates this appointment directly.`
+                        ) : (
+                          language === 'ar'
+                            ? 'اختر الوقت الجديد للمتابعة وتحديث الموعد.'
+                            : 'Select a new slot to update your appointment in place.'
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    to="/patient/bookings"
+                    className="self-end sm:self-center py-2 px-3.5 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl border border-[#E2EBF0] transition-all shadow-2xs shrink-0 cursor-pointer"
+                  >
+                    {language === 'ar' ? 'إلغاء والتراجع' : 'Cancel & Keep Existing'}
+                  </Link>
+                </div>
+              )}
 
               {/* Staff Account Detected Banner */}
               {isStaff && (
@@ -961,6 +1160,12 @@ const generateFullScheduleSlots = (doctorSlots: string[]): string[] => {
                           <Building2 className="w-3.5 h-3.5 text-[#2DA7B5] shrink-0" />
                           <span>{doctor.hospitalName || 'American Hospital Dubai'}</span>
                         </p>
+                        <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-[#E2EBF0] text-xs">
+                          <span className="text-slate-500 font-medium">{isArabic ? 'رسوم الاستشارة الطبية:' : 'Consultation Fee:'}</span>
+                          <span className="font-extrabold text-[#0E7490] bg-[#E8F6F8] px-2.5 py-0.5 rounded-lg border border-[#CDEBF0]">
+                            AED {doctor.consultationFee || 500}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
@@ -1116,10 +1321,12 @@ const generateFullScheduleSlots = (doctorSlots: string[]): string[] => {
                             key={d.date}
                             type="button"
                             onClick={() => setSelectedDateObj(d)}
-                            className={`p-2.5 rounded-2xl border text-center transition-all cursor-pointer shadow-2xs ${
+                            className={`p-2.5 rounded-2xl border text-center transition-all cursor-pointer shadow-2xs relative ${
                               isSelected
                                 ? 'bg-[#2DA7B5] text-white border-[#2DA7B5] font-bold scale-[1.02] shadow-xs'
-                                : 'bg-[#F8FAFC] border-[#E2EBF0] text-slate-700 hover:border-[#2DA7B5] hover:bg-white'
+                                : d.isPracticing
+                                ? 'bg-[#F8FAFC] border-[#E2EBF0] text-slate-700 hover:border-[#2DA7B5] hover:bg-white'
+                                : 'bg-slate-50/70 border-[#E2EBF0]/70 text-slate-400 hover:bg-slate-100'
                             }`}
                           >
                             <span className="text-[10px] block font-bold capitalize">
@@ -1128,6 +1335,11 @@ const generateFullScheduleSlots = (doctorSlots: string[]): string[] => {
                             <span className="text-xs font-semibold block mt-0.5">
                               {d.display}
                             </span>
+                            {!d.isPracticing && (
+                              <span className={`text-[9px] block font-semibold mt-0.5 ${isSelected ? 'text-white/80' : 'text-slate-400'}`}>
+                                {isArabic ? 'إجازة' : 'Off'}
+                              </span>
+                            )}
                           </button>
                         );
                       })}
@@ -1141,7 +1353,15 @@ const generateFullScheduleSlots = (doctorSlots: string[]): string[] => {
                         <Clock className="w-4 h-4 text-[#2DA7B5]" />
                         <span>{t('booking.selectTime')}</span>
                       </label>
-                      {selectedSlot ? (
+                      {loadingAvailability ? (
+                        <span className="text-xs text-slate-400 animate-pulse font-medium">
+                          {isArabic ? 'جاري التحقق من المواعيد المتاحة...' : 'Checking slot availability...'}
+                        </span>
+                      ) : !dayAvailable ? (
+                        <span className="text-xs font-semibold text-amber-600">
+                          {isArabic ? 'الطبيب غير متاح في هذا اليوم' : 'Doctor is off on this day'}
+                        </span>
+                      ) : selectedSlot ? (
                         <span className="text-xs font-bold text-[#2DA7B5]">
                           {t('booking.selectedSlotLabel')}: {selectedSlot}
                         </span>
@@ -1152,70 +1372,103 @@ const generateFullScheduleSlots = (doctorSlots: string[]): string[] => {
                       )}
                     </div>
 
-                    <div
-                      role="group"
-                      aria-label={isArabic ? 'اختر وقت الموعد' : 'Select appointment time'}
-                      className="grid grid-cols-4 sm:grid-cols-5 gap-1.5"
-                    >
-                      {fullScheduleSlots.map((slot) => {
-                        const isConfiguredAvailable = (doctor.availableSlots || []).includes(slot);
-                        const isBooked = bookedSlotsForDate.has(slot);
-                        const isAvailable = isConfiguredAvailable && !isBooked;
-                        const isSelected = selectedSlot === slot && isAvailable;
-
-                        // ── BOOKED ────────────────────────────────────────────
-                        if (isBooked) {
-                          return (
-                            <div
-                              key={slot}
-                              aria-label={isArabic ? `${slot} - محجوز` : `${slot} - Booked`}
-                              title={isArabic ? 'تم حجز هذا الموعد مسبقاً' : 'This slot is already booked'}
-                              className="py-2 px-1 text-center rounded-xl border border-[#E2EBF0] bg-slate-100 cursor-not-allowed select-none flex items-center justify-center min-h-[38px] relative overflow-hidden"
+                    {!dayAvailable ? (
+                      <div className="p-6 rounded-2xl bg-amber-50/80 border border-amber-200/80 text-center space-y-2">
+                        <Calendar className="w-8 h-8 text-amber-600 mx-auto" />
+                        <h4 className="text-sm font-bold text-amber-900">
+                          {isArabic
+                            ? `${doctor.name} غير متاح في يوم ${selectedDateObj.dayName}`
+                            : `${doctor.name} does not practice on ${selectedDateObj.dayEnglish}s`}
+                        </h4>
+                        <p className="text-xs text-amber-700 max-w-md mx-auto">
+                          {isArabic
+                            ? `الأيام المتاحة لهذا الطبيب هي: ${(doctor.availableDays || []).join('، ')}`
+                            : `Available practicing days: ${(doctor.availableDays || []).join(', ')}`}
+                        </p>
+                        {nextDates.some((d) => d.isPracticing && d.date !== selectedDateObj.date) && (
+                          <div className="pt-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const nextAvail = nextDates.find((d) => d.isPracticing);
+                                if (nextAvail) setSelectedDateObj(nextAvail);
+                              }}
+                              className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#2DA7B5] hover:bg-[#23929F] text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs"
                             >
-                              <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'repeating-linear-gradient(-45deg,currentColor 0,currentColor 1px,transparent 0,transparent 50%)', backgroundSize: '6px 6px' }} aria-hidden="true" />
-                              <span className="text-[11px] font-mono font-medium line-through text-slate-400 leading-none relative z-10">{slot}</span>
-                            </div>
-                          );
-                        }
+                              <span>{isArabic ? 'اختيار أقرب يوم متاح' : 'Select Next Available Day'}</span>
+                              <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div
+                        role="group"
+                        aria-label={isArabic ? 'اختر وقت الموعد' : 'Select appointment time'}
+                        className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1.5"
+                      >
+                        {fullScheduleSlots.map((slot) => {
+                          const isBooked = bookedSlotsForDate.some((b) => areSlotsMatching(b, slot));
+                          const isConfiguredAvailable = availableSlotsForDate.some((a) => areSlotsMatching(a, slot));
+                          const isAvailable = isConfiguredAvailable && !isBooked;
+                          const isSelected = areSlotsMatching(selectedSlot, slot) && isAvailable;
 
-                        // ── NOT AVAILABLE ─────────────────────────────────────
-                        if (!isConfiguredAvailable) {
+                          // ── BOOKED ────────────────────────────────────────────
+                          if (isBooked) {
+                            return (
+                              <div
+                                key={slot}
+                                aria-label={isArabic ? `${slot} - محجوز` : `${slot} - Booked`}
+                                title={isArabic ? 'تم حجز هذا الموعد مسبقاً' : 'This slot is already booked'}
+                                className="py-2.5 px-1 text-center rounded-xl border border-[#E2EBF0] bg-slate-100 cursor-not-allowed select-none flex items-center justify-center min-h-[38px] relative overflow-hidden"
+                              >
+                                <span className="text-[11px] font-mono font-medium line-through text-slate-400 leading-none relative z-10">{slot}</span>
+                              </div>
+                            );
+                          }
+
+                          // ── NOT CONFIGURED AVAILABLE ON THIS DAY ───────────────
+                          if (!isConfiguredAvailable) {
+                            return (
+                              <div
+                                key={slot}
+                                aria-label={isArabic ? `${slot} - غير متاح` : `${slot} - Not available`}
+                                title={isArabic ? 'هذا الموعد غير متاح في جدول الطبيب' : 'Doctor is not available at this time'}
+                                className="py-2.5 px-1 text-center rounded-xl border border-[#E2EBF0]/60 bg-slate-50 cursor-not-allowed select-none flex items-center justify-center min-h-[38px]"
+                              >
+                                <span className="text-[11px] font-mono font-medium text-slate-300 leading-none">{slot}</span>
+                              </div>
+                            );
+                          }
+
+                          // ── AVAILABLE / SELECTED ──────────────────────────────
                           return (
-                            <div
+                            <button
                               key={slot}
-                              aria-label={isArabic ? `${slot} - غير متاح` : `${slot} - Not available`}
-                              title={isArabic ? 'هذا الموعد غير متاح في جدول الطبيب' : 'Doctor is not available at this time'}
-                              className="py-2 px-1 text-center rounded-xl border border-[#E2EBF0]/60 bg-slate-50 cursor-not-allowed select-none flex items-center justify-center min-h-[38px]"
+                              type="button"
+                              aria-label={isSelected ? (isArabic ? `${slot} - محدد` : `${slot} - Selected`) : (isArabic ? `${slot} - متاح` : `${slot} - Available`)}
+                              aria-pressed={isSelected}
+                              onClick={() => {
+                                const canonical = availableSlotsForDate.find((a) => areSlotsMatching(a, slot)) || slot;
+                                setSelectedSlot(canonical);
+                              }}
+                              className={`py-2.5 px-1 text-center rounded-xl border text-[11px] font-mono font-bold transition-all cursor-pointer flex items-center justify-center min-h-[38px] relative focus:outline-none shadow-2xs active:scale-[0.97] ${
+                                isSelected
+                                  ? 'bg-[#2DA7B5] text-white border-[#2DA7B5] font-bold scale-[1.02] shadow-xs'
+                                  : 'bg-white text-slate-800 border-[#E2EBF0] hover:border-[#2DA7B5]'
+                              }`}
                             >
-                              <span className="text-[11px] font-mono font-medium text-slate-300 leading-none">{slot}</span>
-                            </div>
+                              {isSelected && (
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" fill="none" className="absolute top-1 right-1 w-2.5 h-2.5 text-white" aria-hidden="true">
+                                  <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              )}
+                              <span className="leading-none">{slot}</span>
+                            </button>
                           );
-                        }
-
-                        // ── AVAILABLE / SELECTED ──────────────────────────────
-                        return (
-                          <button
-                            key={slot}
-                            type="button"
-                            aria-label={isSelected ? (isArabic ? `${slot} - محدد` : `${slot} - Selected`) : (isArabic ? `${slot} - متاح` : `${slot} - Available`)}
-                            aria-pressed={isSelected}
-                            onClick={() => setSelectedSlot(slot)}
-                            className={`py-2 px-1 text-center rounded-xl border text-[11px] font-mono font-bold transition-all cursor-pointer flex items-center justify-center min-h-[38px] relative focus:outline-none shadow-2xs active:scale-[0.97] ${
-                              isSelected
-                                ? 'bg-[#2DA7B5] text-white border-[#2DA7B5] font-bold scale-[1.02] shadow-xs'
-                                : 'bg-white text-slate-800 border-[#E2EBF0] hover:border-[#2DA7B5]'
-                            }`}
-                          >
-                            {isSelected && (
-                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" fill="none" className="absolute top-1 right-1 w-2.5 h-2.5 text-white" aria-hidden="true">
-                                <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                            )}
-                            <span className="leading-none">{slot}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                        })}
+                      </div>
+                    )}
                   </div>
 
                   {/* Step 2 Actions */}
@@ -1309,6 +1562,39 @@ const generateFullScheduleSlots = (doctorSlots: string[]): string[] => {
                     </div>
                   </div>
 
+                  {/* Consultation Pricing Breakdown Card */}
+                  <div className="bg-[#F8FAFC] rounded-2xl border border-[#E2EBF0] p-4 space-y-2.5 shadow-2xs">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-600 font-medium">
+                        {isArabic ? 'رسوم الاستشارة الطبية التخصصية' : 'Specialist Consultation Fee'}
+                      </span>
+                      <span className="font-bold text-slate-900">
+                        AED {doctor.consultationFee || 500}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-600 font-medium">
+                        {isArabic ? 'رسوم خدمة حجز الموعد عبر المنصة' : 'Platform Booking Fee'}
+                      </span>
+                      <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                        {isArabic ? 'مجاناً (0 درهم)' : 'FREE (AED 0)'}
+                      </span>
+                    </div>
+                    <div className="border-t border-[#E2EBF0] pt-2 flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-900">
+                        {isArabic ? 'المبلغ الإجمالي عند الزيارة' : 'Total Amount Due at Clinic'}
+                      </span>
+                      <span className="text-base font-black text-[#0E7490]">
+                        AED {doctor.consultationFee || 500}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 bg-white p-2.5 rounded-xl border border-[#E2EBF0] text-center leading-relaxed">
+                      {isArabic
+                        ? '💳 لا يلزم الدفع الآن. يتم سداد المبلغ مباشرة لدى موظفي الاستقبال في المستشفى عند وصولك.'
+                        : '💳 Zero upfront payment required. Pay in person at the hospital / clinic reception desk upon arrival.'}
+                    </p>
+                  </div>
+
                   {/* Patient Info Fields */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
@@ -1319,6 +1605,158 @@ const generateFullScheduleSlots = (doctorSlots: string[]): string[] => {
                       <span className="text-[11px] text-slate-500">
                         * {t('common.required') || 'Required fields'}
                       </span>
+                    </div>
+
+                    {/* Beneficiary Selector: Myself / Dependents / Other */}
+                    <div className="space-y-2">
+                      <label className="block text-[11px] font-bold text-slate-700">
+                        {isArabic ? 'من هو المستفيد من هذا الموعد؟' : 'Who is this appointment for?'} *
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        {/* Myself */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBeneficiaryType('self');
+                            setSelectedDependentId(null);
+                            setPatientName(user?.name || '');
+                            if (user?.phone) setMobileNumber(user.phone);
+                            if (user?.email) setPatientEmail(user.email);
+                          }}
+                          className={`p-3 rounded-2xl border text-left rtl:text-right transition-all flex items-center gap-3 cursor-pointer ${
+                            beneficiaryType === 'self'
+                              ? 'bg-[#E8F6F8] border-[#2DA7B5] ring-2 ring-[#2DA7B5]/20 shadow-xs'
+                              : 'bg-[#F8FAFC] border-[#E2EBF0] hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                            beneficiaryType === 'self' ? 'bg-[#2DA7B5] text-white' : 'bg-slate-200 text-slate-600'
+                          }`}>
+                            <User className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-slate-900 truncate">{isArabic ? 'لنفسي' : 'Myself'}</p>
+                            <p className="text-[10px] text-slate-500 truncate">
+                              {user?.name || (isArabic ? 'صاحب الحساب' : 'Account owner')}
+                            </p>
+                          </div>
+                        </button>
+
+                        {/* A Dependent */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBeneficiaryType('dependent');
+                            if (dependents.length > 0) {
+                              const dep = dependents[0];
+                              setSelectedDependentId(dep.id);
+                              setPatientName(dep.name);
+                              if (dep.emergencyContact) setMobileNumber(dep.emergencyContact);
+                            }
+                          }}
+                          className={`p-3 rounded-2xl border text-left rtl:text-right transition-all flex items-center gap-3 cursor-pointer ${
+                            beneficiaryType === 'dependent'
+                              ? 'bg-[#E8F6F8] border-[#2DA7B5] ring-2 ring-[#2DA7B5]/20 shadow-xs'
+                              : 'bg-[#F8FAFC] border-[#E2EBF0] hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                            beneficiaryType === 'dependent' ? 'bg-[#2DA7B5] text-white' : 'bg-slate-200 text-slate-600'
+                          }`}>
+                            <Users className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-slate-900 truncate">{isArabic ? 'أحد التابعين' : 'A Dependent'}</p>
+                            <p className="text-[10px] text-slate-500 truncate">
+                              {dependents.length > 0 ? `${dependents.length} ${isArabic ? 'مسجلين' : 'registered'}` : (isArabic ? 'العائلة / الأبناء' : 'Family / Child')}
+                            </p>
+                          </div>
+                        </button>
+
+                        {/* Someone Else */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBeneficiaryType('other');
+                            setSelectedDependentId(null);
+                            setPatientName('');
+                            setMobileNumber('');
+                          }}
+                          className={`p-3 rounded-2xl border text-left rtl:text-right transition-all flex items-center gap-3 cursor-pointer ${
+                            beneficiaryType === 'other'
+                              ? 'bg-[#E8F6F8] border-[#2DA7B5] ring-2 ring-[#2DA7B5]/20 shadow-xs'
+                              : 'bg-[#F8FAFC] border-[#E2EBF0] hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                            beneficiaryType === 'other' ? 'bg-[#2DA7B5] text-white' : 'bg-slate-200 text-slate-600'
+                          }`}>
+                            <User className="w-4 h-4 opacity-70" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-slate-900 truncate">{isArabic ? 'شخص آخر' : 'Someone Else'}</p>
+                            <p className="text-[10px] text-slate-500 truncate">{isArabic ? 'إدخال يدوي' : 'Enter details'}</p>
+                          </div>
+                        </button>
+                      </div>
+
+                      {/* Dependent List Pills if Dependent is selected */}
+                      {beneficiaryType === 'dependent' && (
+                        <div className="mt-3 p-3.5 rounded-2xl bg-cyan-50/70 border border-cyan-200/80 space-y-2 animate-in fade-in duration-150">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-bold text-cyan-950">
+                              {isArabic ? 'اختر الشخص التابع من القائمة أدناه:' : 'Select dependent profile below:'}
+                            </span>
+                            <Link
+                              to="/patient/profile"
+                              className="text-[10px] font-bold text-[#0E7490] hover:underline"
+                            >
+                              {isArabic ? '+ إدارة التابعين' : '+ Manage Dependents'}
+                            </Link>
+                          </div>
+
+                          {loadingDependents ? (
+                            <div className="py-2 text-xs text-cyan-700 flex items-center gap-2">
+                              <div className="w-3 h-3 border-2 border-[#2DA7B5] border-t-transparent rounded-full animate-spin" />
+                              <span>{isArabic ? 'جارٍ تحميل التابعين...' : 'Loading dependents...'}</span>
+                            </div>
+                          ) : dependents.length > 0 ? (
+                            <div className="flex flex-wrap gap-2 pt-1">
+                              {dependents.map((dep) => {
+                                const isSelected = selectedDependentId === dep.id;
+                                return (
+                                  <button
+                                    key={dep.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedDependentId(dep.id);
+                                      setPatientName(dep.name);
+                                      if (dep.emergencyContact) setMobileNumber(dep.emergencyContact);
+                                    }}
+                                    className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+                                      isSelected
+                                        ? 'bg-[#2DA7B5] text-white shadow-xs'
+                                        : 'bg-white text-slate-700 border border-[#E2EBF0] hover:border-[#2DA7B5]'
+                                    }`}
+                                  >
+                                    <span>{dep.name}</span>
+                                    <span className={`text-[10px] font-normal ${isSelected ? 'text-cyan-100' : 'text-slate-400'}`}>
+                                      ({dep.relation})
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="text-xs text-slate-600 bg-white p-3 rounded-xl border border-cyan-200">
+                              <p>{isArabic ? 'لا توجد بيانات تابعين مسجلة بعد في ملفك الشخصي.' : 'No registered dependents found on your patient account.'}</p>
+                              <Link to="/patient/profile" className="text-[#2DA7B5] font-bold underline mt-1 inline-block">
+                                {isArabic ? 'إضافة تابع جديد في الملف الطبي' : 'Add dependent in Patient Profile'}
+                              </Link>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* Full Name */}
@@ -1466,7 +1904,7 @@ const generateFullScheduleSlots = (doctorSlots: string[]): string[] => {
                           {isSubmitting ? (
                             <>
                               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                              <span>{t('booking.confirmingWithHospital')}</span>
+                              <span>{rescheduleApptId ? (language === 'ar' ? 'جارٍ إعادة الجدولة...' : 'Rescheduling Appointment...') : t('booking.confirmingWithHospital')}</span>
                             </>
                           ) : !isAuthenticated && isFormValid ? (
                             <>
@@ -1475,7 +1913,7 @@ const generateFullScheduleSlots = (doctorSlots: string[]): string[] => {
                             </>
                           ) : (
                             <>
-                              <span>{t('booking.confirmAndBook')}</span>
+                              <span>{rescheduleApptId ? (language === 'ar' ? 'تأكيد إعادة الجدولة' : 'Confirm Reschedule') : t('booking.confirmAndBook')}</span>
                               <ArrowRight className="w-4 h-4 rtl:rotate-180" />
                             </>
                           )}
@@ -1539,7 +1977,7 @@ const generateFullScheduleSlots = (doctorSlots: string[]): string[] => {
       {/* Guest Login Modal — intercepts booking when user is not authenticated */}
       {showLoginModal && (
         <GuestLoginModal
-          doctorName={doctor.name}
+          doctorName={doctor?.name || 'Doctor'}
           onSuccess={handleLoginSuccess}
           onClose={() => { setShowLoginModal(false); setPendingBooking(false); }}
         />

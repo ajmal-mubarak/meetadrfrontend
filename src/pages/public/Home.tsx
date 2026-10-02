@@ -16,7 +16,7 @@ import {
   ChevronDown,
   Stethoscope,
   Building2,
-  Hospital,
+  Hospital as HospitalIcon,
   Phone,
   User,
   CheckCircle2,
@@ -36,30 +36,16 @@ import {
   LocateFixed,
   Loader2,
 } from 'lucide-react';
-import { INITIAL_DOCTORS } from '../../data/mockDoctors';
-import { INITIAL_HOSPITALS } from '../../data/mockHospitals';
 import { HEALTH_CONDITIONS, CONDITION_LETTERS, ALPHABET_LETTERS } from '../../data/mockConditions';
 import { SPECIALTIES } from '../../data/mockSpecialties';
+import { realDoctorService } from '../../services/realDoctorService';
+import { realHospitalService, realConditionService } from '../../services/realFacilityService';
+import { Doctor, Hospital as HospitalFacility } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { useUserLocation } from '../../context/LocationContext';
 import { UAE_EMIRATES } from '../../services/locationService';
 import { HospitalBrandLogo } from '../../components/common/HospitalLogos';
 
-// Helper for displaying hospital names in one single word
-const getOneWordHospitalName = (hosp: { id: string; name: string }): string => {
-  const shortNames: Record<string, string> = {
-    hosp_cmc: 'American Hospital',
-    hosp_1: 'CityCare',
-    hosp_2: 'Emirates',
-    hosp_3: 'Al-Noor',
-    hosp_4: 'Gulf',
-    hosp_5: 'Marina',
-    hosp_6: 'Capital',
-    hosp_7: 'Al-Zahra',
-    hosp_8: 'Sharjah',
-  };
-  return shortNames[hosp.id] || hosp.name.split(/[\s-(]+/)[0] || hosp.name;
-};
 import { useTranslation } from '../../i18n';
 
 // Suggested Specialties for autocomplete
@@ -142,6 +128,62 @@ export const Home: React.FC = () => {
   // Category filter state for doctors
   const [doctorCategory, setDoctorCategory] = useState('All');
 
+  // Real data from backend
+  const [realDoctors, setRealDoctors] = useState<Doctor[]>([]);
+  const [realHospitals, setRealHospitals] = useState<HospitalFacility[]>([]);
+  const [realConditions, setRealConditions] = useState(HEALTH_CONDITIONS);
+
+  useEffect(() => {
+    realDoctorService.getAllDoctors().then((d) => setRealDoctors(d || [])).catch(() => setRealDoctors([]));
+    realHospitalService.getAllHospitals().then((h) => setRealHospitals(h || [])).catch(() => setRealHospitals([]));
+    realConditionService.getConditions().then((res) => {
+      if (res?.results?.length) {
+        setRealConditions(res.results as any);
+      }
+    }).catch(() => {});
+  }, []);
+
+  // Compute real doctor count per specialty from backend data
+  const getSpecialtyDoctorCount = (specialtyQuery: string): number => {
+    if (!realDoctors.length) return 0;
+    const keywords: Record<string, string[]> = {
+      'Skin Care': ['derm', 'skin'],
+      'Dental': ['dental', 'dent'],
+      'ENT': ['ent', 'ear', 'nose', 'throat', 'otolaryng'],
+      'Physiotherapy': ['physio', 'rehab'],
+      'Radiology': ['radiol', 'imaging', 'mri'],
+      'Laboratory': ['lab', 'pathol'],
+      'Cardiology': ['cardio', 'heart'],
+      'Orthopedics': ['ortho', 'bone'],
+      'Pediatrics': ['pedia', 'child'],
+      'General Practice': ['general', 'family', 'internal'],
+      'Neurology': ['neuro', 'brain'],
+      'Ophthalmology': ['ophthal', 'eye', 'vision'],
+      'Gynecology': ['gynec', 'obstet', 'women'],
+      'Gastroenterology': ['gastro', 'digestive'],
+      'Endocrinology': ['endo', 'diabetes', 'thyroid'],
+      'Pulmonology': ['pulmon', 'respir', 'lung'],
+      'Urology': ['urol'],
+      'Home Care': ['home'],
+      'Oncology': ['onco', 'cancer'],
+    };
+    const kws = keywords[specialtyQuery] || [specialtyQuery.toLowerCase()];
+    return realDoctors.filter((d) =>
+      kws.some((kw) => (d.specialty || '').toLowerCase().includes(kw))
+    ).length;
+  };
+
+  const formatSpecialistCount = (count: number) => {
+    if (count <= 0) return '';
+    if (isArabic) {
+      return count === 1 ? '1 استشاري معتمد' : `${count} استشاريين معتمدين`;
+    }
+    return `${count} Specialist${count !== 1 ? 's' : ''}`;
+  };
+
+  // Known hospital IDs that have a brand logo
+  const KNOWN_LOGO_IDS = new Set(['hosp_ahd','hosp_cmc','hosp_1','hosp_2','hosp_3','hosp_4','hosp_5','hosp_6','hosp_7','hosp_8','hosp_suh']);
+
   const searchRef = useRef<HTMLDivElement>(null);
   const conditionRef = useRef<HTMLDivElement>(null);
   const locationRef = useRef<HTMLDivElement>(null);
@@ -164,12 +206,6 @@ export const Home: React.FC = () => {
       'Laboratory': 'المختبرات والتحاليل الطبية',
     };
     return arNames[spec.specialtyQuery] || translateSpecialty(spec.specialtyQuery) || spec.name;
-  };
-
-  const getSpecialtyCount = (countStr: string) => {
-    if (!isArabic) return countStr;
-    const num = countStr.split(' ')[0] || '';
-    return `${num} استشاري معتمد`;
   };
 
   const getSpecialtyDesc = (spec: { desc: string; specialtyQuery: string }) => {
@@ -364,8 +400,8 @@ export const Home: React.FC = () => {
     { name: 'Neurology', icon: Activity, count: `21 ${t('common.doctors')}`, color: 'text-purple-400 bg-purple-950/40 border-slate-800' },
   ];
 
-  // Filter doctors for the showcase section
-  const filteredDoctors = INITIAL_DOCTORS.filter((doc) => {
+  // Filter doctors for the showcase section — uses real backend data
+  const filteredDoctors = realDoctors.filter((doc) => {
     if (doctorCategory === 'All') return true;
     if (doctorCategory === 'Cardiology') return doc.specialty.toLowerCase().includes('cardio');
     if (doctorCategory === 'Dermatology') return doc.specialty.toLowerCase().includes('derm');
@@ -379,7 +415,7 @@ export const Home: React.FC = () => {
     if (doctorCategory === 'Home Care') {
       return (
         doc.specialty.toLowerCase().includes('home') ||
-        doc.about.toLowerCase().includes('home') ||
+        (doc.about || '').toLowerCase().includes('home') ||
         (doc.specialInterest && doc.specialInterest.some((si) => si.toLowerCase().includes('home')))
       );
     }
@@ -391,19 +427,19 @@ export const Home: React.FC = () => {
   const queryLower = trimmedQuery.toLowerCase();
   const isTyping = queryLower.length > 0;
 
-  // Matching Hospitals & Clinics (High priority - only when typed)
+  // Matching Hospitals & Clinics (High priority - only when typed) — uses real backend data
   const filteredHospitals = isTyping
-    ? INITIAL_HOSPITALS.filter((h) =>
+    ? realHospitals.filter((h) =>
         h.name.toLowerCase().includes(queryLower) ||
         h.location.toLowerCase().includes(queryLower) ||
-        h.address.toLowerCase().includes(queryLower) ||
+        (h.address || '').toLowerCase().includes(queryLower) ||
         (h.specialties && h.specialties.some((sp) => sp.toLowerCase().includes(queryLower)))
       ).slice(0, 3)
     : [];
 
-  // Matching Doctors (High priority - only when typed)
+  // Matching Doctors (High priority - only when typed) — uses real backend data
   const matchingSearchDoctors = isTyping
-    ? INITIAL_DOCTORS.filter((d) =>
+    ? realDoctors.filter((d) =>
         d.name.toLowerCase().includes(queryLower) ||
         d.specialty.toLowerCase().includes(queryLower) ||
         (d.hospitalName && d.hospitalName.toLowerCase().includes(queryLower)) ||
@@ -429,7 +465,7 @@ export const Home: React.FC = () => {
 
   // Health Condition suggestions for Field 2 (like old)
   const conditionQuery = selectedCondition.trim().toLowerCase();
-  const matchingConditions = HEALTH_CONDITIONS.filter((c) =>
+  const matchingConditions = realConditions.filter((c) =>
     !conditionQuery ||
     c.name.toLowerCase().includes(conditionQuery) ||
     c.specialist.toLowerCase().includes(conditionQuery) ||
@@ -442,8 +478,8 @@ export const Home: React.FC = () => {
       matchingSearchDoctors.length > 0 ||
       filteredHospitals.length > 0);
 
-  // Top hospital partners (8 hospitals across 2 lines)
-  const partnerHospitals = INITIAL_HOSPITALS.slice(0, 8);
+  // Top hospital partners (8 hospitals across 2 lines) — uses real backend data
+  const partnerHospitals = realHospitals.slice(0, 8);
 
   // Current Emirate display text and airport/IATA tag
   const currentEmirateDisplay = (() => {
@@ -1079,13 +1115,25 @@ export const Home: React.FC = () => {
               <div className="pointer-events-none absolute inset-y-0 right-0 w-12 sm:w-24 bg-gradient-to-l from-white via-white/80 to-transparent z-10" />
 
               <div className="animate-slide-left gap-3 sm:gap-4 items-center" dir="ltr">
-                {[...INITIAL_HOSPITALS, ...INITIAL_HOSPITALS].map((hosp, idx) => (
+                {[...realHospitals, ...realHospitals].map((hosp, idx) => (
                   <Link
                     to={`/hospitals/${hosp.id}`}
                     key={`partner-ticker-${hosp.id}-${idx}`}
-                    className="inline-flex items-center justify-center px-1.5 sm:px-2 py-1 shrink-0 group cursor-pointer transition-all duration-200 hover:scale-105 opacity-90 hover:opacity-100"
+                    className="inline-flex items-center justify-center px-2 sm:px-3 py-1.5 shrink-0 group cursor-pointer transition-all duration-200 hover:scale-105 opacity-90 hover:opacity-100"
                   >
-                    <HospitalBrandLogo hospitalId={hosp.id} className="h-8 sm:h-9 w-auto" theme="light" />
+                    {KNOWN_LOGO_IDS.has(hosp.id) ? (
+                      <HospitalBrandLogo hospitalId={hosp.id} className="h-8 sm:h-9 w-auto" theme="light" />
+                    ) : (
+                      <div className="flex flex-col items-start">
+                        <span className="text-xs font-bold text-slate-800 whitespace-nowrap leading-tight">{hosp.name}</span>
+                        {hosp.location && (
+                          <span className="text-[10px] text-slate-400 whitespace-nowrap leading-tight flex items-center gap-0.5">
+                            <MapPin className="w-2.5 h-2.5 shrink-0" />
+                            {hosp.location}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </Link>
                 ))}
               </div>
@@ -1134,7 +1182,6 @@ export const Home: React.FC = () => {
                   specialtyQuery: 'Skin Care',
                   desc: 'Dermatology & clinical skin care',
                   image: 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=500&auto=format&fit=crop&q=80',
-                  doctorCount: '38 Specialists',
                   icon: Sparkles,
                 },
                 {
@@ -1142,7 +1189,6 @@ export const Home: React.FC = () => {
                   specialtyQuery: 'Dental',
                   desc: 'Oral health & orthodontics',
                   image: 'https://images.unsplash.com/photo-1606811841689-23dfddce3e95?w=500&auto=format&fit=crop&q=80',
-                  doctorCount: '45 Specialists',
                   icon: Award,
                 },
                 {
@@ -1150,7 +1196,6 @@ export const Home: React.FC = () => {
                   specialtyQuery: 'ENT',
                   desc: 'Sinus, hearing & voice care',
                   image: 'https://images.unsplash.com/photo-1551076805-e1869033e561?w=500&auto=format&fit=crop&q=80',
-                  doctorCount: '28 Specialists',
                   icon: Activity,
                 },
                 {
@@ -1158,7 +1203,6 @@ export const Home: React.FC = () => {
                   specialtyQuery: 'Physiotherapy',
                   desc: 'Mobility & sports recovery',
                   image: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=500&auto=format&fit=crop&q=80',
-                  doctorCount: '34 Specialists',
                   icon: Users,
                 },
                 {
@@ -1166,7 +1210,6 @@ export const Home: React.FC = () => {
                   specialtyQuery: 'Radiology',
                   desc: '3T MRI, CT scans & ultrasound',
                   image: 'https://images.unsplash.com/photo-1516549655169-df83a0774514?w=500&auto=format&fit=crop&q=80',
-                  doctorCount: '26 Specialists',
                   icon: Zap,
                 },
                 {
@@ -1174,7 +1217,6 @@ export const Home: React.FC = () => {
                   specialtyQuery: 'Laboratory',
                   desc: 'Pathology & clinical testing',
                   image: 'https://images.unsplash.com/photo-1579165466741-7f35e4755660?w=500&auto=format&fit=crop&q=80',
-                  doctorCount: '22 Specialists',
                   icon: CheckCircle,
                 },
                 // Duplicate for seamless infinite loop
@@ -1183,7 +1225,6 @@ export const Home: React.FC = () => {
                   specialtyQuery: 'Skin Care',
                   desc: 'Dermatology & clinical skin care',
                   image: 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?w=500&auto=format&fit=crop&q=80',
-                  doctorCount: '38 Specialists',
                   icon: Sparkles,
                 },
                 {
@@ -1191,7 +1232,6 @@ export const Home: React.FC = () => {
                   specialtyQuery: 'Dental',
                   desc: 'Oral health & orthodontics',
                   image: 'https://images.unsplash.com/photo-1606811841689-23dfddce3e95?w=500&auto=format&fit=crop&q=80',
-                  doctorCount: '45 Specialists',
                   icon: Award,
                 },
                 {
@@ -1199,7 +1239,6 @@ export const Home: React.FC = () => {
                   specialtyQuery: 'ENT',
                   desc: 'Sinus, hearing & voice care',
                   image: 'https://images.unsplash.com/photo-1551076805-e1869033e561?w=500&auto=format&fit=crop&q=80',
-                  doctorCount: '28 Specialists',
                   icon: Activity,
                 },
                 {
@@ -1207,7 +1246,6 @@ export const Home: React.FC = () => {
                   specialtyQuery: 'Physiotherapy',
                   desc: 'Mobility & sports recovery',
                   image: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=500&auto=format&fit=crop&q=80',
-                  doctorCount: '34 Specialists',
                   icon: Users,
                 },
                 {
@@ -1215,7 +1253,6 @@ export const Home: React.FC = () => {
                   specialtyQuery: 'Radiology',
                   desc: '3T MRI, CT scans & ultrasound',
                   image: 'https://images.unsplash.com/photo-1516549655169-df83a0774514?w=500&auto=format&fit=crop&q=80',
-                  doctorCount: '26 Specialists',
                   icon: Zap,
                 },
                 {
@@ -1223,7 +1260,6 @@ export const Home: React.FC = () => {
                   specialtyQuery: 'Laboratory',
                   desc: 'Pathology & clinical testing',
                   image: 'https://images.unsplash.com/photo-1579165466741-7f35e4755660?w=500&auto=format&fit=crop&q=80',
-                  doctorCount: '22 Specialists',
                   icon: CheckCircle,
                 },
               ].map((spec, idx) => {
@@ -1248,11 +1284,13 @@ export const Home: React.FC = () => {
                     <div className="absolute inset-0 bg-gradient-to-t from-[#081217] via-[#081217]/50 to-transparent" />
 
                     {/* Top badge: Specialists Count */}
-                    <div className="absolute top-2.5 right-2.5 rtl:right-auto rtl:left-2.5">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#0C1A22] text-[10px] font-semibold text-slate-200 border border-slate-800">
-                        {getSpecialtyCount(spec.doctorCount)}
-                      </span>
-                    </div>
+                    {getSpecialtyDoctorCount(spec.specialtyQuery) > 0 && (
+                      <div className="absolute top-2.5 right-2.5 rtl:right-auto rtl:left-2.5">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#0C1A22] text-[10px] font-semibold text-slate-200 border border-slate-800">
+                          {formatSpecialistCount(getSpecialtyDoctorCount(spec.specialtyQuery))}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Content */}
                     <div className="absolute inset-0 flex flex-col justify-end p-3.5 sm:p-4 text-left rtl:text-right">
@@ -1281,7 +1319,6 @@ export const Home: React.FC = () => {
                   specialtyQuery: 'Cardiology',
                   desc: 'Heart & cardiovascular care',
                   image: 'https://images.unsplash.com/photo-1628348068343-c6a848d2b6dd?w=500&auto=format&fit=crop&q=80',
-                  doctorCount: '42 Specialists',
                   icon: HeartPulse,
                 },
                 {
@@ -1289,7 +1326,6 @@ export const Home: React.FC = () => {
                   specialtyQuery: 'Orthopedics',
                   desc: 'Joints, bones & spine surgery',
                   image: 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=500&auto=format&fit=crop&q=80',
-                  doctorCount: '35 Specialists',
                   icon: Bone,
                 },
                 {
@@ -1297,7 +1333,6 @@ export const Home: React.FC = () => {
                   specialtyQuery: 'Pediatrics',
                   desc: 'Child health & newborn care',
                   image: 'https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=500&auto=format&fit=crop&q=80',
-                  doctorCount: '29 Specialists',
                   icon: Baby,
                 },
                 {
@@ -1305,7 +1340,6 @@ export const Home: React.FC = () => {
                   specialtyQuery: 'General Practice',
                   desc: 'Family medicine & wellness',
                   image: 'https://images.unsplash.com/photo-1666214280557-f1b5022eb634?w=500&auto=format&fit=crop&q=80',
-                  doctorCount: '54 Specialists',
                   icon: Stethoscope,
                 },
                 {
@@ -1313,7 +1347,6 @@ export const Home: React.FC = () => {
                   specialtyQuery: 'Neurology',
                   desc: 'Brain, nerves & headache care',
                   image: 'https://images.unsplash.com/photo-1559757175-5700dde675bc?w=500&auto=format&fit=crop&q=80',
-                  doctorCount: '21 Specialists',
                   icon: Brain,
                 },
                 {
@@ -1321,7 +1354,6 @@ export const Home: React.FC = () => {
                   specialtyQuery: 'Ophthalmology',
                   desc: 'Vision care & LASIK surgery',
                   image: 'https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?w=500&auto=format&fit=crop&q=80',
-                  doctorCount: '24 Specialists',
                   icon: Eye,
                 },
                 // Duplicate for seamless infinite loop
@@ -1330,7 +1362,6 @@ export const Home: React.FC = () => {
                   specialtyQuery: 'Cardiology',
                   desc: 'Heart & cardiovascular care',
                   image: 'https://images.unsplash.com/photo-1628348068343-c6a848d2b6dd?w=500&auto=format&fit=crop&q=80',
-                  doctorCount: '42 Specialists',
                   icon: HeartPulse,
                 },
                 {
@@ -1338,7 +1369,6 @@ export const Home: React.FC = () => {
                   specialtyQuery: 'Orthopedics',
                   desc: 'Joints, bones & spine surgery',
                   image: 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=500&auto=format&fit=crop&q=80',
-                  doctorCount: '35 Specialists',
                   icon: Bone,
                 },
                 {
@@ -1346,7 +1376,6 @@ export const Home: React.FC = () => {
                   specialtyQuery: 'Pediatrics',
                   desc: 'Child health & newborn care',
                   image: 'https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=500&auto=format&fit=crop&q=80',
-                  doctorCount: '29 Specialists',
                   icon: Baby,
                 },
                 {
@@ -1354,7 +1383,6 @@ export const Home: React.FC = () => {
                   specialtyQuery: 'General Practice',
                   desc: 'Family medicine & wellness',
                   image: 'https://images.unsplash.com/photo-1666214280557-f1b5022eb634?w=500&auto=format&fit=crop&q=80',
-                  doctorCount: '54 Specialists',
                   icon: Stethoscope,
                 },
                 {
@@ -1362,7 +1390,6 @@ export const Home: React.FC = () => {
                   specialtyQuery: 'Neurology',
                   desc: 'Brain, nerves & headache care',
                   image: 'https://images.unsplash.com/photo-1559757175-5700dde675bc?w=500&auto=format&fit=crop&q=80',
-                  doctorCount: '21 Specialists',
                   icon: Brain,
                 },
                 {
@@ -1370,7 +1397,6 @@ export const Home: React.FC = () => {
                   specialtyQuery: 'Ophthalmology',
                   desc: 'Vision care & LASIK surgery',
                   image: 'https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?w=500&auto=format&fit=crop&q=80',
-                  doctorCount: '24 Specialists',
                   icon: Eye,
                 },
               ].map((spec, idx) => {
@@ -1395,11 +1421,13 @@ export const Home: React.FC = () => {
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/40 to-transparent" />
 
                     {/* Top badge: Specialists Count */}
-                    <div className="absolute top-2.5 right-2.5 rtl:right-auto rtl:left-2.5">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-white/95 text-[10px] font-semibold text-slate-800 border border-[#E2EBF0] shadow-xs">
-                        {getSpecialtyCount(spec.doctorCount)}
-                      </span>
-                    </div>
+                    {getSpecialtyDoctorCount(spec.specialtyQuery) > 0 && (
+                      <div className="absolute top-2.5 right-2.5 rtl:right-auto rtl:left-2.5">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-white/95 text-[10px] font-semibold text-slate-800 border border-[#E2EBF0] shadow-xs">
+                          {formatSpecialistCount(getSpecialtyDoctorCount(spec.specialtyQuery))}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Content */}
                     <div className="absolute inset-0 flex flex-col justify-end p-3.5 sm:p-4 text-left rtl:text-right">
@@ -1471,10 +1499,12 @@ export const Home: React.FC = () => {
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     referrerPolicy="no-referrer"
                   />
-                  <div className="absolute top-2.5 right-2.5 rtl:right-auto rtl:left-2.5 bg-white/95 backdrop-blur-xs px-2 py-0.5 rounded-md text-[11px] font-bold text-slate-800 flex items-center gap-1 border border-[#E2EBF0] shadow-xs">
-                    <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                    <span>{hosp.rating}</span>
-                  </div>
+                  {hosp.rating > 0 && (
+                    <div className="absolute top-2.5 right-2.5 rtl:right-auto rtl:left-2.5 bg-white/95 backdrop-blur-xs px-2 py-0.5 rounded-md text-[11px] font-bold text-slate-800 flex items-center gap-1 border border-[#E2EBF0] shadow-xs">
+                      <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                      <span>{hosp.rating}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-4 space-y-2">
@@ -1565,10 +1595,12 @@ export const Home: React.FC = () => {
                       <span className="text-[10px] font-bold text-[#0E7490] bg-[#E8F6F8] border border-[#CDEBF0] px-2 py-0.5 rounded-full truncate">
                         {translateSpecialty(doc.specialty)}
                       </span>
-                      <div className="flex items-center gap-1 text-[11px] font-bold text-amber-500 shrink-0">
-                        <Star className="w-3 h-3 fill-amber-500" />
-                        <span>{doc.rating}</span>
-                      </div>
+                      {doc.rating > 0 && (
+                        <div className="flex items-center gap-1 text-[11px] font-bold text-amber-500 shrink-0">
+                          <Star className="w-3 h-3 fill-amber-500" />
+                          <span>{doc.rating}</span>
+                        </div>
+                      )}
                     </div>
 
                     <Link to={`/doctors/${doc.id}`}>

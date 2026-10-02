@@ -140,6 +140,7 @@ export const JoinProviderPage: React.FC = () => {
       const result = await providerService.submitJoinRequest({
         providerType: wizardData.providerType,
         name: wizardData.facilityName.trim(),
+        contactPerson: wizardData.contactPerson.trim() || wizardData.facilityName.trim(),
         contactNumber: `${wizardData.countryCode} ${wizardData.contactNumber.trim()}`,
         email: wizardData.email.trim(),
         country: wizardData.country,

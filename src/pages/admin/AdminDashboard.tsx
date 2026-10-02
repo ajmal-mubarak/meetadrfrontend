@@ -13,22 +13,11 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useTranslation } from '../../i18n';
-import { reportService } from '../../services/reportService';
-import { bookingService } from '../../services/bookingService';
-import { providerService } from '../../services/providerService';
+import { realAdminService } from '../../services/realAdminService';
 import { Appointment, ProviderRequest } from '../../types';
 import { StatusBadge } from '../../components/common/StatusBadge';
 
-// ── Fallback Trend & Specialty Data ──────────────────────────────────────────
-const BASE_TREND = [
-  { monthEn: 'Apr', monthAr: 'أبريل', bookings: 142, volume: 184 },
-  { monthEn: 'May', monthAr: 'مايو', bookings: 189, volume: 243 },
-  { monthEn: 'Jun', monthAr: 'يونيو', bookings: 167, volume: 217 },
-  { monthEn: 'Jul', monthAr: 'يوليو', bookings: 234, volume: 302 },
-  { monthEn: 'Aug', monthAr: 'أغسطس', bookings: 298, volume: 386 },
-  { monthEn: 'Sep', monthAr: 'سبتمبر', bookings: 312, volume: 401 },
-  { monthEn: 'Oct', monthAr: 'أكتوبر', bookings: 345, volume: 440 },
-];
+
 
 const SPECIALTY_COLORS: Record<string, string> = {
   Cardiology: '#2563EB',
@@ -102,16 +91,18 @@ export const AdminDashboard: React.FC = () => {
     async function load() {
       setIsLoading(true);
       try {
-        const [kpis, appts, requests, reports] = await Promise.all([
-          reportService.getSystemOverview(),
-          bookingService.getAllAppointments(),
-          providerService.getAllRequests(),
-          reportService.getAnalyticalReports(),
+        const [kpis, appts, requests] = await Promise.all([
+          realAdminService.getDashboard(),
+          realAdminService.getBookings(),
+          realAdminService.getRequests(),
         ]);
         setStats(kpis);
         setRecentBookings(appts.slice(0, 6));
         setPendingRequests(requests.filter((r) => r.status === 'pending'));
-        setAnalytics(reports);
+        setAnalytics(kpis);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to load dashboard metrics';
+        showToast(msg, 'error');
       } finally {
         setIsLoading(false);
       }
@@ -122,13 +113,7 @@ export const AdminDashboard: React.FC = () => {
   // Specialty Data formatted for Donut Chart
   const specialtyChartData = useMemo(() => {
     if (!analytics?.bySpecialty?.length) {
-      return [
-        { name: 'Cardiology', value: 35, color: '#2563EB' },
-        { name: 'Dermatology', value: 25, color: '#6366f1' },
-        { name: 'Orthopedics', value: 20, color: '#f59e0b' },
-        { name: 'Pediatrics', value: 12, color: '#10b981' },
-        { name: 'Neurology', value: 8, color: '#ef4444' },
-      ];
+      return [];
     }
     return analytics.bySpecialty.slice(0, 5).map((item: { specialty: string; count: number }) => ({
       name: item.specialty,
@@ -144,20 +129,24 @@ export const AdminDashboard: React.FC = () => {
     const daysAr = ['الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'];
     return daysEn.map((day, i) => ({
       day: isArabic ? daysAr[i] : day,
-      doctors: 10 + (i * 3) % 15,
-      hospitals: 3 + (i % 4),
-      clinics: 5 + (i * 2) % 8,
+      doctors: stats?.totalDoctors || 0,
+      hospitals: stats?.totalHospitals || 0,
+      clinics: stats?.totalClinics || 0,
     }));
-  }, [isArabic]);
+  }, [isArabic, stats]);
 
-  // Trend Data with localized month
+  // Trend Data with localized month - strictly real API data
   const trendData = useMemo(() => {
-    return BASE_TREND.map((item) => ({
-      month: isArabic ? item.monthAr : item.monthEn,
-      [isArabic ? 'الحجوزات' : 'Bookings']: item.bookings,
-      [isArabic ? 'الاستشارات' : 'Consultations']: item.volume,
-    }));
-  }, [isArabic]);
+    const list = analytics?.monthlyTrend || analytics?.byMonth;
+    if (Array.isArray(list) && list.length > 0) {
+      return list.map((item: any) => ({
+        month: isArabic ? (item.monthAr || item.month || '') : (item.monthEn || item.month || item.label || ''),
+        [isArabic ? 'الحجوزات' : 'Bookings']: item.bookings || item.count || 0,
+        [isArabic ? 'الاستشارات' : 'Consultations']: item.consultations || item.volume || 0,
+      }));
+    }
+    return [];
+  }, [analytics, isArabic]);
 
   return (
     <div className="space-y-6 w-full max-w-full">
@@ -263,43 +252,50 @@ export const AdminDashboard: React.FC = () => {
             </span>
           </div>
 
-          <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={trendData} margin={{ top: 10, right: 10, bottom: 0, left: -15 }}>
-              <defs>
-                <linearGradient id="adminBookingGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#2DA7B5" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#2DA7B5" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="adminConsultGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#0284c7" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#0284c7" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E2EBF0" />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 10 }} />
-              <Area
-                type="monotone"
-                dataKey={isArabic ? 'الحجوزات' : 'Bookings'}
-                stroke="#2DA7B5"
-                strokeWidth={3}
-                fill="url(#adminBookingGrad)"
-                dot={{ fill: '#2DA7B5', r: 3 }}
-                activeDot={{ r: 6 }}
-              />
-              <Area
-                type="monotone"
-                dataKey={isArabic ? 'الاستشارات' : 'Consultations'}
-                stroke="#0284c7"
-                strokeWidth={2}
-                fill="url(#adminConsultGrad)"
-                dot={{ fill: '#0284c7', r: 3 }}
-                activeDot={{ r: 5 }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          {trendData.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 text-slate-400 text-xs">
+              <AlertCircle className="w-8 h-8 mb-2 stroke-1 text-slate-300" />
+              <p>{isArabic ? 'لا توجد بيانات حجوزات مسجلة لهذه الفترة بعد' : 'No booking trend records for this period yet'}</p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={260}>
+              <AreaChart data={trendData} margin={{ top: 10, right: 10, bottom: 0, left: -15 }}>
+                <defs>
+                  <linearGradient id="adminBookingGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#2DA7B5" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#2DA7B5" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="adminConsultGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#0284c7" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#0284c7" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E2EBF0" />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 10 }} />
+                <Area
+                  type="monotone"
+                  dataKey={isArabic ? 'الحجوزات' : 'Bookings'}
+                  stroke="#2DA7B5"
+                  strokeWidth={3}
+                  fill="url(#adminBookingGrad)"
+                  dot={{ fill: '#2DA7B5', r: 3 }}
+                  activeDot={{ r: 6 }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey={isArabic ? 'الاستشارات' : 'Consultations'}
+                  stroke="#0284c7"
+                  strokeWidth={2}
+                  fill="url(#adminConsultGrad)"
+                  dot={{ fill: '#0284c7', r: 3 }}
+                  activeDot={{ r: 5 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
         {/* Specialty Donut Chart */}
@@ -307,47 +303,56 @@ export const AdminDashboard: React.FC = () => {
           <div>
             <h3 className="text-base font-bold text-slate-900 mb-1">{t('adminPortal.topSpecialties')}</h3>
             <p className="text-xs text-slate-500 mb-4">{isArabic ? 'توزيع الحجوزات الطبية حسب التخصص' : 'Consultations volume by medical discipline'}</p>
-            <ResponsiveContainer width="100%" height={170}>
-              <PieChart>
-                <Pie
-                  data={specialtyChartData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={48}
-                  outerRadius={75}
-                  paddingAngle={4}
-                  dataKey="value"
-                  strokeWidth={0}
-                >
-                  {specialtyChartData.map((entry: any, i: number) => (
-                    <Cell key={i} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(v: any) => [`${v} ${isArabic ? 'حجوزات' : 'visits'}`, '']}
-                  contentStyle={{
-                    background: '#ffffff',
-                    border: '1px solid #E2EBF0',
-                    borderRadius: 12,
-                    color: '#0f172a',
-                    fontSize: 12,
-                    boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="space-y-2 mt-4 pt-3 border-t border-[#E2EBF0]">
-            {specialtyChartData.map((s: any) => (
-              <div key={s.name} className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: s.color }} />
-                  <span className="text-slate-700 font-semibold">{s.translatedName || s.name}</span>
-                </div>
-                <span className="font-mono font-bold text-slate-900">{s.value}</span>
+            {specialtyChartData.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-44 text-slate-400 text-xs">
+                <AlertCircle className="w-8 h-8 mb-2 stroke-1 text-slate-300" />
+                <p>{isArabic ? 'لا توجد بيانات تخصصات مسجلة بعد' : 'No specialty distribution data recorded yet'}</p>
               </div>
-            ))}
+            ) : (
+              <>
+                <ResponsiveContainer width="100%" height={170}>
+                  <PieChart>
+                    <Pie
+                      data={specialtyChartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={48}
+                      outerRadius={75}
+                      paddingAngle={4}
+                      dataKey="value"
+                      strokeWidth={0}
+                    >
+                      {specialtyChartData.map((entry: any, i: number) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(v: any) => [`${v} ${isArabic ? 'حجوزات' : 'visits'}`, '']}
+                      contentStyle={{
+                        background: '#ffffff',
+                        border: '1px solid #E2EBF0',
+                        borderRadius: 12,
+                        color: '#0f172a',
+                        fontSize: 12,
+                        boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+
+                <div className="space-y-2 mt-4 pt-3 border-t border-[#E2EBF0]">
+                  {specialtyChartData.map((s: any) => (
+                    <div key={s.name} className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: s.color }} />
+                        <span className="text-slate-700 font-semibold">{s.translatedName || s.name}</span>
+                      </div>
+                      <span className="font-mono font-bold text-slate-900">{s.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

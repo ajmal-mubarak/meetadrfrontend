@@ -6,7 +6,6 @@ import {
   Stethoscope,
   Hospital,
   Shield,
-  Zap,
   Phone,
   Mail,
   Lock,
@@ -81,15 +80,8 @@ const ROLES: {
     },
   ];
 
-const QUICK_DEMOS: { role: UserRole; label: string; cls: string }[] = [
-  { role: 'patient', label: 'Patient', cls: 'bg-[#2DA7B5] hover:bg-[#23929F] text-white' },
-  { role: 'doctor', label: 'Doctor', cls: 'bg-sky-600 hover:bg-sky-700 text-white' },
-  { role: 'hospital', label: 'Hospital', cls: 'bg-indigo-600 hover:bg-indigo-700 text-white' },
-  { role: 'admin', label: 'Admin', cls: 'bg-slate-800 hover:bg-slate-700 text-white' },
-];
-
 export const LoginPage: React.FC<LoginPageProps> = ({ forcedRole }) => {
-  const { login, quickLoginAs } = useAuth();
+  const { login } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -99,7 +91,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ forcedRole }) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [quickLoading, setQuickLoading] = useState<UserRole | null>(null);
 
   const role = ROLES.find((r) => r.role === activeRole)!;
 
@@ -123,18 +114,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ forcedRole }) => {
     } catch (err: any) {
       showToast(err.message || 'Invalid credentials.', 'error');
     } finally { setIsLoading(false); }
-  };
-
-  const handleQuickLogin = async (r: UserRole) => {
-    setQuickLoading(r);
-    try {
-      await quickLoginAs(r);
-      const found = ROLES.find((x) => x.role === r)!;
-      showToast(`Signed in as ${found.label}`, 'success');
-      navigate(found.dashboard);
-    } catch (err: any) {
-      showToast(err.message || 'Quick login failed.', 'error');
-    } finally { setQuickLoading(null); }
   };
 
   const autofill = () => {
@@ -177,30 +156,52 @@ export const LoginPage: React.FC<LoginPageProps> = ({ forcedRole }) => {
         <div className="bg-white rounded-3xl shadow-sm border border-[#E2EBF0] overflow-hidden">
           <div className="px-6 py-6 space-y-5">
 
-            {/* ── Demo quick access ── */}
+            {/* ── Test Credentials Reference ── */}
             <div className="rounded-2xl bg-[#F8FAFC] border border-[#E2EBF0] p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-5 h-5 rounded-md bg-amber-100 border border-amber-300 flex items-center justify-center shrink-0">
-                  <Zap className="w-3 h-3 text-amber-600" strokeWidth={2.5} />
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-md bg-[#E8F6F8] border border-[#CDEBF0] flex items-center justify-center shrink-0">
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#2DA7B5]" strokeWidth={2.5} />
+                  </div>
+                  <span className="text-xs font-bold text-slate-800 tracking-wide">
+                    Test Account Credentials
+                  </span>
                 </div>
-                <span className="text-xs font-bold text-slate-700 tracking-wide">
-                  Instant Demo Access
-                </span>
+                <span className="text-[10px] font-semibold text-slate-400">Click card to fill</span>
               </div>
-              <div className="flex gap-2">
-                {QUICK_DEMOS.map((dq) => (
-                  <button
-                    key={dq.role}
-                    type="button"
-                    onClick={() => handleQuickLogin(dq.role)}
-                    disabled={quickLoading !== null}
-                    className={`flex-1 py-2 rounded-xl text-[11px] font-bold transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1 shadow-2xs ${dq.cls}`}
-                  >
-                    {quickLoading === dq.role
-                      ? <div className="w-3 h-3 border-2 border-white/60 border-t-white rounded-full animate-spin" />
-                      : dq.label}
-                  </button>
-                ))}
+              <div className="grid grid-cols-2 gap-2">
+                {ROLES.map((r) => {
+                  const Icon = r.icon;
+                  const isSelected = loginInput === r.demoEmail;
+                  return (
+                    <button
+                      key={r.role}
+                      type="button"
+                      onClick={() => {
+                        setActiveRole(r.role);
+                        setLoginInput(r.demoEmail);
+                        setPassword(r.demoPassword);
+                        setShowPassword(true);
+                      }}
+                      className={`text-left p-2.5 rounded-xl border transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-white border-[#2DA7B5] shadow-xs ring-1 ring-[#2DA7B5]/30'
+                          : 'bg-white hover:bg-slate-50 border-[#E2EBF0] hover:border-slate-300 shadow-2xs'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Icon className={`w-3.5 h-3.5 ${r.activeText}`} />
+                        <span className="text-xs font-bold text-slate-800">{r.label}</span>
+                      </div>
+                      <div className="text-[10px] font-mono text-slate-500 truncate" title={r.demoEmail}>
+                        {r.demoEmail}
+                      </div>
+                      <div className="text-[10px] font-mono text-slate-500 mt-0.5">
+                        Pass: <span className="font-semibold text-slate-700">{r.demoPassword}</span>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -310,8 +311,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({ forcedRole }) => {
           </div>
         </div>
 
-        {/* Back link */}
-        <div className="text-center mt-5">
+        {/* Back + Register links */}
+        <div className="text-center mt-5 space-y-2">
+          {(!forcedRole || forcedRole === 'patient') && (
+            <p className="text-xs text-slate-500">
+              Don't have an account?{' '}
+              <Link
+                to="/register"
+                className="text-[#2DA7B5] hover:text-[#0E7490] font-bold transition-colors"
+              >
+                Register here
+              </Link>
+            </p>
+          )}
           <Link
             to="/"
             className="text-xs text-slate-500 hover:text-[#2DA7B5] font-semibold transition-colors inline-flex items-center gap-1"

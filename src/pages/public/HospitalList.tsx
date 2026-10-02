@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Building2, MapPin, Star, Phone, Clock, Search, ShieldCheck, Activity, ArrowRight, ChevronDown } from 'lucide-react';
-import { hospitalService } from '../../services/hospitalService';
+import { realHospitalService } from '../../services/realFacilityService';
 import { Hospital } from '../../types';
 import { LOCATIONS, matchesLocation } from '../../data/mockSpecialties';
 import { useTranslation } from '../../i18n';
@@ -28,8 +28,10 @@ export const HospitalList: React.FC = () => {
     async function load() {
       setIsLoading(true);
       try {
-        const data = await hospitalService.getAllHospitals();
-        setHospitals(data);
+        const data = await realHospitalService.getAllHospitals();
+        setHospitals(data || []);
+      } catch {
+        setHospitals([]);
       } finally {
         setIsLoading(false);
       }
@@ -140,10 +142,13 @@ export const HospitalList: React.FC = () => {
                         {t('hospitals.emergency247')}
                       </span>
                     )}
-                    <div className="absolute top-2.5 right-2.5 rtl:right-auto rtl:left-2.5 bg-white/95 backdrop-blur-md px-2.5 py-0.5 rounded-lg text-xs font-bold text-slate-800 flex items-center gap-1 border border-[#E2EBF0] shadow-xs">
-                      <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                      <span>{hosp.rating}</span>
-                    </div>
+                    {hosp.rating > 0 && hosp.reviewCount > 0 && (
+                      <div className="absolute top-2.5 right-2.5 rtl:right-auto rtl:left-2.5 bg-white/95 backdrop-blur-md px-2.5 py-0.5 rounded-lg text-xs font-bold text-slate-800 flex items-center gap-1 border border-[#E2EBF0] shadow-xs">
+                        <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                        <span>{Number(hosp.rating).toFixed(1)}</span>
+                        <span className="text-slate-400 font-normal text-[10px]">({hosp.reviewCount})</span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="p-5 space-y-2.5">

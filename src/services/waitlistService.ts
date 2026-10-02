@@ -1,12 +1,11 @@
-import { mockDb } from '../data/mockDatabase';
 import { WaitlistEntry } from '../types';
 
-const delay = (ms = 250) => new Promise((resolve) => setTimeout(resolve, ms));
+const WAITLIST_STORAGE_KEY = 'meetadr_waitlist';
 
 export const waitlistService = {
   async joinWaitlist(email: string, name?: string): Promise<WaitlistEntry> {
-    await delay();
-    const list = mockDb.getWaitlist();
+    const raw = localStorage.getItem(WAITLIST_STORAGE_KEY);
+    const list: WaitlistEntry[] = raw ? JSON.parse(raw) : [];
     const newEntry: WaitlistEntry = {
       id: `wt_${Date.now()}`,
       email: email.trim().toLowerCase(),
@@ -14,12 +13,12 @@ export const waitlistService = {
       submittedAt: new Date().toISOString(),
     };
     list.unshift(newEntry);
-    mockDb.saveWaitlist(list);
+    localStorage.setItem(WAITLIST_STORAGE_KEY, JSON.stringify(list));
     return newEntry;
   },
 
   async getWaitlist(): Promise<WaitlistEntry[]> {
-    await delay();
-    return mockDb.getWaitlist();
+    const raw = localStorage.getItem(WAITLIST_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
   },
 };

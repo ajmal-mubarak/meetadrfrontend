@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Search, Filter, Phone, Trash2 } from 'lucide-react';
-import { bookingService } from '../../services/bookingService';
+import { realAdminService } from '../../services/realAdminService';
 import { Appointment } from '../../types';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { CancelModal } from '../../components/common/CancelModal';
@@ -19,8 +19,11 @@ export const AdminBookings: React.FC = () => {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const data = await bookingService.getAllAppointments();
+      const data = await realAdminService.getBookings();
       setAppointments(data);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to load bookings';
+      showToast(msg, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -33,11 +36,9 @@ export const AdminBookings: React.FC = () => {
   const handleCancelConfirm = async (reason: string) => {
     if (!cancellingAppt) return;
     try {
-      await bookingService.cancelAppointment(
+      await realAdminService.cancelBooking(
         cancellingAppt.id,
-        reason,
-        'admin',
-        'System Administrator'
+        reason
       );
       showToast(isArabic ? 'تم إلغاء الموعد بواسطة الإدارة.' : 'Appointment cancelled by Administrator.', 'info');
       setCancellingAppt(null);

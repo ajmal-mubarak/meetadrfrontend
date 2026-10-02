@@ -31,8 +31,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useTranslation } from '../../i18n';
-import { bookingService } from '../../services/bookingService';
-import { doctorService } from '../../services/doctorService';
+import { realFacilityAdminService, FacilitySettingsData } from '../../services/realFacilityAdminService';
 import { Appointment, Doctor } from '../../types';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { CancelModal } from '../../components/common/CancelModal';
@@ -67,7 +66,7 @@ export const HospitalDashboard: React.FC = () => {
 
   // Appointments filter by time from Client PDF Page 8: Today | Tomorrow | Specific Date
   const [appointmentDateFilter, setAppointmentDateFilter] = useState<'today' | 'tomorrow' | 'custom'>('today');
-  const [customFilterDate, setCustomFilterDate] = useState('2026-07-04');
+  const [customFilterDate, setCustomFilterDate] = useState(() => new Date().toISOString().split('T')[0]);
 
   // Reports time criteria from Client PDF Page 8: Date | Week | Month
   const [reportCriteria, setReportCriteria] = useState<'date' | 'week' | 'month'>('month');
@@ -75,23 +74,34 @@ export const HospitalDashboard: React.FC = () => {
   // Data states
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [facilitySettings, setFacilitySettings] = useState<{
+    name: string;
+    address: string;
+    phone: string;
+    operating_hours: string;
+    emergency_available: boolean;
+  } | null>(null);
   const [cancellingAppt, setCancellingAppt] = useState<Appointment | null>(null);
   const [reachedOutIds, setReachedOutIds] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
 
-  // Quick hospital credentials display state
-  const [hospitalEmail] = useState('administration@ahdubai.com');
-  const [hospitalPassword] = useState('••••••••••••');
+  // Authenticated user facility credentials
+  const hospitalEmail = user?.email || 'hospital-admin@meetadr.com';
+  const hospitalPassword = '••••••••••••';
 
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [allAppts, allDocs] = await Promise.all([
-        bookingService.getAllAppointments(),
-        doctorService.getAllDoctors(),
+      const [allAppts, allDocs, settings] = await Promise.all([
+        realFacilityAdminService.getAppointments(),
+        realFacilityAdminService.getDoctors(),
+        realFacilityAdminService.getSettings().catch(() => null),
       ]);
       setAppointments(allAppts);
       setDoctors(allDocs);
+      if (settings) setFacilitySettings(settings);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to load facility records', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -104,11 +114,9 @@ export const HospitalDashboard: React.FC = () => {
   const handleCancelConfirm = async (reason: string) => {
     if (!cancellingAppt) return;
     try {
-      await bookingService.cancelAppointment(
+      await realFacilityAdminService.cancelAppointment(
         cancellingAppt.id,
-        reason,
-        'hospital',
-        user?.name || (isArabic ? 'إدارة المستشفى الأمريكي' : 'American Hospital Administration')
+        reason
       );
       showToast(isArabic ? 'تم إلغاء الموعد.' : 'Appointment marked cancelled.', 'info');
       setCancellingAppt(null);
@@ -120,7 +128,7 @@ export const HospitalDashboard: React.FC = () => {
 
   const handleMarkConfirmed = async (apptId: string) => {
     try {
-      await bookingService.updateAppointmentStatus(apptId, 'confirmed');
+      await realFacilityAdminService.updateAppointmentStatus(apptId, 'confirmed');
       showToast(isArabic ? 'تم تأكيد الموعد مع المريض.' : 'Appointment confirmed with patient.', 'success');
       loadData();
     } catch (err: any) {
@@ -130,7 +138,7 @@ export const HospitalDashboard: React.FC = () => {
 
   const handleMarkCompleted = async (apptId: string) => {
     try {
-      await bookingService.updateAppointmentStatus(apptId, 'completed');
+      await realFacilityAdminService.updateAppointmentStatus(apptId, 'completed');
       showToast(isArabic ? 'تم إكمال الاستشارة بنجاح.' : 'Consultation marked completed.', 'success');
       loadData();
     } catch (err: any) {
@@ -210,11 +218,11 @@ export const HospitalDashboard: React.FC = () => {
 
   // Status breakdown Donut
   const statusBreakdownData = useMemo(() => [
-    { name: isArabic ? 'مؤكد' : 'Confirmed', value: confirmedCount || 1, color: '#2DA7B5' },
-    { name: isArabic ? 'قيد الانتظار' : 'Pending', value: pendingCount || 1, color: '#f59e0b' },
-    { name: isArabic ? 'مكتمل' : 'Completed', value: completedCount || 1, color: '#0284c7' },
-    { name: isArabic ? 'ملغى' : 'Cancelled', value: cancelledCount || 1, color: '#f43f5e' },
-  ], [confirmedCount, pendingCount, completedCount, cancelledCount, isArabic]);
+    { name: isArabic ? 'مؤكد' : 'Confirmed', value: confirmedCount, color: '#2DA7B5' },
+    { name: isArabic ? 'قيد الانتظار' : 'Pending', value: pendingCount, color: '#f59e0b' },
+    { name: isArabic ? 'مكتمل' : 'Completed', value: completedCount, color: '#0284c7' },
+    { name: isArabic ? 'ملغى' : 'Cancelled', value: cancelledCount, color: '#f43f5e' },
+  ].filter((item) => item.value > 0), [confirmedCount, pendingCount, completedCount, cancelledCount, isArabic]);
 
   // Doctor workload distribution Bar
   const doctorWorkloadData = useMemo(() => {
@@ -225,7 +233,7 @@ export const HospitalDashboard: React.FC = () => {
     });
 
     doctors.forEach((d) => {
-      if (!docCounts[d.name]) docCounts[d.name] = 2;
+      if (!(d.name in docCounts)) docCounts[d.name] = 0;
     });
 
     return Object.entries(docCounts).slice(0, 6).map(([name, count]) => ({
@@ -234,33 +242,55 @@ export const HospitalDashboard: React.FC = () => {
     }));
   }, [appointments, doctors, isArabic]);
 
-  // Intake timeline Area chart based on reportCriteria
+  // Intake timeline Area chart computed strictly from real appointment records
   const intakeTimelineData = useMemo(() => {
     if (reportCriteria === 'date') {
-      const hours = ['09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'];
-      return hours.map((h, i) => ({
-        label: h,
-        [isArabic ? 'الحجوزات' : 'Appointments']: 2 + ((i * 3) % 7),
-        [isArabic ? 'المرضى' : 'Patients']: 1 + ((i * 2) % 6),
-      }));
+      const hours = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
+      return hours.map((h) => {
+        const apptsInHour = appointments.filter((a) => a.timeSlot?.startsWith(h.substring(0, 2)));
+        const uniquePatients = new Set(apptsInHour.map((a) => a.patientId || a.patientName)).size;
+        return {
+          label: h,
+          [isArabic ? 'الحجوزات' : 'Appointments']: apptsInHour.length,
+          [isArabic ? 'المرضى' : 'Patients']: uniquePatients,
+        };
+      });
     }
     if (reportCriteria === 'week') {
       const daysEn = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
       const daysAr = ['الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'];
-      return daysEn.map((day, i) => ({
-        label: isArabic ? daysAr[i] : day,
-        [isArabic ? 'الحجوزات' : 'Appointments']: 8 + ((i * 5) % 18),
-        [isArabic ? 'المرضى' : 'Patients']: 6 + ((i * 4) % 15),
-      }));
+      return daysEn.map((day, i) => {
+        const apptsOnDay = appointments.filter((a) => {
+          if (!a.date) return false;
+          const d = new Date(a.date);
+          const dayIndex = (d.getDay() + 6) % 7;
+          return dayIndex === i;
+        });
+        const uniquePatients = new Set(apptsOnDay.map((a) => a.patientId || a.patientName)).size;
+        return {
+          label: isArabic ? daysAr[i] : day,
+          [isArabic ? 'الحجوزات' : 'Appointments']: apptsOnDay.length,
+          [isArabic ? 'المرضى' : 'Patients']: uniquePatients,
+        };
+      });
     }
     const weeksEn = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
     const weeksAr = ['الأسبوع 1', 'الأسبوع 2', 'الأسبوع 3', 'الأسبوع 4'];
-    return weeksEn.map((w, i) => ({
-      label: isArabic ? weeksAr[i] : w,
-      [isArabic ? 'الحجوزات' : 'Appointments']: 42 + ((i * 14) % 35),
-      [isArabic ? 'المرضى' : 'Patients']: 38 + ((i * 12) % 30),
-    }));
-  }, [reportCriteria, isArabic]);
+    return weeksEn.map((w, i) => {
+      const apptsInWeek = appointments.filter((a) => {
+        if (!a.date) return false;
+        const dayOfMonth = parseInt(a.date.split('-')[2] || '1', 10);
+        const weekIndex = Math.min(Math.floor((dayOfMonth - 1) / 7), 3);
+        return weekIndex === i;
+      });
+      const uniquePatients = new Set(apptsInWeek.map((a) => a.patientId || a.patientName)).size;
+      return {
+        label: isArabic ? weeksAr[i] : w,
+        [isArabic ? 'الحجوزات' : 'Appointments']: apptsInWeek.length,
+        [isArabic ? 'المرضى' : 'Patients']: uniquePatients,
+      };
+    });
+  }, [reportCriteria, appointments, isArabic]);
 
   // Real Excel / CSV Report Download
   const handleExportExecutiveExcel = () => {
@@ -323,7 +353,7 @@ export const HospitalDashboard: React.FC = () => {
           <div class="header">
             <div>
               <h1>meetAdr • Executive Hospital Report</h1>
-              <p style="font-size: 11px; color: #64748b; margin: 4px 0 0 0;">Facility: American Hospital Dubai • Scope: ${reportCriteria.toUpperCase()} • Generated: ${new Date().toLocaleString()}</p>
+              <p style="font-size: 11px; color: #64748b; margin: 4px 0 0 0;">Facility: {(user as any)?.facilityName || user?.name || 'Healthcare Facility'} • Scope: ${reportCriteria.toUpperCase()} • Generated: ${new Date().toLocaleString()}</p>
             </div>
             <div style="text-align: right; font-size: 11px; color: #64748b;">
               <strong>Confidential</strong><br/>Outpatient Consultation Network
@@ -400,11 +430,13 @@ export const HospitalDashboard: React.FC = () => {
             <span>{t('hospitalPortal.dashboardTitle')}</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-900">
-            {t('hospitalPortal.facilityName')}
+            {facilitySettings?.name || (isArabic ? 'اسم المنشأة غير محدد' : 'Facility name not set')}
           </h1>
-          <p className="text-xs text-slate-500">
-            {t('hospitalPortal.facilitySubtitle')}
-          </p>
+          {facilitySettings?.address ? (
+            <p className="text-xs text-slate-500">{facilitySettings.address}</p>
+          ) : (
+            <p className="text-xs text-slate-400 italic">{isArabic ? 'العنوان غير محدد' : 'Address not set — update in Facility Settings'}</p>
+          )}
         </div>
 
         {/* Hospital Login Credentials Bar (Client PDF Page 8) + Sign Out */}
@@ -1060,24 +1092,54 @@ export const HospitalDashboard: React.FC = () => {
 
             </div>
 
-            {/* Visual KPI Highlights Row */}
+            {/* Visual KPI Highlights Row — computed from real data */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+              {/* Top Specialty by booking volume */}
               <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2EBF0] space-y-1.5">
-                <span className="text-[10px] text-[#0E7490] uppercase font-bold tracking-wider">{t('hospitalPortal.topSpecialty')}</span>
-                <span className="text-sm font-bold text-slate-900 block">{t('hospitalPortal.cardiologyOutpatient')}</span>
-                <span className="text-xs text-slate-500">{t('hospitalPortal.slotCapacity')}</span>
+                <span className="text-[10px] text-[#0E7490] uppercase font-bold tracking-wider">{isArabic ? 'أكثر التخصصات حجزاً' : 'Top Specialty by Volume'}</span>
+                {(() => {
+                  const specCount: Record<string, number> = {};
+                  appointments.forEach((a) => { if (a.specialty) specCount[a.specialty] = (specCount[a.specialty] || 0) + 1; });
+                  const top = Object.entries(specCount).sort((a, b) => b[1] - a[1])[0];
+                  return top ? (
+                    <>
+                      <span className="text-sm font-bold text-slate-900 block">{top[0]}</span>
+                      <span className="text-xs text-slate-500">{top[1]} {isArabic ? 'حجز' : 'bookings'}</span>
+                    </>
+                  ) : (
+                    <span className="text-sm font-bold text-slate-400 block">{isArabic ? 'لا توجد بيانات' : '— No data yet'}</span>
+                  );
+                })()}
               </div>
 
+              {/* Operating hours from facility settings */}
               <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2EBF0] space-y-1.5">
-                <span className="text-[10px] text-[#0E7490] uppercase font-bold tracking-wider">{t('hospitalPortal.avgWaitTime')}</span>
-                <span className="text-sm font-bold text-slate-900 block">{t('hospitalPortal.under8Mins')}</span>
-                <span className="text-xs text-slate-500">{t('hospitalPortal.waitDesc')}</span>
+                <span className="text-[10px] text-[#0E7490] uppercase font-bold tracking-wider">{isArabic ? 'ساعات العمل' : 'Operating Hours'}</span>
+                {facilitySettings?.operating_hours ? (
+                  <>
+                    <span className="text-sm font-bold text-slate-900 block">{facilitySettings.operating_hours}</span>
+                    {facilitySettings.emergency_available && (
+                      <span className="text-xs text-emerald-600 font-semibold">{isArabic ? '24/7 طوارئ' : '24/7 Emergency Available'}</span>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-sm font-bold text-slate-400 block">{isArabic ? 'غير محدد' : '— Not set in Facility Settings'}</span>
+                )}
               </div>
 
+              {/* Completion rate from real appointments */}
               <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2EBF0] space-y-1.5">
-                <span className="text-[10px] text-[#0E7490] uppercase font-bold tracking-wider">{t('hospitalPortal.patientSatisfaction')}</span>
-                <span className="text-sm font-bold text-slate-900 block">{t('hospitalPortal.satisfactionScore')}</span>
-                <span className="text-xs text-slate-500">{t('hospitalPortal.verifiedReviews')}</span>
+                <span className="text-[10px] text-[#0E7490] uppercase font-bold tracking-wider">{isArabic ? 'معدل إتمام الاستشارات' : 'Consultation Completion Rate'}</span>
+                {appointments.length > 0 ? (
+                  <>
+                    <span className="text-sm font-bold text-slate-900 block">
+                      {Math.round((completedCount / appointments.length) * 100)}%
+                    </span>
+                    <span className="text-xs text-slate-500">{completedCount} {isArabic ? 'من' : 'of'} {appointments.length} {isArabic ? 'مكتملة' : 'consultations completed'}</span>
+                  </>
+                ) : (
+                  <span className="text-sm font-bold text-slate-400 block">{isArabic ? 'لا توجد بيانات' : '— No appointments yet'}</span>
+                )}
               </div>
             </div>
 

@@ -15,7 +15,8 @@ import {
   BookOpen
 } from 'lucide-react';
 import { useTranslation } from '../../i18n';
-import { HEALTH_CONDITIONS, ALPHABET_LETTERS, HealthCondition } from '../../data/mockConditions';
+import { realConditionService, BackendCondition } from '../../services/realFacilityService';
+import { HEALTH_CONDITIONS, ALPHABET_LETTERS } from '../../data/mockConditions';
 
 export const ConditionsPage: React.FC = () => {
   const { t, isRTL, isArabic } = useTranslation();
@@ -27,6 +28,9 @@ export const ConditionsPage: React.FC = () => {
   const [selectedLetter, setSelectedLetter] = useState<string>(initialLetter);
   const [searchQuery, setSearchQuery] = useState<string>(initialSearch);
   const [expandedConditionId, setExpandedConditionId] = useState<string | null>(null);
+  const [conditions, setConditions] = useState<BackendCondition[]>(HEALTH_CONDITIONS);
+  const [availableLetters, setAvailableLetters] = useState<string[]>(['All', ...ALPHABET_LETTERS]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // Sync state if URL query params change
   useEffect(() => {
@@ -41,6 +45,31 @@ export const ConditionsPage: React.FC = () => {
       setSearchQuery(query);
     }
   }, [searchParams]);
+
+  // Fetch real conditions from backend API
+  useEffect(() => {
+    let isMounted = true;
+    setIsLoading(true);
+    realConditionService.getConditions(selectedLetter, searchQuery)
+      .then((res) => {
+        if (isMounted && res && Array.isArray(res.results) && res.results.length > 0) {
+          setConditions(res.results);
+          if (res.letters && res.letters.length > 0) {
+            setAvailableLetters(res.letters);
+          }
+        }
+      })
+      .catch(() => {
+        // graceful offline fallback to local medical knowledge base
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedLetter, searchQuery]);
 
   const handleSelectLetter = (letter: string) => {
     setSelectedLetter(letter);
@@ -72,7 +101,7 @@ export const ConditionsPage: React.FC = () => {
 
   // Filter conditions
   const filteredConditions = useMemo(() => {
-    return HEALTH_CONDITIONS.filter((item) => {
+    return conditions.filter((item) => {
       const matchesLetter =
         selectedLetter === 'All' || item.letter.toUpperCase() === selectedLetter.toUpperCase();
 
@@ -87,7 +116,7 @@ export const ConditionsPage: React.FC = () => {
 
       return matchesLetter && matchesSearch;
     });
-  }, [selectedLetter, searchQuery]);
+  }, [conditions, selectedLetter, searchQuery]);
 
   const toggleExpand = (id: string) => {
     setExpandedConditionId((prev) => (prev === id ? null : id));

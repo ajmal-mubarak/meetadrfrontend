@@ -19,7 +19,7 @@ import {
   LocateFixed,
   Loader2,
 } from 'lucide-react';
-import { doctorService } from '../../services/doctorService';
+import { realDoctorService } from '../../services/realDoctorService';
 import { Doctor } from '../../types';
 import { SPECIALTIES, LOCATIONS, matchesLocation } from '../../data/mockSpecialties';
 import { useTranslation } from '../../i18n';
@@ -79,8 +79,10 @@ export const DoctorList: React.FC = () => {
     async function load() {
       setIsLoading(true);
       try {
-        const data = await doctorService.getAllDoctors();
-        setDoctors(data);
+        const data = await realDoctorService.getAllDoctors();
+        setDoctors(data || []);
+      } catch {
+        setDoctors([]);
       } finally {
         setIsLoading(false);
       }
@@ -387,11 +389,15 @@ export const DoctorList: React.FC = () => {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       referrerPolicy="no-referrer"
                     />
-                    <div className="absolute top-3 right-3 rtl:right-auto rtl:left-3 bg-white/95 backdrop-blur-md px-2.5 py-1 rounded-full text-xs font-bold text-slate-800 flex items-center gap-1 border border-[#E2EBF0] shadow-xs">
-                      <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                      <span>{doc.rating}</span>
-                      <span className="text-slate-400 text-[10px] font-normal">({doc.reviewCount || 98})</span>
-                    </div>
+                    {doc.rating > 0 && (
+                      <div className="absolute top-3 right-3 rtl:right-auto rtl:left-3 bg-white/95 backdrop-blur-md px-2.5 py-1 rounded-full text-xs font-bold text-slate-800 flex items-center gap-1 border border-[#E2EBF0] shadow-xs">
+                        <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                        <span>{doc.rating}</span>
+                        {doc.reviewCount ? (
+                          <span className="text-slate-400 text-[10px] font-normal">({doc.reviewCount})</span>
+                        ) : null}
+                      </div>
+                    )}
 
                     {/* Live Next Slot badge */}
                     <div className="absolute bottom-3 left-3 rtl:left-auto rtl:right-3 bg-white/95 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-bold text-slate-800 flex items-center gap-1.5 border border-[#E2EBF0] shadow-xs">

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Building2, MapPin, Phone, Clock, Save, ShieldCheck, Edit3, X, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Building2, MapPin, Phone, Clock, Save, ShieldCheck, Edit3, X, Check, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useTranslation } from '../../i18n';
+import { realFacilityAdminService, FacilitySettingsData } from '../../services/realFacilityAdminService';
 
 export const HospitalSettings: React.FC = () => {
   const { user } = useAuth();
@@ -11,18 +12,21 @@ export const HospitalSettings: React.FC = () => {
 
   // Edit Mode state (default: non-editable / locked)
   const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const initialHospitalName = user?.name || 'City Care Specialty Hospital';
-  const initialAddress = 'Building 42, Dubai Healthcare City, Dubai, UAE';
-  const initialPhone = '+971 4 362 4700';
-  const initialHours = 'Mon - Sat: 08:00 - 21:00';
-  const initialEmergency = true;
+  const initialHospitalName = (user as any)?.facilityName || user?.name || '';
+  const initialAddress = '';
+  const initialPhone = '';
+  const initialHours = '';
+  const initialEmergency = false;
 
   const [name, setName] = useState(initialHospitalName);
   const [address, setAddress] = useState(initialAddress);
   const [phone, setPhone] = useState(initialPhone);
   const [operatingHours, setOperatingHours] = useState(initialHours);
   const [emergency, setEmergency] = useState(initialEmergency);
+  const [insurancePlans, setInsurancePlans] = useState('');
 
   // Saved snapshot for Cancel restoration
   const [savedData, setSavedData] = useState({
@@ -31,22 +35,83 @@ export const HospitalSettings: React.FC = () => {
     phone: initialPhone,
     operatingHours: initialHours,
     emergency: initialEmergency,
+    insurancePlans: '',
   });
 
-  const handleSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    let isMounted = true;
+    const fetchSettings = async () => {
+      setIsLoading(true);
+      try {
+        const settings = await realFacilityAdminService.getSettings();
+        if (isMounted && settings) {
+          const loadedName = settings.name || initialHospitalName;
+          const loadedAddress = settings.address || initialAddress;
+          const loadedPhone = settings.phone || initialPhone;
+          const loadedHours = settings.operating_hours || initialHours;
+          const loadedEmergency = settings.emergency_available ?? initialEmergency;
+
+          setName(loadedName);
+          setAddress(loadedAddress);
+          setPhone(loadedPhone);
+          setOperatingHours(loadedHours);
+          setEmergency(loadedEmergency);
+          setInsurancePlans(settings.insurance_plans || '');
+
+          setSavedData({
+            name: loadedName,
+            address: loadedAddress,
+            phone: loadedPhone,
+            operatingHours: loadedHours,
+            emergency: loadedEmergency,
+            insurancePlans: settings.insurance_plans || '',
+          });
+        }
+      } catch (err: unknown) {
+        // Fall back gracefully to user profile info
+        console.warn('Facility settings load error:', err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+    fetchSettings();
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSavedData({
-      name,
-      address,
-      phone,
-      operatingHours,
-      emergency,
-    });
-    setIsEditing(false);
-    showToast(
-      isArabic ? 'تم حفظ إعدادات المنشأة بنجاح.' : 'Facility settings saved successfully.',
-      'success'
-    );
+    setIsSaving(true);
+    try {
+      await realFacilityAdminService.updateSettings({
+        name,
+        address,
+        phone,
+        operating_hours: operatingHours,
+        emergency_available: emergency,
+        insurance_plans: insurancePlans,
+      });
+
+      setSavedData({
+        name,
+        address,
+        phone,
+        operatingHours,
+        emergency,
+        insurancePlans,
+      });
+      setIsEditing(false);
+      showToast(
+        isArabic ? 'تم حفظ إعدادات المنشأة بنجاح.' : 'Facility settings saved successfully.',
+        'success'
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to update settings';
+      showToast(msg, 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancel = () => {
@@ -55,6 +120,7 @@ export const HospitalSettings: React.FC = () => {
     setPhone(savedData.phone);
     setOperatingHours(savedData.operatingHours);
     setEmergency(savedData.emergency);
+    setInsurancePlans(savedData.insurancePlans);
     setIsEditing(false);
   };
 
@@ -153,6 +219,29 @@ export const HospitalSettings: React.FC = () => {
               }`}
             />
           </div>
+        </div>
+
+        {/* Insurance Plans Field */}
+        <div>
+          <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
+            <span>{isArabic ? 'خطط التأمين المقبولة' : 'Accepted Insurance Plans'}</span>
+          </label>
+          <textarea
+            rows={3}
+            disabled={!isEditing}
+            value={insurancePlans}
+            onChange={(e) => setInsurancePlans(e.target.value)}
+            placeholder={isArabic ? 'NextCare, AXA, Daman ...' : 'e.g. NextCare, AXA / GIG, Daman National, Thiqa'}
+            className={`w-full p-3 rounded-xl text-sm transition-all border resize-none ${
+              isEditing
+                ? 'bg-white text-slate-900 border-[#2DA7B5] ring-2 ring-[#2DA7B5]/20 focus:outline-none'
+                : 'bg-[#F8FAFC] text-slate-700 border-[#E2EBF0] cursor-not-allowed'
+            }`}
+          />
+          <p className="text-[11px] text-slate-400 mt-1">
+            {isArabic ? 'أدخل الأسماء مفصولة بفواصل' : 'Enter plan names separated by commas'}
+          </p>
         </div>
 
         {/* 24/7 Emergency Toggle Box */}

@@ -13,7 +13,7 @@ import {
   Phone,
   ShieldCheck,
 } from 'lucide-react';
-import { doctorService } from '../../services/doctorService';
+import { realDoctorService } from '../../services/realDoctorService';
 import { Doctor } from '../../types';
 import { useTranslation } from '../../i18n';
 
@@ -38,7 +38,7 @@ export const DoctorDetails: React.FC = () => {
       if (!id) return;
       setIsLoading(true);
       try {
-        const d = await doctorService.getDoctorById(id);
+        const d = await realDoctorService.getDoctorById(id);
         setDoctor(d);
       } finally {
         setIsLoading(false);
@@ -117,11 +117,15 @@ export const DoctorDetails: React.FC = () => {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-4 mt-4 pt-3 border-t border-[#E2EBF0] text-xs">
-                    <div className="flex items-center gap-1 font-bold text-slate-900">
-                      <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-                      <span>{doctor.rating}</span>
-                      <span className="text-slate-400 font-normal">({doctor.reviewCount} {t('doctorDetails.reviews')})</span>
-                    </div>
+                    {doctor.rating > 0 && (
+                      <div className="flex items-center gap-1 font-bold text-slate-900">
+                        <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                        <span>{doctor.rating}</span>
+                        {doctor.reviewCount ? (
+                          <span className="text-slate-400 font-normal">({doctor.reviewCount} {t('doctorDetails.reviews')})</span>
+                        ) : null}
+                      </div>
+                    )}
                     <div className="flex items-center gap-1 text-slate-600 font-medium">
                       <Award className="w-4 h-4 text-[#2DA7B5]" />
                       <span>{isArabic ? doctor.experienceAr || translateExperience(doctor.experience) : doctor.experience}</span>
@@ -186,6 +190,21 @@ export const DoctorDetails: React.FC = () => {
                 <p className="text-xs text-slate-500 mt-1">
                   {t('doctorDetails.bookingNotice')}
                 </p>
+              </div>
+
+              {/* Consultation Fee in AED */}
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#E8F6F8] border border-[#CDEBF0]">
+                <div>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#0E7490] block">
+                    {isArabic ? 'رسوم الاستشارة' : 'Consultation Fee'}
+                  </span>
+                  <span className="text-[10px] text-slate-500">
+                    {isArabic ? 'الدفع في العيادة' : 'Payable at reception'}
+                  </span>
+                </div>
+                <span className="text-lg font-black text-[#0E7490]">
+                  AED {doctor.consultationFee || 500}
+                </span>
               </div>
 
               <div>

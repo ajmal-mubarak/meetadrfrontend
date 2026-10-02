@@ -7,8 +7,8 @@ import {
   Clock,
   ArrowLeft,
 } from 'lucide-react';
-import { clinicService } from '../../services/clinicService';
-import { doctorService } from '../../services/doctorService';
+import { realClinicService } from '../../services/realFacilityService';
+import { realDoctorService } from '../../services/realDoctorService';
 import { Clinic, Doctor } from '../../types';
 import { useTranslation } from '../../i18n';
 
@@ -26,8 +26,8 @@ export const ClinicDetails: React.FC = () => {
       setIsLoading(true);
       try {
         const [cln, docs] = await Promise.all([
-          clinicService.getClinicById(id),
-          doctorService.getDoctorsByClinic(id),
+          realClinicService.getClinicById(id),
+          realDoctorService.getAllDoctors({ clinic_id: id }),
         ]);
         setClinic(cln);
         setDoctors(docs);
@@ -83,10 +83,12 @@ export const ClinicDetails: React.FC = () => {
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#E8F6F8] text-[#0E7490] border border-[#CDEBF0]">
                   {translateSpecialty(clinic.specialty)}
                 </span>
-                <div className="flex items-center gap-1 text-xs font-bold text-slate-800 bg-[#F8FAFC] px-2 py-0.5 rounded-md border border-[#E2EBF0]">
-                  <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                  <span>{clinic.rating}</span>
-                </div>
+                {clinic.rating > 0 && (
+                  <div className="flex items-center gap-1 text-xs font-bold text-slate-800 bg-[#F8FAFC] px-2 py-0.5 rounded-md border border-[#E2EBF0]">
+                    <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                    <span>{clinic.rating}</span>
+                  </div>
+                )}
               </div>
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">{clinic.name}</h1>
               <div className="flex items-center gap-1.5 text-sm text-slate-500 mt-1">
@@ -145,10 +147,12 @@ export const ClinicDetails: React.FC = () => {
                         {doc.name}
                       </h3>
                       <p className="text-xs text-slate-500 truncate">{doc.experience} {t('doctorDetails.experience')}</p>
-                      <div className="flex items-center gap-1 text-xs font-bold text-amber-500 mt-1">
-                        <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                        <span>{doc.rating}</span>
-                      </div>
+                      {doc.rating > 0 && (
+                        <div className="flex items-center gap-1 text-xs font-bold text-amber-500 mt-1">
+                          <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                          <span>{doc.rating}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 

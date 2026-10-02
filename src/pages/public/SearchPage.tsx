@@ -13,9 +13,8 @@ import {
   LocateFixed,
   Loader2,
 } from 'lucide-react';
-import { doctorService } from '../../services/doctorService';
-import { hospitalService } from '../../services/hospitalService';
-import { clinicService } from '../../services/clinicService';
+import { realDoctorService } from '../../services/realDoctorService';
+import { realHospitalService, realClinicService } from '../../services/realFacilityService';
 import { Doctor, Hospital, Clinic } from '../../types';
 import { SPECIALTIES, LOCATIONS, matchesLocation } from '../../data/mockSpecialties';
 import { useTranslation } from '../../i18n';
@@ -97,13 +96,17 @@ export const SearchPage: React.FC = () => {
       setIsLoading(true);
       try {
         const [allDocs, allHosps, allClins] = await Promise.all([
-          doctorService.getAllDoctors(),
-          hospitalService.getAllHospitals(),
-          clinicService.getAllClinics(),
+          realDoctorService.getAllDoctors(),
+          realHospitalService.getAllHospitals(),
+          realClinicService.getAllClinics(),
         ]);
-        setDoctors(allDocs);
-        setHospitals(allHosps);
-        setClinics(allClins);
+        setDoctors(allDocs || []);
+        setHospitals(allHosps || []);
+        setClinics(allClins || []);
+      } catch {
+        setDoctors([]);
+        setHospitals([]);
+        setClinics([]);
       } finally {
         setIsLoading(false);
       }
@@ -380,11 +383,15 @@ export const SearchPage: React.FC = () => {
                       </div>
 
                       <div className="mt-4 pt-3 border-t border-[#E2EBF0] flex items-center justify-between text-xs gap-2">
-                        <div className="flex items-center gap-1 font-bold text-slate-900 shrink-0">
-                          <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                          <span>{doc.rating}</span>
-                          <span className="text-slate-400 font-normal">({doc.reviewCount})</span>
-                        </div>
+                        {doc.rating > 0 && (
+                          <div className="flex items-center gap-1 font-bold text-slate-900 shrink-0">
+                            <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                            <span>{doc.rating}</span>
+                            {doc.reviewCount ? (
+                              <span className="text-slate-400 font-normal">({doc.reviewCount})</span>
+                            ) : null}
+                          </div>
+                        )}
                         <div className="flex items-center gap-1.5 sm:gap-2">
                           <Link
                             to={`/doctors/${doc.id}`}
@@ -437,10 +444,13 @@ export const SearchPage: React.FC = () => {
                               {t('search.emergency247')}
                             </span>
                           )}
-                          <div className="absolute top-2.5 right-2.5 rtl:right-auto rtl:left-2.5 bg-white/95 backdrop-blur-xs px-2.5 py-0.5 rounded-full text-xs font-bold text-slate-800 flex items-center gap-1 border border-[#E2EBF0] shadow-xs">
-                            <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                            <span>{hosp.rating}</span>
-                          </div>
+                          {hosp.rating > 0 && hosp.reviewCount > 0 && (
+                            <div className="absolute top-2.5 right-2.5 rtl:right-auto rtl:left-2.5 bg-white/95 backdrop-blur-xs px-2.5 py-0.5 rounded-full text-xs font-bold text-slate-800 flex items-center gap-1 border border-[#E2EBF0] shadow-xs">
+                              <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                              <span>{Number(hosp.rating).toFixed(1)}</span>
+                              <span className="text-slate-400 font-normal text-[10px]">({hosp.reviewCount})</span>
+                            </div>
+                          )}
                         </div>
 
                         <div className="p-4 sm:p-5">
@@ -498,10 +508,12 @@ export const SearchPage: React.FC = () => {
                           <span className="text-xs font-semibold px-2.5 py-0.5 bg-[#E8F6F8] text-[#0E7490] rounded-lg border border-[#CDEBF0]">
                             {translateSpecialty(clinic.specialty)}
                           </span>
-                          <div className="flex items-center gap-1 text-xs font-bold text-slate-800 bg-[#F8FAFC] px-2 py-0.5 rounded-lg border border-[#E2EBF0]">
-                            <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                            <span>{clinic.rating}</span>
-                          </div>
+                          {clinic.rating > 0 && (
+                            <div className="flex items-center gap-1 text-xs font-bold text-slate-800 bg-[#F8FAFC] px-2 py-0.5 rounded-lg border border-[#E2EBF0]">
+                              <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                              <span>{clinic.rating}</span>
+                            </div>
+                          )}
                         </div>
                         <h4 className="text-sm sm:text-base font-bold text-slate-900 mb-1 group-hover:text-[#2DA7B5] transition-colors">{clinic.name}</h4>
                         <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-2">

@@ -1,68 +1,68 @@
-import { mockDb } from '../data/mockDatabase';
+import apiClient from './api/apiClient';
+import { API_ENDPOINTS } from '../config/api';
 import { ProviderRequest } from '../types';
-
-const delay = (ms = 250) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export interface JoinRequestInput {
   providerType: 'hospital' | 'clinic' | 'doctor';
   name: string;
+  contactPerson?: string;
   contactNumber: string;
   email: string;
   country: string;
   location: string;
 }
 
-function normalizeRequest(r: ProviderRequest): ProviderRequest {
+interface BackendProviderRequestResponse {
+  id: string;
+  provider_type: string;
+  name: string;
+  contact_person?: string;
+  contact_number?: string;
+  email: string;
+  country?: string;
+  location: string;
+  status: string;
+  submitted_at: string;
+}
+
+function mapBackendRequest(b: BackendProviderRequestResponse): ProviderRequest {
+  const pType = (b.provider_type?.toLowerCase() === 'clinic' ? 'clinic' : 'hospital') as ProviderRequest['providerType'];
+  const pStatus = (b.status?.toLowerCase() === 'approved' ? 'approved' : b.status?.toLowerCase() === 'rejected' ? 'rejected' : 'pending') as ProviderRequest['status'];
   return {
-    ...r,
-    createdAt: r.createdAt || r.submittedAt,
-    status: r.status || 'pending',
+    id: String(b.id),
+    name: b.name,
+    providerType: pType,
+    contactNumber: b.contact_number || '',
+    email: b.email,
+    country: b.country || 'United Arab Emirates',
+    location: b.location || 'Dubai',
+    status: pStatus,
+    submittedAt: b.submitted_at,
+    createdAt: b.submitted_at,
   };
 }
 
 export const providerService = {
+  /**
+   * Submit public partnership application for Hospital or Clinic.
+   * POST /api/v1/provider-requests/
+   */
   async submitJoinRequest(input: JoinRequestInput): Promise<ProviderRequest> {
-    await delay(350);
-    const list = mockDb.getProviderRequests();
-    const now = new Date().toISOString();
-    const newRequest: ProviderRequest = {
-      id: `req_${Date.now()}`,
-      providerType: input.providerType,
+    const payload = {
+      provider_type: input.providerType === 'clinic' ? 'clinic' : 'hospital',
       name: input.name,
-      contactNumber: input.contactNumber,
+      contact_person: input.contactPerson || input.name,
+      contact_number: input.contactNumber,
       email: input.email.trim().toLowerCase(),
-      country: input.country,
+      country: input.country || 'United Arab Emirates',
       location: input.location,
-      submittedAt: now,
-      createdAt: now,
-      status: 'pending',
     };
-    list.unshift(newRequest);
-    mockDb.saveProviderRequests(list);
-    return newRequest;
-  },
 
-  async getJoinRequests(): Promise<ProviderRequest[]> {
-    await delay();
-    return mockDb.getProviderRequests().map(normalizeRequest);
-  },
-
-  async getAllRequests(): Promise<ProviderRequest[]> {
-    return this.getJoinRequests();
-  },
-
-  async updateRequestStatus(id: string, status: 'approved' | 'rejected'): Promise<ProviderRequest> {
-    await delay(250);
-    const list = mockDb.getProviderRequests();
-    const index = list.findIndex((r) => r.id === id);
-    if (index === -1) {
-      throw new Error('Provider request not found.');
-    }
-    list[index] = {
-      ...list[index],
-      status,
-    };
-    mockDb.saveProviderRequests(list);
-    return normalizeRequest(list[index]);
+    const res = await apiClient.post<BackendProviderRequestResponse>(
+      API_ENDPOINTS.ADMIN.PROVIDER_REQUESTS,
+      payload,
+      { requiresAuth: false }
+    );
+    return mapBackendRequest(res);
   },
 };

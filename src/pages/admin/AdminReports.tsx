@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FileBarChart, Download, Calendar, ArrowUpRight } from 'lucide-react';
-import { reportService } from '../../services/reportService';
+import { realAdminService } from '../../services/realAdminService';
 import { useToast } from '../../context/ToastContext';
 import { useTranslation } from '../../i18n';
 
@@ -20,8 +20,11 @@ export const AdminReports: React.FC = () => {
     async function load() {
       setIsLoading(true);
       try {
-        const res = await reportService.getAnalyticalReports();
+        const res = await realAdminService.getReports();
         setData(res);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to load analytical reports';
+        showToast(msg, 'error');
       } finally {
         setIsLoading(false);
       }
