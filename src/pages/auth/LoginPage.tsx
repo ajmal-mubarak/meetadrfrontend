@@ -10,7 +10,6 @@ import {
   Mail,
   Lock,
   ArrowRight,
-  CheckCircle2,
   ShieldCheck,
   Eye,
   EyeOff,
@@ -116,12 +115,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ forcedRole }) => {
     } finally { setIsLoading(false); }
   };
 
-  const autofill = () => {
-    setLoginInput(role.demoEmail);
-    setPassword(role.demoPassword);
-    setShowPassword(true);
-  };
-
   return (
     /* Full-page background */
     <div
@@ -156,55 +149,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ forcedRole }) => {
         <div className="bg-white rounded-3xl shadow-sm border border-[#E2EBF0] overflow-hidden">
           <div className="px-6 py-6 space-y-5">
 
-            {/* ── Test Credentials Reference ── */}
-            <div className="rounded-2xl bg-[#F8FAFC] border border-[#E2EBF0] p-4">
-              <div className="flex items-center justify-between mb-2.5">
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded-md bg-[#E8F6F8] border border-[#CDEBF0] flex items-center justify-center shrink-0">
-                    <ShieldCheck className="w-3.5 h-3.5 text-[#2DA7B5]" strokeWidth={2.5} />
-                  </div>
-                  <span className="text-xs font-bold text-slate-800 tracking-wide">
-                    Test Account Credentials
-                  </span>
-                </div>
-                <span className="text-[10px] font-semibold text-slate-400">Click card to fill</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                {ROLES.map((r) => {
-                  const Icon = r.icon;
-                  const isSelected = loginInput === r.demoEmail;
-                  return (
-                    <button
-                      key={r.role}
-                      type="button"
-                      onClick={() => {
-                        setActiveRole(r.role);
-                        setLoginInput(r.demoEmail);
-                        setPassword(r.demoPassword);
-                        setShowPassword(true);
-                      }}
-                      className={`text-left p-2.5 rounded-xl border transition-all cursor-pointer ${
-                        isSelected
-                          ? 'bg-white border-[#2DA7B5] shadow-xs ring-1 ring-[#2DA7B5]/30'
-                          : 'bg-white hover:bg-slate-50 border-[#E2EBF0] hover:border-slate-300 shadow-2xs'
-                      }`}
-                    >
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <Icon className={`w-3.5 h-3.5 ${r.activeText}`} />
-                        <span className="text-xs font-bold text-slate-800">{r.label}</span>
-                      </div>
-                      <div className="text-[10px] font-mono text-slate-500 truncate" title={r.demoEmail}>
-                        {r.demoEmail}
-                      </div>
-                      <div className="text-[10px] font-mono text-slate-500 mt-0.5">
-                        Pass: <span className="font-semibold text-slate-700">{r.demoPassword}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
             {/* ── Form ── */}
             <form onSubmit={handleSubmit} className="space-y-4">
 
@@ -223,7 +167,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ forcedRole }) => {
                     type="text"
                     value={loginInput}
                     onChange={(e) => setLoginInput(e.target.value)}
-                    placeholder={forcedRole ? role.demoEmail : 'name@example.com or mobile'}
+                    placeholder="name@example.com or mobile"
                     className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#E2EBF0] bg-[#F8FAFC] text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#2DA7B5] focus:bg-white transition-all font-medium shadow-2xs"
                   />
                 </div>
@@ -231,17 +175,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ forcedRole }) => {
 
               {/* Password */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700 block">Password</label>
-                  <button
-                    type="button"
-                    onClick={autofill}
-                    className="flex items-center gap-1 text-[11px] font-bold text-[#2DA7B5] hover:underline cursor-pointer transition-colors"
-                  >
-                    <CheckCircle2 className="w-3 h-3" />
-                    Auto-fill demo
-                  </button>
-                </div>
+                <label className="text-xs font-bold text-slate-700 block">Password</label>
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
                   <input
