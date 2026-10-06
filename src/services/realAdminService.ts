@@ -160,6 +160,7 @@ interface BackendProviderFacility {
   created_at?: string;
   avg_rating?: number | null;
   total_reviews?: number;
+  photo?: string;
 }
 
 export type ProviderItem = (Hospital | Clinic) & {
@@ -173,12 +174,15 @@ function mapProvider(p: BackendProviderFacility): ProviderItem {
     id: String(p.id),
     name: p.name,
     nameAr: p.name_ar,
-    photo: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&q=80&w=600',
+    photo: p.photo || (isClinic 
+      ? 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&q=80&w=600'
+      : 'https://images.unsplash.com/photo-1587351021759-3e566b6af7cc?auto=format&fit=crop&q=80&w=600'),
     location: p.city || p.location || 'Dubai',
     address: p.address || 'Dubai Healthcare City, UAE',
     doctorIds: [],
-    doctorCount: p.total_doctors || p.doctorCount || 10,
+    doctorCount: p.total_doctors || p.doctorCount || 0,
     rating: p.avg_rating != null ? Number(p.avg_rating) : 0,
+    reviewCount: p.total_reviews || 0,
     phone: p.phone || '+971 4 000 0000',
     operatingHours: '08:00 - 20:00',
     about: 'Accredited medical facility providing specialized healthcare in the UAE.',

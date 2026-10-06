@@ -239,10 +239,23 @@ export const AdminProviders: React.FC = () => {
                       </td>
                       <td className="px-5 py-3.5 text-slate-700 font-mono">{item.phone}</td>
                       <td className="px-5 py-3.5 text-slate-800 font-bold">
-                        <div className="flex items-center gap-1">
-                          <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                          <span>{item.rating}</span>
-                        </div>
+                        {item.rating && item.rating > 0 ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="flex items-center text-amber-600 font-bold">
+                              <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500 mr-0.5" />
+                              {Number(item.rating).toFixed(1)}
+                            </span>
+                            {item.reviewCount ? (
+                              <span className="text-slate-400 font-normal text-[11px]">
+                                ({item.reviewCount})
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-500">
+                            Unrated
+                          </span>
+                        )}
                       </td>
                       <td className="px-5 py-3.5">
                         {isProviderActive ? (
