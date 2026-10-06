@@ -1499,10 +1499,11 @@ export const Home: React.FC = () => {
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     referrerPolicy="no-referrer"
                   />
-                  {hosp.rating > 0 && (
+                  {hosp.rating > 0 && hosp.reviewCount > 0 && (
                     <div className="absolute top-2.5 right-2.5 rtl:right-auto rtl:left-2.5 bg-white/95 backdrop-blur-xs px-2 py-0.5 rounded-md text-[11px] font-bold text-slate-800 flex items-center gap-1 border border-[#E2EBF0] shadow-xs">
                       <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                      <span>{hosp.rating}</span>
+                      <span>{Number(hosp.rating).toFixed(1)}</span>
+                      <span className="text-[10px] text-slate-400 font-normal">({hosp.reviewCount})</span>
                     </div>
                   )}
                 </div>

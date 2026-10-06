@@ -378,8 +378,15 @@ export const AdminProviders: React.FC = () => {
                 <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2EBF0]">
                   <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Facility Rating</span>
                   <span className="font-bold text-amber-600 mt-0.5 flex items-center gap-1">
-                    <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                    {selectedProvider.rating} / 5.0
+                    {selectedProvider.rating && selectedProvider.rating > 0 && selectedProvider.reviewCount ? (
+                      <>
+                        <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                        {Number(selectedProvider.rating).toFixed(1)} / 5.0
+                        <span className="text-[11px] text-slate-400 font-normal">({selectedProvider.reviewCount})</span>
+                      </>
+                    ) : (
+                      <span className="text-[11px] text-slate-500 font-medium">Unrated (0 reviews)</span>
+                    )}
                   </span>
                 </div>
                 <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2EBF0]">

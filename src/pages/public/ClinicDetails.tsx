@@ -83,10 +83,11 @@ export const ClinicDetails: React.FC = () => {
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#E8F6F8] text-[#0E7490] border border-[#CDEBF0]">
                   {translateSpecialty(clinic.specialty)}
                 </span>
-                {clinic.rating > 0 && (
-                  <div className="flex items-center gap-1 text-xs font-bold text-slate-800 bg-[#F8FAFC] px-2 py-0.5 rounded-md border border-[#E2EBF0]">
+                {clinic.rating > 0 && clinic.reviewCount > 0 && (
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 bg-[#F8FAFC] px-2.5 py-1 rounded-md border border-[#E2EBF0]">
                     <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                    <span>{clinic.rating}</span>
+                    <span>{Number(clinic.rating).toFixed(1)}</span>
+                    <span className="text-slate-400 font-normal text-[11px]">({clinic.reviewCount} {clinic.reviewCount === 1 ? 'review' : 'reviews'})</span>
                   </div>
                 )}
               </div>
