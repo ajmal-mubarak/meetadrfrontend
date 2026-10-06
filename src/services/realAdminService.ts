@@ -72,22 +72,25 @@ interface BackendAdminDoctor {
 }
 
 function mapDoctor(d: BackendAdminDoctor): Doctor {
+  const rawAny = d as any;
+  const rawStatus = String(rawAny.status || 'Active').toLowerCase();
   return {
     id: String(d.id),
     name: d.name,
     photo: d.photo || 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=400',
     specialty: d.specialty,
-    specialInterest: d.special_interests || ['General Practice'],
-    experience: d.experience_text || `${d.experience_years || 5} years`,
+    specialInterest: d.special_interests || rawAny.specialInterest || ['General Practice'],
+    experience: d.experience_text || rawAny.experience || `${d.experience_years || 5} years`,
     education: d.education || 'MD, Board Certified',
     about: d.about || '',
     rating: Number(d.rating) || 0,
-    reviewCount: Number(d.review_count) || 0,
-    hospitalId: d.facility_id || '',
-    hospitalName: d.facility_name || 'Medical Facility',
+    reviewCount: Number(d.review_count || rawAny.reviewCount) || 0,
+    hospitalId: rawAny.hospitalId || rawAny.hospital_id || rawAny.clinicId || rawAny.clinic_id || d.facility_id || '',
+    hospitalName: rawAny.hospitalName || rawAny.hospital_name || rawAny.clinicName || rawAny.clinic_name || d.facility_name || 'Medical Facility',
     location: d.location || 'United Arab Emirates',
-    availableDays: d.available_days || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Saturday'],
-    availableSlots: d.standard_slots || ['09:00 - 09:30', '10:00 - 10:30', '11:00 - 11:30'],
+    availableDays: d.available_days || rawAny.availableDays || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Saturday'],
+    availableSlots: d.standard_slots || rawAny.availableSlots || ['09:00 - 09:30', '10:00 - 10:30', '11:00 - 11:30'],
+    status: (rawStatus === 'deactivated' || rawStatus === 'inactive') ? 'Deactivated' : 'Active',
   };
 }
 
