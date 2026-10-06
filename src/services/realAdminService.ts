@@ -118,27 +118,33 @@ interface BackendAdminBooking {
 }
 
 function mapBooking(b: BackendAdminBooking): Appointment {
+  const rawAny = b as any;
   const status = (b.status || 'confirmed').toLowerCase() as Appointment['status'];
+  const hospId = rawAny.hospitalId || rawAny.hospital_id || rawAny.clinicId || rawAny.clinic_id || '';
+  const hospName = b.hospitalName || rawAny.facilityName || rawAny.providerName || rawAny.hospital_name || '';
+  const docId = b.doctorId || rawAny.doctor_id || '';
+  const docName = b.doctorName || rawAny.doctor_name || 'Doctor';
+
   return {
     id: String(b.id),
-    doctorId: b.doctorId || '',
-    doctorName: b.doctorName || 'Doctor',
-    patientId: b.patientId || '',
+    doctorId: docId,
+    doctorName: docName,
+    patientId: b.patientId || rawAny.patient_id || '',
     patientName: b.patientName || b.patient_name_snapshot || 'Patient',
     patientMobile: b.patientMobile || b.patientPhone || b.patient_phone_snapshot || '',
     patientPhone: b.patientPhone || b.patientMobile || b.patient_phone_snapshot || '',
-    hospitalId: '',
-    hospitalName: b.hospitalName || '',
-    providerName: b.hospitalName || 'Medical Facility',
+    hospitalId: hospId,
+    hospitalName: hospName,
+    providerName: hospName || 'Medical Facility',
     specialty: b.specialty || b.specialty_snapshot || '',
-    location: 'Dubai, UAE',
+    location: rawAny.location || 'Dubai, UAE',
     date: b.date,
     time: b.timeSlot || b.time || b.time_slot || '',
     timeSlot: b.timeSlot || b.time || b.time_slot || '',
     status: ['pending', 'confirmed', 'completed', 'cancelled'].includes(status) ? status : 'confirmed',
     notes: b.notes || undefined,
     cancelReason: b.cancelReason || b.cancel_reason || undefined,
-    createdAt: new Date().toISOString(),
+    createdAt: rawAny.created_at || rawAny.createdAt || new Date().toISOString(),
   };
 }
 
@@ -293,6 +299,41 @@ export const realAdminService = {
   },
 
   /**
+   * Platform administrator creates a new hospital or clinic.
+   * POST /api/v1/admin/providers/
+   */
+  async createProvider(data: {
+    name: string;
+    name_ar?: string;
+    type?: 'hospital' | 'clinic';
+    location?: string;
+    address?: string;
+    address_ar?: string;
+    phone?: string;
+    operating_hours?: string;
+    operating_hours_ar?: string;
+    about?: string;
+    about_ar?: string;
+    photo?: string;
+    emergency_available?: boolean;
+    primary_specialty?: string;
+  }): Promise<ProviderItem> {
+    const response = await apiClient.post<BackendProviderFacility>(
+      API_ENDPOINTS.ADMIN.PROVIDERS,
+      data
+    );
+    return mapProvider(response);
+  },
+
+  /**
+   * Platform administrator deletes a hospital or clinic.
+   * DELETE /api/v1/admin/providers/{id}/
+   */
+  async deleteProvider(id: string): Promise<void> {
+    await apiClient.delete(API_ENDPOINTS.ADMIN.PROVIDER_DETAIL(id));
+  },
+
+  /**
    * Update facility status.
    * PATCH /api/v1/admin/providers/{id}/status/
    */
@@ -304,13 +345,21 @@ export const realAdminService = {
   },
 
   /**
-   * Retrieves platform-wide appointments across all facilities.
+   * Retrieves platform-wide appointments across all facilities with optional facility/doctor drill-down.
    * GET /api/v1/admin/bookings/
    */
-  async getBookings(params?: { status?: string; search?: string }): Promise<Appointment[]> {
+  async getBookings(params?: {
+    status?: string;
+    search?: string;
+    hospital_id?: string;
+    clinic_id?: string;
+    facility_id?: string;
+    doctor_id?: string;
+    page_size?: number;
+  }): Promise<Appointment[]> {
     const response = await apiClient.get<BackendAdminBooking[] | PaginatedResponse<BackendAdminBooking>>(
       API_ENDPOINTS.ADMIN.BOOKINGS,
-      { params }
+      { params: { page_size: 200, ...params } }
     );
     const list = Array.isArray(response)
       ? response

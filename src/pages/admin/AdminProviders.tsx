@@ -16,6 +16,8 @@ import {
   AlertTriangle,
   Stethoscope,
   Activity,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import { realAdminService, ProviderItem } from '../../services/realAdminService';
 import { Hospital, Clinic } from '../../types';
@@ -30,6 +32,28 @@ export const AdminProviders: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedProvider, setSelectedProvider] = useState<ProviderItem | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+  // Add Facility State
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isSubmittingAdd, setIsSubmittingAdd] = useState(false);
+  const [addForm, setAddForm] = useState({
+    name: '',
+    name_ar: '',
+    type: 'hospital' as 'hospital' | 'clinic',
+    location: 'Dubai',
+    address: '',
+    address_ar: '',
+    phone: '',
+    operating_hours: 'Open 24/7',
+    about: '',
+    photo: '',
+    emergency_available: true,
+    primary_specialty: 'General Medicine',
+  });
+
+  // Delete Facility State
+  const [providerToDelete, setProviderToDelete] = useState<ProviderItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -69,6 +93,73 @@ export const AdminProviders: React.FC = () => {
       showToast(err.message || 'Failed to update facility status.', 'error');
     } finally {
       setIsUpdatingStatus(false);
+    }
+  };
+
+  const handleAddProviderSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!addForm.name.trim()) {
+      showToast('Facility name is required.', 'error');
+      return;
+    }
+    setIsSubmittingAdd(true);
+    try {
+      const created = await realAdminService.createProvider({
+        name: addForm.name.trim(),
+        name_ar: addForm.name_ar.trim() || undefined,
+        type: addForm.type,
+        location: addForm.location.trim() || 'Dubai',
+        address: addForm.address.trim() || undefined,
+        address_ar: addForm.address_ar.trim() || undefined,
+        phone: addForm.phone.trim() || '+971 4 000 0000',
+        operating_hours: addForm.operating_hours.trim() || 'Open 24/7',
+        about: addForm.about.trim() || undefined,
+        photo: addForm.photo.trim() || (addForm.type === 'hospital'
+          ? 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&q=80&w=800'
+          : 'https://images.unsplash.com/photo-1581056771107-24ca5f033842?auto=format&fit=crop&q=80&w=800'),
+        emergency_available: addForm.emergency_available,
+        primary_specialty: addForm.primary_specialty.trim() || 'General Medicine',
+      });
+
+      setProviders((prev) => [created, ...prev]);
+      showToast(`${created.providerCategory} '${created.name}' has been added successfully!`, 'success');
+      setIsAddModalOpen(false);
+      setAddForm({
+        name: '',
+        name_ar: '',
+        type: 'hospital',
+        location: 'Dubai',
+        address: '',
+        address_ar: '',
+        phone: '',
+        operating_hours: 'Open 24/7',
+        about: '',
+        photo: '',
+        emergency_available: true,
+        primary_specialty: 'General Medicine',
+      });
+    } catch (err: any) {
+      showToast(err.message || 'Failed to add facility.', 'error');
+    } finally {
+      setIsSubmittingAdd(false);
+    }
+  };
+
+  const handleDeleteProviderConfirm = async () => {
+    if (!providerToDelete) return;
+    setIsDeleting(true);
+    try {
+      await realAdminService.deleteProvider(providerToDelete.id);
+      setProviders((prev) => prev.filter((p) => p.id !== providerToDelete.id));
+      if (selectedProvider && selectedProvider.id === providerToDelete.id) {
+        setSelectedProvider(null);
+      }
+      showToast(`${providerToDelete.providerCategory} '${providerToDelete.name}' has been deleted successfully.`, 'info');
+      setProviderToDelete(null);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to delete facility.', 'error');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -161,6 +252,16 @@ export const AdminProviders: React.FC = () => {
               Deactivated ({deactivatedCount})
             </button>
           </div>
+
+          {/* Add Facility Button */}
+          <button
+            type="button"
+            onClick={() => setIsAddModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#2DA7B5] hover:bg-[#23929F] text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Hospital</span>
+          </button>
 
           {/* Search Box */}
           <div className="relative w-full sm:w-56">
@@ -271,14 +372,25 @@ export const AdminProviders: React.FC = () => {
                         )}
                       </td>
                       <td className="px-5 py-3.5 text-right">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedProvider(item)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#F8FAFC] hover:bg-[#E8F6F8] hover:text-[#0E7490] hover:border-[#CDEBF0] text-slate-700 rounded-xl text-xs font-semibold transition-all border border-[#E2EBF0] cursor-pointer shadow-2xs whitespace-nowrap"
-                        >
-                          <Eye className="w-3.5 h-3.5 text-slate-500" />
-                          <span>View Facility</span>
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedProvider(item)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#F8FAFC] hover:bg-[#E8F6F8] hover:text-[#0E7490] hover:border-[#CDEBF0] text-slate-700 rounded-xl text-xs font-semibold transition-all border border-[#E2EBF0] cursor-pointer shadow-2xs whitespace-nowrap"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-slate-500" />
+                            <span>View</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setProviderToDelete(item)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white hover:bg-rose-50 text-rose-600 hover:text-rose-700 rounded-xl text-xs font-semibold transition-all border border-rose-200 cursor-pointer shadow-2xs whitespace-nowrap"
+                            title={`Delete ${item.name}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                            <span>Delete</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -469,6 +581,20 @@ export const AdminProviders: React.FC = () => {
               <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
                 <button
                   type="button"
+                  onClick={() => {
+                    const toDel = selectedProvider;
+                    setSelectedProvider(null);
+                    setProviderToDelete(toDel);
+                  }}
+                  className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  title="Delete Facility"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Delete</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setSelectedProvider(null)}
                   className="px-4 py-2.5 bg-white hover:bg-[#F8FAFC] text-slate-700 rounded-xl text-xs font-semibold transition-colors border border-[#E2EBF0] cursor-pointer shadow-2xs"
                 >
@@ -497,6 +623,281 @@ export const AdminProviders: React.FC = () => {
                   </button>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ADD FACILITY MODAL                                                        */}
+      {/* ========================================================================= */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-xl w-full border border-[#E2EBF0] shadow-2xl overflow-hidden my-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b border-[#E2EBF0] flex items-center justify-between bg-[#F8FAFC]">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-[#2DA7B5]" />
+                <h2 className="text-base font-bold text-slate-900">Add New Healthcare Facility</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddProviderSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
+              {/* Type Switcher */}
+              <div>
+                <label className="block text-slate-700 font-bold mb-1.5">Facility Type</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setAddForm((prev) => ({ ...prev, type: 'hospital' }))}
+                    className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all cursor-pointer ${
+                      addForm.type === 'hospital'
+                        ? 'bg-[#E8F6F8] border-[#2DA7B5] text-[#0E7490]'
+                        : 'bg-[#F8FAFC] border-[#E2EBF0] text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Building2 className="w-4 h-4 mt-0.5 shrink-0" />
+                    <div>
+                      <div className="font-bold">Hospital</div>
+                      <div className="text-[10px] text-slate-500">24/7 Multi-specialty center</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAddForm((prev) => ({ ...prev, type: 'clinic' }))}
+                    className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all cursor-pointer ${
+                      addForm.type === 'clinic'
+                        ? 'bg-[#E8F6F8] border-[#2DA7B5] text-[#0E7490]'
+                        : 'bg-[#F8FAFC] border-[#E2EBF0] text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Stethoscope className="w-4 h-4 mt-0.5 shrink-0" />
+                    <div>
+                      <div className="font-bold">Clinic</div>
+                      <div className="text-[10px] text-slate-500">Specialized outpatient clinic</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Name (English & Arabic) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    Facility Name (English) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={addForm.name}
+                    onChange={(e) => setAddForm((prev) => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g. Kings College Hospital London"
+                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Facility Name (Arabic)</label>
+                  <input
+                    type="text"
+                    dir="rtl"
+                    value={addForm.name_ar}
+                    onChange={(e) => setAddForm((prev) => ({ ...prev, name_ar: e.target.value }))}
+                    placeholder="مثال: مستشفى كينجز كوليدج"
+                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Location & Phone */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Emirate / City</label>
+                  <select
+                    value={addForm.location}
+                    onChange={(e) => setAddForm((prev) => ({ ...prev, location: e.target.value }))}
+                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
+                  >
+                    <option value="Dubai">Dubai</option>
+                    <option value="Abu Dhabi">Abu Dhabi</option>
+                    <option value="Sharjah">Sharjah</option>
+                    <option value="Ajman">Ajman</option>
+                    <option value="Ras Al Khaimah">Ras Al Khaimah</option>
+                    <option value="Fujairah">Fujairah</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Contact Phone</label>
+                  <input
+                    type="text"
+                    value={addForm.phone}
+                    onChange={(e) => setAddForm((prev) => ({ ...prev, phone: e.target.value }))}
+                    placeholder="+971 4 519 9999"
+                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Address */}
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Physical Address</label>
+                <input
+                  type="text"
+                  value={addForm.address}
+                  onChange={(e) => setAddForm((prev) => ({ ...prev, address: e.target.value }))}
+                  placeholder="e.g. Dubai Hills Estate, Al Khail Road, Dubai"
+                  className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              {/* Operating Hours & Specialty/Emergency */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Operating Hours</label>
+                  <input
+                    type="text"
+                    value={addForm.operating_hours}
+                    onChange={(e) => setAddForm((prev) => ({ ...prev, operating_hours: e.target.value }))}
+                    placeholder="e.g. Open 24/7 or 08:00 - 22:00"
+                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  {addForm.type === 'clinic' ? (
+                    <>
+                      <label className="block text-slate-700 font-semibold mb-1">Primary Specialty</label>
+                      <input
+                        type="text"
+                        value={addForm.primary_specialty}
+                        onChange={(e) => setAddForm((prev) => ({ ...prev, primary_specialty: e.target.value }))}
+                        placeholder="e.g. Dermatology, Orthopedics"
+                        className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
+                      />
+                    </>
+                  ) : (
+                    <div className="pt-6 flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="emergency_available"
+                        checked={addForm.emergency_available}
+                        onChange={(e) => setAddForm((prev) => ({ ...prev, emergency_available: e.target.checked }))}
+                        className="w-4 h-4 text-[#2DA7B5] rounded border-[#E2EBF0] focus:ring-[#2DA7B5]"
+                      />
+                      <label htmlFor="emergency_available" className="text-slate-700 font-semibold cursor-pointer">
+                        24/7 Emergency Care Available
+                      </label>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Photo URL */}
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Photo Image URL (Optional)</label>
+                <input
+                  type="url"
+                  value={addForm.photo}
+                  onChange={(e) => setAddForm((prev) => ({ ...prev, photo: e.target.value }))}
+                  placeholder="https://images.unsplash.com/photo-..."
+                  className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              {/* About description */}
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">About Facility</label>
+                <textarea
+                  rows={3}
+                  value={addForm.about}
+                  onChange={(e) => setAddForm((prev) => ({ ...prev, about: e.target.value }))}
+                  placeholder="Provide a brief clinical overview of this institution..."
+                  className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none resize-none"
+                />
+              </div>
+
+              {/* Form Actions */}
+              <div className="pt-3 border-t border-[#E2EBF0] flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="px-4 py-2 bg-white hover:bg-[#F8FAFC] text-slate-700 rounded-xl text-xs font-semibold border border-[#E2EBF0] cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingAdd}
+                  className="px-5 py-2 bg-[#2DA7B5] hover:bg-[#23929F] text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {isSubmittingAdd ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Creating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      <span>Create {addForm.type === 'hospital' ? 'Hospital' : 'Clinic'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* DELETE CONFIRMATION MODAL                                                 */}
+      {/* ========================================================================= */}
+      {providerToDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full border border-rose-200 shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Delete Medical Facility?</h3>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Are you sure you want to permanently delete <strong className="text-slate-800">{providerToDelete.name}</strong> ({providerToDelete.providerCategory})?
+                This action will remove the facility from all MeetAdr directories.
+              </p>
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setProviderToDelete(null)}
+                className="px-4 py-2 bg-white hover:bg-[#F8FAFC] text-slate-700 rounded-xl text-xs font-semibold border border-[#E2EBF0] cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleDeleteProviderConfirm}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Yes, Delete Facility</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

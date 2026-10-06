@@ -166,6 +166,7 @@ export const API_ENDPOINTS = {
     REQUEST_STATUS: (id: string) => `/admin/requests/${id}/status/`,
     REQUEST_RESEND_INVITATION: (id: string) => `/admin/requests/${id}/resend-invitation/`,
     PROVIDERS: '/admin/providers/',
+    PROVIDER_DETAIL: (id: string) => `/admin/providers/${id}/`,
     PROVIDER_STATUS: (id: string) => `/admin/providers/${id}/status/`,
     PROVIDER_REQUESTS: '/provider-requests/',
     PROVIDER_REQUEST_STATUS: (id: string) => `/provider-requests/${id}/`,
