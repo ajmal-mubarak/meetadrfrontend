@@ -34,7 +34,7 @@ export function normalizeApiBaseUrl(rawUrl?: string): string {
 }
 
 // Canonical API Base URL derived from Vite environment
-const rawEnvUrl = (import.meta as unknown as { env?: Record<string, string | undefined> })?.env?.VITE_API_BASE_URL;
+const rawEnvUrl = import.meta.env.VITE_API_BASE_URL;
 export const API_BASE_URL: string = normalizeApiBaseUrl(rawEnvUrl);
 
 /**
