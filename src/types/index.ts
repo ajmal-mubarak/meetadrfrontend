@@ -62,15 +62,18 @@ export interface Hospital {
   about: string;
   aboutAr?: string;
   insurancePlans?: string;  // comma-separated list from backend
+  googleMapsUrl?: string;
   status?: 'Active' | 'Deactivated';
 }
 
 export interface Clinic {
   id: string;
   name: string;
+  nameAr?: string;
   photo: string;
   location: string;
   address: string;
+  addressAr?: string;
   specialty: string;
   doctorIds: string[];
   doctorCount: number;
@@ -79,6 +82,7 @@ export interface Clinic {
   phone: string;
   operatingHours: string;
   about: string;
+  googleMapsUrl?: string;
   status?: 'Active' | 'Deactivated';
 }
 
@@ -152,6 +156,7 @@ export interface Appointment {
   } | null;
   isDependent?: boolean;
   dependentId?: string | null;
+  googleMapsUrl?: string;
 }
 
 export interface HealthCondition {
@@ -174,10 +179,12 @@ export interface ProviderRequest {
   id: string;
   providerType: 'hospital' | 'clinic' | 'doctor';
   name: string;
+  specialty?: string;
   contactNumber: string;
   email: string;
   country: string;
   location: string;
+  googleMapsUrl?: string;
   submittedAt: string;
   createdAt?: string;
   status?: 'pending' | 'approved' | 'rejected';

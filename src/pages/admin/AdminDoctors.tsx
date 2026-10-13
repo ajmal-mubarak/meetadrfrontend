@@ -22,10 +22,12 @@ import {
   ShieldAlert,
   ChevronRight,
   Sparkles,
+  Plus,
 } from 'lucide-react';
 import { realAdminService, ProviderItem } from '../../services/realAdminService';
 import { Doctor } from '../../types';
 import { useToast } from '../../context/ToastContext';
+import { ImageUpload } from '../../components/common/ImageUpload';
 
 interface FacilityGroup {
   id: string;
@@ -63,6 +65,71 @@ export const AdminDoctors: React.FC = () => {
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
+  // Add Doctor Modal
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isSubmittingDoctor, setIsSubmittingDoctor] = useState(false);
+  const [doctorForm, setDoctorForm] = useState({
+    name: '',
+    name_ar: '',
+    specialty: '',
+    location: 'Dubai',
+    facilityId: '',
+    consultation_fee: 150,
+    experience_years: 5,
+    education: 'MBBS, MD',
+    about: '',
+    photo: '',
+  });
+
+  const handleCreateDoctor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!doctorForm.name.trim() || !doctorForm.specialty.trim() || !doctorForm.location.trim()) {
+      showToast('Doctor name, specialty, and location are required.', 'error');
+      return;
+    }
+    setIsSubmittingDoctor(true);
+    try {
+      const selectedFacilityItem = providers.find((p) => p.id === doctorForm.facilityId);
+      const isHospital = (selectedFacilityItem as any)?.type === 'hospital' || selectedFacilityItem?.providerCategory === 'Hospital';
+      const isClinic = (selectedFacilityItem as any)?.type === 'clinic' || selectedFacilityItem?.providerCategory === 'Clinic';
+
+      const created = await realAdminService.createDoctor({
+        name: doctorForm.name.trim(),
+        name_ar: doctorForm.name_ar.trim() || undefined,
+        specialty: doctorForm.specialty.trim(),
+        location: doctorForm.location.trim(),
+        consultation_fee: Number(doctorForm.consultation_fee) || 100,
+        experience_years: Number(doctorForm.experience_years) || 1,
+        education: doctorForm.education.trim() || undefined,
+        about: doctorForm.about.trim() || undefined,
+        photo: doctorForm.photo.trim() || undefined,
+        hospital_id: isHospital ? doctorForm.facilityId : undefined,
+        clinic_id: isClinic ? doctorForm.facilityId : undefined,
+      });
+
+      setDoctors((prev) => [created, ...prev]);
+      showToast(`Dr. ${created.name} has been successfully registered.`, 'success');
+      setIsAddModalOpen(false);
+      setDoctorForm({
+        name: '',
+        name_ar: '',
+        specialty: '',
+        location: 'Dubai',
+        facilityId: '',
+        consultation_fee: 150,
+        experience_years: 5,
+        education: 'MBBS, MD',
+        about: '',
+        photo: '',
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to create doctor.';
+      showToast(msg, 'error');
+    } finally {
+      setIsSubmittingDoctor(false);
+    }
+  };
+
   const loadData = async () => {
     setIsLoading(true);
     try {
@@ -90,15 +157,17 @@ export const AdminDoctors: React.FC = () => {
 
     // 1. Initialize from providers directory
     providers.forEach((p) => {
+      const pAny = p as any;
+      const type = (pAny.type || (p.providerCategory === 'Clinic' ? 'clinic' : 'hospital')) as 'hospital' | 'clinic';
       map.set(p.id, {
         id: p.id,
         name: p.name,
         nameAr: p.nameAr,
-        type: p.type || 'hospital',
-        location: p.city || p.location || 'United Arab Emirates',
+        type,
+        location: pAny.city || p.location || 'United Arab Emirates',
         address: p.address,
         phone: p.phone,
-        photo: p.photo || (p.type === 'clinic' 
+        photo: p.photo || (type === 'clinic' 
           ? 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&q=80&w=600'
           : 'https://images.unsplash.com/photo-1587351021759-3e566b6af7cc?auto=format&fit=crop&q=80&w=600'),
         doctors: [],
@@ -301,23 +370,41 @@ export const AdminDoctors: React.FC = () => {
           )}
         </div>
 
-        {/* Global Summary Stats (When on Hospitals View) */}
-        {!currentFacility && (
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="px-3.5 py-2 rounded-xl bg-[#F8FAFC] border border-[#E2EBF0] text-center min-w-[90px]">
-              <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Total</span>
-              <span className="text-sm font-bold text-slate-900">{totalDoctorsCount} Doctors</span>
+        {/* Actions & Global Summary Stats */}
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setDoctorForm((prev) => ({
+                ...prev,
+                facilityId: currentFacility && !currentFacility.id.startsWith('custom-') ? currentFacility.id : '',
+                location: currentFacility ? currentFacility.location : 'Dubai',
+              }));
+              setIsAddModalOpen(true);
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#0E7490] to-[#2DA7B5] text-white text-xs font-bold hover:shadow-md hover:shadow-[#0E7490]/20 transition-all cursor-pointer shadow-xs shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Individual Doctor</span>
+          </button>
+
+          {!currentFacility && (
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="px-3 py-2 rounded-xl bg-[#F8FAFC] border border-[#E2EBF0] text-center min-w-[80px]">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Total</span>
+                <span className="text-sm font-bold text-slate-900">{totalDoctorsCount}</span>
+              </div>
+              <div className="px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-center min-w-[80px]">
+                <span className="text-[10px] uppercase font-bold text-emerald-600 block tracking-wider">Verified</span>
+                <span className="text-sm font-bold text-emerald-700">{totalVerifiedCount}</span>
+              </div>
+              <div className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-center min-w-[80px]">
+                <span className="text-[10px] uppercase font-bold text-amber-600 block tracking-wider">Unverified</span>
+                <span className="text-sm font-bold text-amber-700">{totalPendingCount}</span>
+              </div>
             </div>
-            <div className="px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-center min-w-[90px]">
-              <span className="text-[10px] uppercase font-bold text-emerald-600 block tracking-wider">Verified</span>
-              <span className="text-sm font-bold text-emerald-700">{totalVerifiedCount} Active</span>
-            </div>
-            <div className="px-3.5 py-2 rounded-xl bg-amber-50 border border-amber-200 text-center min-w-[90px]">
-              <span className="text-[10px] uppercase font-bold text-amber-600 block tracking-wider">Action Needed</span>
-              <span className="text-sm font-bold text-amber-700">{totalPendingCount} Unverified</span>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* ========================================================================= */}
@@ -943,6 +1030,202 @@ export const AdminDoctors: React.FC = () => {
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* 5. ADD INDIVIDUAL DOCTOR MODAL                                            */}
+      {/* ========================================================================= */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-2xl w-full border border-[#E2EBF0] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-8">
+            {/* Modal Header */}
+            <div className="px-6 py-5 bg-gradient-to-r from-[#0E7490] to-[#2DA7B5] text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
+                  <Stethoscope className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Add Individual Doctor</h3>
+                  <p className="text-xs text-white/80">Register an independent doctor or affiliate them with a facility</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(false)}
+                className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleCreateDoctor} className="p-6 space-y-4 max-h-[calc(85vh-130px)] overflow-y-auto text-xs">
+              {/* Name Fields */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    Doctor Name (English) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={doctorForm.name}
+                    onChange={(e) => setDoctorForm((prev) => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g. Dr. Sara Ahmed"
+                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Doctor Name (Arabic)</label>
+                  <input
+                    type="text"
+                    dir="rtl"
+                    value={doctorForm.name_ar}
+                    onChange={(e) => setDoctorForm((prev) => ({ ...prev, name_ar: e.target.value }))}
+                    placeholder="مثال: د. سارة أحمد"
+                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Specialty & Location */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    Medical Specialty <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={doctorForm.specialty}
+                    onChange={(e) => setDoctorForm((prev) => ({ ...prev, specialty: e.target.value }))}
+                    placeholder="e.g. General Medicine, Cardiology, Dermatology"
+                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    Emirate / Location <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={doctorForm.location}
+                    onChange={(e) => setDoctorForm((prev) => ({ ...prev, location: e.target.value }))}
+                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
+                  >
+                    <option value="Dubai">Dubai</option>
+                    <option value="Abu Dhabi">Abu Dhabi</option>
+                    <option value="Sharjah">Sharjah</option>
+                    <option value="Ajman">Ajman</option>
+                    <option value="Ras Al Khaimah">Ras Al Khaimah</option>
+                    <option value="Fujairah">Fujairah</option>
+                    <option value="Umm Al Quwain">Umm Al Quwain</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Facility Affiliation */}
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Practice Affiliation</label>
+                <select
+                  value={doctorForm.facilityId}
+                  onChange={(e) => setDoctorForm((prev) => ({ ...prev, facilityId: e.target.value }))}
+                  className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
+                >
+                  <option value="">Independent Doctor (Self-Practicing / Unaffiliated)</option>
+                  {providers.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.providerCategory || (p as any).type || 'Facility'}) — {(p as any).city || p.location}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Leave as Independent Doctor for standalone private practitioners.
+                </p>
+              </div>
+
+              {/* Fee & Experience */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Consultation Fee (AED)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="10"
+                    value={doctorForm.consultation_fee}
+                    onChange={(e) => setDoctorForm((prev) => ({ ...prev, consultation_fee: Number(e.target.value) }))}
+                    placeholder="150"
+                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Years of Experience</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="60"
+                    value={doctorForm.experience_years}
+                    onChange={(e) => setDoctorForm((prev) => ({ ...prev, experience_years: Number(e.target.value) }))}
+                    placeholder="5"
+                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Education */}
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Education & Qualifications</label>
+                <input
+                  type="text"
+                  value={doctorForm.education}
+                  onChange={(e) => setDoctorForm((prev) => ({ ...prev, education: e.target.value }))}
+                  placeholder="e.g. MBBS, MD, Royal College of Physicians"
+                  className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
+                />
+              </div>
+
+              {/* Doctor Photo Image Upload */}
+              <ImageUpload
+                label="Doctor Photo"
+                value={doctorForm.photo}
+                onChange={(base64) => setDoctorForm((prev) => ({ ...prev, photo: base64 }))}
+                onRemove={() => setDoctorForm((prev) => ({ ...prev, photo: '' }))}
+                helperText="Upload doctor photo / headshot (JPG, PNG, WebP)"
+                aspectRatio="square"
+              />
+
+              {/* About / Bio */}
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">About Doctor / Professional Bio</label>
+                <textarea
+                  rows={3}
+                  value={doctorForm.about}
+                  onChange={(e) => setDoctorForm((prev) => ({ ...prev, about: e.target.value }))}
+                  placeholder="Brief summary of doctor's background, clinical expertise, and approach to care..."
+                  className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none resize-none"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="pt-3 border-t border-[#E2EBF0] flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingDoctor}
+                  className="px-5 py-2 bg-gradient-to-r from-[#0E7490] to-[#2DA7B5] hover:opacity-95 text-white rounded-xl font-bold transition-all shadow-xs disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>{isSubmittingDoctor ? 'Creating...' : 'Create Doctor'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

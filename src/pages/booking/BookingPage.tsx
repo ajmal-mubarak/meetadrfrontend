@@ -260,7 +260,7 @@ const GuestLoginModal: React.FC<GuestLoginModalProps> = ({ onSuccess, onClose, d
                     type="tel"
                     value={mobile}
                     onChange={(e) => setMobile(e.target.value)}
-                    placeholder="52 412 2794"
+                    placeholder="00 000 0000"
                     className="flex-1 border border-[#E2EBF0] rounded-xl px-3 py-2.5 text-sm text-slate-900 bg-[#F8FAFC] focus:border-[#2DA7B5] focus:bg-white focus:outline-hidden font-medium"
                   />
                 </div>
@@ -932,12 +932,33 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
               </div>
             </div>
 
-            {/* Notification notice */}
-            <div className="mt-5 p-4 rounded-xl bg-[#E8F6F8] border border-[#CDEBF0] flex items-start gap-3">
-              <Check className="w-4 h-4 text-[#2DA7B5] mt-0.5 shrink-0" />
-              <p className="text-xs text-[#0E7490] leading-relaxed">
-                An SMS confirmation has been dispatched to <strong>{countryCode} {mobileNumber}</strong>. You can view, track, or cancel this booking anytime from your Patient Portal.
+            {/* Notification notice - Patient Message Template */}
+            <div className="mt-5 p-5 rounded-2xl bg-[#F8FAFC] border border-[#E2EBF0] shadow-2xs text-start">
+              <p className="text-xs sm:text-sm text-slate-800 leading-relaxed font-medium">
+                {language === 'ar' ? (
+                  <>لقد استلمنا طلب الحجز الخاص بك للدكتور <strong>{(() => {
+                    const clean = (doctor?.name || '').replace(/^Dr\.\s*/i, '').trim();
+                    const parts = clean.split(/\s+/);
+                    if (parts.length >= 2 && ['al', 'el', 'bin', 'ibn', 'abu'].includes(parts[parts.length - 2].toLowerCase())) {
+                      return `${parts[parts.length - 2]} ${parts[parts.length - 1]}`;
+                    }
+                    return parts[parts.length - 1] || clean;
+                  })()}</strong>. سيتصل بك فريق المستشفى قريبًا لتأكيد تاريخ ووقت الموعد النهائي.</>
+                ) : (
+                  <>We've received your booking request for <strong>Dr. {(() => {
+                    const clean = (doctor?.name || '').replace(/^Dr\.\s*/i, '').trim();
+                    const parts = clean.split(/\s+/);
+                    if (parts.length >= 2 && ['al', 'el', 'bin', 'ibn', 'abu'].includes(parts[parts.length - 2].toLowerCase())) {
+                      return `${parts[parts.length - 2]} ${parts[parts.length - 1]}`;
+                    }
+                    return parts[parts.length - 1] || clean;
+                  })()}</strong>. Our hospital team will call you shortly to confirm your final date and time slot.</>
+                )}
               </p>
+              <div className="mt-3.5 pt-2.5 border-t border-[#E2EBF0] text-xs">
+                <p className="text-slate-500 font-medium">{language === 'ar' ? 'مع خالص التحيات' : 'Regards'}</p>
+                <p className="font-bold text-slate-900">Team MeetAdr.com</p>
+              </div>
             </div>
 
             {/* The 2 Primary Action Buttons */}
@@ -1892,32 +1913,41 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
                           </Link>
                         </div>
                       ) : (
-                        <button
-                          type="submit"
-                          disabled={!isFormValid || isSubmitting}
-                          className={`w-full sm:w-auto py-3.5 px-8 text-xs sm:text-sm font-bold rounded-2xl flex items-center justify-center gap-2 transition-all duration-200 shadow-xs ${
-                            !isFormValid
-                              ? 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-75 shadow-none'
-                              : 'bg-[#2DA7B5] hover:bg-[#23929F] text-white active:scale-[0.99] cursor-pointer'
-                          }`}
-                        >
-                          {isSubmitting ? (
-                            <>
-                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                              <span>{rescheduleApptId ? (language === 'ar' ? 'جارٍ إعادة الجدولة...' : 'Rescheduling Appointment...') : t('booking.confirmingWithHospital')}</span>
-                            </>
-                          ) : !isAuthenticated && isFormValid ? (
-                            <>
-                              <LogIn className="w-4 h-4" />
-                              <span>{t('booking.signInAndBook')}</span>
-                            </>
-                          ) : (
-                            <>
-                              <span>{rescheduleApptId ? (language === 'ar' ? 'تأكيد إعادة الجدولة' : 'Confirm Reschedule') : t('booking.confirmAndBook')}</span>
-                              <ArrowRight className="w-4 h-4 rtl:rotate-180" />
-                            </>
+                        <div className="flex flex-col sm:flex-row items-center gap-3.5">
+                          {isFormValid && (
+                            <p className="text-[11px] text-slate-500 max-w-sm text-center sm:text-right rtl:sm:text-left leading-relaxed font-normal">
+                              {isArabic
+                                ? 'بإرسال هذا النموذج، فإنك توافق على إمكانية استخدام المعلومات المقدمة للمساعدة في طلب موعدك'
+                                : 'By submitting this form, you agree that the information provided may be used to assist with your appointment request'}
+                            </p>
                           )}
-                        </button>
+                          <button
+                            type="submit"
+                            disabled={!isFormValid || isSubmitting}
+                            className={`w-full sm:w-auto py-3.5 px-8 text-xs sm:text-sm font-bold rounded-2xl flex items-center justify-center gap-2 transition-all duration-200 shadow-xs shrink-0 ${
+                              !isFormValid
+                                ? 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-75 shadow-none'
+                                : 'bg-[#2DA7B5] hover:bg-[#23929F] text-white active:scale-[0.99] cursor-pointer'
+                            }`}
+                          >
+                            {isSubmitting ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                <span>{rescheduleApptId ? (language === 'ar' ? 'جارٍ إعادة الجدولة...' : 'Rescheduling Appointment...') : t('booking.confirmingWithHospital')}</span>
+                              </>
+                            ) : !isAuthenticated && isFormValid ? (
+                              <>
+                                <LogIn className="w-4 h-4" />
+                                <span>{t('booking.signInAndBook')}</span>
+                              </>
+                            ) : (
+                              <>
+                                <span>{rescheduleApptId ? (language === 'ar' ? 'تأكيد إعادة الجدولة' : 'Confirm Reschedule') : t('booking.confirmAndBook')}</span>
+                                <ArrowRight className="w-4 h-4 rtl:rotate-180" />
+                              </>
+                            )}
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>

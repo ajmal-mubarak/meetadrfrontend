@@ -64,6 +64,7 @@ export interface FacilitySettingsData {
   name_ar?: string;
   address: string;
   address_ar?: string;
+  location?: string;
   phone: string;
   email?: string;
   website?: string;
@@ -76,6 +77,8 @@ export interface FacilitySettingsData {
   description_ar?: string;
   logo?: string;
   image?: string;
+  photo?: string;
+  google_maps_url?: string;
 }
 
 interface BackendAppointment {
@@ -85,6 +88,7 @@ interface BackendAppointment {
   notes?: string;
   patient_name_snapshot?: string;
   patient_phone_snapshot?: string;
+  patient_email_snapshot?: string;
   specialty_snapshot?: string;
   time_slot?: string;
   cancel_reason?: string;
@@ -92,6 +96,7 @@ interface BackendAppointment {
   patientName?: string;
   patientPhone?: string;
   patientMobile?: string;
+  patientEmail?: string;
   doctorId?: string;
   doctorName?: string;
   hospitalName?: string;
@@ -99,30 +104,38 @@ interface BackendAppointment {
   time?: string;
   timeSlot?: string;
   cancelReason?: string;
+  location?: string;
+  google_maps_url?: string;
+  googleMapsUrl?: string;
 }
 
 function mapAppointment(b: BackendAppointment): Appointment {
+  const rawAny = b as any;
   const status = (b.status || 'confirmed').toLowerCase() as Appointment['status'];
+  const hospName = b.hospitalName || rawAny.facilityName || rawAny.providerName || rawAny.hospital_name || '';
   return {
     id: String(b.id),
-    doctorId: b.doctorId || '',
-    doctorName: b.doctorName || 'Doctor',
-    patientId: b.patientId || '',
+    doctorId: b.doctorId || rawAny.doctor_id || '',
+    doctorName: b.doctorName || rawAny.doctor_name || 'Doctor',
+    patientId: b.patientId || rawAny.patient_id || '',
     patientName: b.patientName || b.patient_name_snapshot || 'Patient',
     patientMobile: b.patientMobile || b.patientPhone || b.patient_phone_snapshot || '',
     patientPhone: b.patientPhone || b.patientMobile || b.patient_phone_snapshot || '',
-    hospitalId: '',
-    hospitalName: b.hospitalName || '',
-    providerName: b.hospitalName || 'Medical Facility',
+    patientEmail: b.patientEmail || rawAny.patient_email || rawAny.patient_email_snapshot || '',
+    hospitalId: rawAny.hospitalId || rawAny.hospital_id || '',
+    hospitalName: hospName,
+    facilityName: hospName,
+    providerName: hospName || 'Medical Facility',
     specialty: b.specialty || b.specialty_snapshot || '',
-    location: 'Dubai, UAE',
+    location: rawAny.location || 'Dubai, UAE',
+    googleMapsUrl: rawAny.googleMapsUrl || rawAny.google_maps_url || '',
     date: b.date,
     time: b.timeSlot || b.time || b.time_slot || '',
     timeSlot: b.timeSlot || b.time || b.time_slot || '',
     status: ['pending', 'confirmed', 'completed', 'cancelled'].includes(status) ? status : 'confirmed',
     notes: b.notes || undefined,
     cancelReason: b.cancelReason || b.cancel_reason || undefined,
-    createdAt: new Date().toISOString(),
+    createdAt: rawAny.created_at || rawAny.createdAt || new Date().toISOString(),
   };
 }
 
@@ -437,6 +450,8 @@ export const realFacilityAdminService = {
       description: data.description || '',
       email: data.email || '',
       website: data.website || '',
+      photo: data.photo || data.image || '',
+      google_maps_url: data.google_maps_url || '',
     };
   },
 
@@ -455,6 +470,8 @@ export const realFacilityAdminService = {
     if (updates.operating_hours !== undefined) payload.operating_hours = updates.operating_hours;
     if (updates.insurance_plans !== undefined) payload.insurance_plans = updates.insurance_plans;
     if (updates.description !== undefined) payload.description = updates.description;
+    if (updates.photo !== undefined) payload.photo = updates.photo;
+    if (updates.google_maps_url !== undefined) payload.google_maps_url = updates.google_maps_url;
 
     const data = await apiClient.patch<FacilitySettingsData>(
       API_ENDPOINTS.FACILITIES.SETTINGS,
@@ -471,6 +488,8 @@ export const realFacilityAdminService = {
       description: data.description || '',
       email: data.email || '',
       website: data.website || '',
+      photo: data.photo || data.image || '',
+      google_maps_url: data.google_maps_url || '',
     };
   },
 };

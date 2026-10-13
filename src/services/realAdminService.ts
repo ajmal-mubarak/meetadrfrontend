@@ -101,6 +101,7 @@ interface BackendAdminBooking {
   notes?: string;
   patient_name_snapshot?: string;
   patient_phone_snapshot?: string;
+  patient_email_snapshot?: string;
   specialty_snapshot?: string;
   time_slot?: string;
   cancel_reason?: string;
@@ -108,6 +109,8 @@ interface BackendAdminBooking {
   patientName?: string;
   patientPhone?: string;
   patientMobile?: string;
+  patientEmail?: string;
+  patient_email?: string;
   doctorId?: string;
   doctorName?: string;
   hospitalName?: string;
@@ -115,6 +118,9 @@ interface BackendAdminBooking {
   time?: string;
   timeSlot?: string;
   cancelReason?: string;
+  location?: string;
+  google_maps_url?: string;
+  googleMapsUrl?: string;
 }
 
 function mapBooking(b: BackendAdminBooking): Appointment {
@@ -133,11 +139,14 @@ function mapBooking(b: BackendAdminBooking): Appointment {
     patientName: b.patientName || b.patient_name_snapshot || 'Patient',
     patientMobile: b.patientMobile || b.patientPhone || b.patient_phone_snapshot || '',
     patientPhone: b.patientPhone || b.patientMobile || b.patient_phone_snapshot || '',
+    patientEmail: b.patientEmail || rawAny.patient_email || rawAny.patient_email_snapshot || '',
     hospitalId: hospId,
     hospitalName: hospName,
+    facilityName: hospName,
     providerName: hospName || 'Medical Facility',
     specialty: b.specialty || b.specialty_snapshot || '',
     location: rawAny.location || 'Dubai, UAE',
+    googleMapsUrl: rawAny.googleMapsUrl || rawAny.google_maps_url || '',
     date: b.date,
     time: b.timeSlot || b.time || b.time_slot || '',
     timeSlot: b.timeSlot || b.time || b.time_slot || '',
@@ -167,6 +176,7 @@ interface BackendProviderFacility {
   avg_rating?: number | null;
   total_reviews?: number;
   photo?: string;
+  google_maps_url?: string;
 }
 
 export type ProviderItem = (Hospital | Clinic) & {
@@ -192,6 +202,7 @@ function mapProvider(p: BackendProviderFacility): ProviderItem {
     phone: p.phone || '+971 4 000 0000',
     operatingHours: '08:00 - 20:00',
     about: 'Accredited medical facility providing specialized healthcare in the UAE.',
+    googleMapsUrl: p.google_maps_url || '',
     status,
     providerCategory: isClinic ? ('Clinic' as const) : ('Hospital' as const),
   };
@@ -221,6 +232,7 @@ interface BackendProviderRequest {
   status: string;
   created_at: string;
   admin_notes?: string;
+  google_maps_url?: string;
 }
 
 function mapRequest(r: BackendProviderRequest): ProviderRequest {
@@ -234,6 +246,7 @@ function mapRequest(r: BackendProviderRequest): ProviderRequest {
     email: r.email,
     country: 'United Arab Emirates',
     location: r.city || 'Dubai',
+    googleMapsUrl: r.google_maps_url || '',
     status: pStatus,
     submittedAt: r.created_at,
     createdAt: r.created_at,
@@ -270,6 +283,50 @@ export const realAdminService = {
       ? response
       : (response && Array.isArray(response.results) ? response.results : []);
     return list.map(mapDoctor);
+  },
+
+  /**
+   * Platform administrator creates an individual or facility doctor.
+   * POST /api/v1/admin/doctors/
+   */
+  async createDoctor(data: {
+    name: string;
+    name_ar?: string;
+    specialty: string;
+    location: string;
+    consultation_fee?: number;
+    experience_years?: number;
+    education?: string;
+    about?: string;
+    about_ar?: string;
+    photo?: string;
+    hospital_id?: string;
+    clinic_id?: string;
+    available_days?: string[];
+    standard_slots?: string[];
+  }): Promise<Doctor> {
+    const payload: Record<string, any> = {
+      name: data.name,
+      specialty: data.specialty,
+      location: data.location,
+    };
+    if (data.name_ar) payload.nameAr = data.name_ar;
+    if (data.consultation_fee !== undefined) payload.consultationFee = data.consultation_fee;
+    if (data.experience_years !== undefined) payload.experienceYears = data.experience_years;
+    if (data.education) payload.education = data.education;
+    if (data.about) payload.about = data.about;
+    if (data.about_ar) payload.aboutAr = data.about_ar;
+    if (data.photo) payload.photo = data.photo;
+    if (data.hospital_id) payload.hospitalId = data.hospital_id;
+    if (data.clinic_id) payload.clinicId = data.clinic_id;
+    if (data.available_days) payload.availableDays = data.available_days;
+    if (data.standard_slots) payload.standardSlots = data.standard_slots;
+
+    const response = await apiClient.post<BackendAdminDoctor>(
+      API_ENDPOINTS.ADMIN.DOCTORS,
+      payload
+    );
+    return mapDoctor(response);
   },
 
   /**
@@ -317,6 +374,7 @@ export const realAdminService = {
     photo?: string;
     emergency_available?: boolean;
     primary_specialty?: string;
+    google_maps_url?: string;
   }): Promise<ProviderItem> {
     const response = await apiClient.post<BackendProviderFacility>(
       API_ENDPOINTS.ADMIN.PROVIDERS,

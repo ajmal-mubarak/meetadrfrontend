@@ -22,6 +22,7 @@ import {
 import { realAdminService, ProviderItem } from '../../services/realAdminService';
 import { Hospital, Clinic } from '../../types';
 import { useToast } from '../../context/ToastContext';
+import { ImageUpload } from '../../components/common/ImageUpload';
 
 export const AdminProviders: React.FC = () => {
   const { showToast } = useToast();
@@ -49,6 +50,7 @@ export const AdminProviders: React.FC = () => {
     photo: '',
     emergency_available: true,
     primary_specialty: 'General Medicine',
+    google_maps_url: '',
   });
 
   // Delete Facility State
@@ -119,6 +121,7 @@ export const AdminProviders: React.FC = () => {
           : 'https://images.unsplash.com/photo-1581056771107-24ca5f033842?auto=format&fit=crop&q=80&w=800'),
         emergency_available: addForm.emergency_available,
         primary_specialty: addForm.primary_specialty.trim() || 'General Medicine',
+        google_maps_url: addForm.google_maps_url.trim() || undefined,
       });
 
       setProviders((prev) => [created, ...prev]);
@@ -137,6 +140,7 @@ export const AdminProviders: React.FC = () => {
         photo: '',
         emergency_available: true,
         primary_specialty: 'General Medicine',
+        google_maps_url: '',
       });
     } catch (err: any) {
       showToast(err.message || 'Failed to add facility.', 'error');
@@ -202,23 +206,6 @@ export const AdminProviders: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {/* Facility Type Filter */}
-          <div className="flex rounded-xl bg-[#F1F5F9] p-1 text-xs font-semibold border border-[#E2EBF0]">
-            {(['all', 'hospital', 'clinic'] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setType(t)}
-                className={`px-3 py-1.5 rounded-lg capitalize transition-all cursor-pointer ${
-                  type === t
-                    ? 'bg-white text-[#0E7490] shadow-xs font-bold border border-[#E2EBF0]'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {t === 'all' ? 'All' : `${t}s`}
-              </button>
-            ))}
-          </div>
-
           {/* Status Filter */}
           <div className="flex rounded-xl bg-[#F1F5F9] p-1 text-xs font-semibold border border-[#E2EBF0]">
             <button
@@ -253,14 +240,14 @@ export const AdminProviders: React.FC = () => {
             </button>
           </div>
 
-          {/* Add Facility Button */}
+          {/* Add Hospital / Clinic Button */}
           <button
             type="button"
             onClick={() => setIsAddModalOpen(true)}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#2DA7B5] hover:bg-[#23929F] text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer shrink-0"
           >
             <Plus className="w-4 h-4" />
-            <span>Add Hospital</span>
+            <span>Add Hospital / Clinic</span>
           </button>
 
           {/* Search Box */}
@@ -329,7 +316,7 @@ export const AdminProviders: React.FC = () => {
                         <span
                           className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#E8F6F8] text-[#0E7490] border border-[#CDEBF0]"
                         >
-                          {item.providerCategory}
+                          Hospital / Clinic
                         </span>
                       </td>
                       <td className="px-5 py-3.5 text-slate-600">
@@ -447,10 +434,24 @@ export const AdminProviders: React.FC = () => {
                       MOH Licensed
                     </span>
                   </div>
-                  <p className="text-xs text-slate-600 flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{selectedProvider.address || selectedProvider.location}</span>
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                    <span className="flex items-center gap-1">
+                      <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                      <span>{selectedProvider.address || selectedProvider.location}</span>
+                    </span>
+                    {selectedProvider.googleMapsUrl && (
+                      <a
+                        href={selectedProvider.googleMapsUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0E7490] hover:text-[#2DA7B5] bg-[#E8F6F8] px-2 py-0.5 rounded-md border border-[#CDEBF0] transition-colors"
+                      >
+                        <MapPin className="w-3 h-3 text-[#2DA7B5]" />
+                        <span>Location in Maps</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
                   <p className="text-[11px] text-slate-400 font-mono">Facility ID: {selectedProvider.id}</p>
                 </div>
               </div>
@@ -637,7 +638,7 @@ export const AdminProviders: React.FC = () => {
             <div className="px-6 py-4 border-b border-[#E2EBF0] flex items-center justify-between bg-[#F8FAFC]">
               <div className="flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-[#2DA7B5]" />
-                <h2 className="text-base font-bold text-slate-900">Add New Healthcare Facility</h2>
+                <h2 className="text-base font-bold text-slate-900">Add Hospital / Clinic</h2>
               </div>
               <button
                 type="button"
@@ -649,42 +650,10 @@ export const AdminProviders: React.FC = () => {
             </div>
 
             <form onSubmit={handleAddProviderSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
-              {/* Type Switcher */}
-              <div>
-                <label className="block text-slate-700 font-bold mb-1.5">Facility Type</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setAddForm((prev) => ({ ...prev, type: 'hospital' }))}
-                    className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all cursor-pointer ${
-                      addForm.type === 'hospital'
-                        ? 'bg-[#E8F6F8] border-[#2DA7B5] text-[#0E7490]'
-                        : 'bg-[#F8FAFC] border-[#E2EBF0] text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    <Building2 className="w-4 h-4 mt-0.5 shrink-0" />
-                    <div>
-                      <div className="font-bold">Hospital</div>
-                      <div className="text-[10px] text-slate-500">24/7 Multi-specialty center</div>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setAddForm((prev) => ({ ...prev, type: 'clinic' }))}
-                    className={`p-3 rounded-xl border text-left flex items-start gap-2.5 transition-all cursor-pointer ${
-                      addForm.type === 'clinic'
-                        ? 'bg-[#E8F6F8] border-[#2DA7B5] text-[#0E7490]'
-                        : 'bg-[#F8FAFC] border-[#E2EBF0] text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    <Stethoscope className="w-4 h-4 mt-0.5 shrink-0" />
-                    <div>
-                      <div className="font-bold">Clinic</div>
-                      <div className="text-[10px] text-slate-500">Specialized outpatient clinic</div>
-                    </div>
-                  </button>
-                </div>
+              {/* Unified Facility Type Banner */}
+              <div className="bg-[#E8F6F8] border border-[#CDEBF0] rounded-2xl p-3.5 flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-[#2DA7B5] shrink-0" />
+                <span className="text-[#0E7490] text-xs font-bold">Facility Type: Hospital / Clinic (All facility management fields enabled)</span>
               </div>
 
               {/* Name (English & Arabic) */}
@@ -756,6 +725,20 @@ export const AdminProviders: React.FC = () => {
                 />
               </div>
 
+              {/* Location in Maps (Google Maps URL) */}
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Location in Maps (Google Maps URL)</label>
+                <div className="relative">
+                  <input
+                    type="url"
+                    value={addForm.google_maps_url}
+                    onChange={(e) => setAddForm((prev) => ({ ...prev, google_maps_url: e.target.value }))}
+                    placeholder="https://maps.google.com/?q=..."
+                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
               {/* Operating Hours & Specialty/Emergency */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -797,17 +780,15 @@ export const AdminProviders: React.FC = () => {
                 </div>
               </div>
 
-              {/* Photo URL */}
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">Photo Image URL (Optional)</label>
-                <input
-                  type="url"
-                  value={addForm.photo}
-                  onChange={(e) => setAddForm((prev) => ({ ...prev, photo: e.target.value }))}
-                  placeholder="https://images.unsplash.com/photo-..."
-                  className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
-                />
-              </div>
+              {/* Photo Image Upload Field */}
+              <ImageUpload
+                label="Facility Photo / Logo (Optional)"
+                value={addForm.photo}
+                onChange={(base64) => setAddForm((prev) => ({ ...prev, photo: base64 }))}
+                onRemove={() => setAddForm((prev) => ({ ...prev, photo: '' }))}
+                helperText="Upload hospital/clinic exterior, interior or official logo (JPG, PNG, WebP)"
+                aspectRatio="wide"
+              />
 
               {/* About description */}
               <div>

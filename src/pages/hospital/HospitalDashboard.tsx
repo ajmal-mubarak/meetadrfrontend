@@ -23,6 +23,7 @@ import {
   LogOut,
   TrendingUp,
   Activity,
+  Eye,
 } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -35,6 +36,7 @@ import { realFacilityAdminService, FacilitySettingsData } from '../../services/r
 import { Appointment, Doctor } from '../../types';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { CancelModal } from '../../components/common/CancelModal';
+import { BookingDetailsModal } from '../../components/common/BookingDetailsModal';
 
 // ── Hospital Custom Tooltip ──────────────────────────────────────────────────
 const HospitalChartTooltip = ({ active, payload, label }: any) => {
@@ -82,6 +84,7 @@ export const HospitalDashboard: React.FC = () => {
     emergency_available: boolean;
   } | null>(null);
   const [cancellingAppt, setCancellingAppt] = useState<Appointment | null>(null);
+  const [viewingAppt, setViewingAppt] = useState<Appointment | null>(null);
   const [reachedOutIds, setReachedOutIds] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(true);
 
@@ -674,6 +677,15 @@ export const HospitalDashboard: React.FC = () => {
 
                         {/* Actions */}
                         <td className="py-3.5 px-4 text-right rtl:text-left space-x-1.5 rtl:space-x-reverse">
+                          <button
+                            type="button"
+                            onClick={() => setViewingAppt(appt)}
+                            className="px-2.5 py-1 text-[11px] font-semibold text-[#0E7490] hover:bg-[#E8F6F8] rounded-md border border-[#CDEBF0] transition-colors cursor-pointer inline-flex items-center gap-1"
+                            title={isArabic ? 'عرض تفاصيل الحجز' : 'View Booking Details'}
+                          >
+                            <Eye className="w-3 h-3 text-[#2DA7B5]" />
+                            <span>{isArabic ? 'التفاصيل' : 'Details'}</span>
+                          </button>
                           {appt.status === 'pending' && (
                             <button
                               onClick={() => handleMarkConfirmed(appt.id)}
@@ -1153,6 +1165,14 @@ export const HospitalDashboard: React.FC = () => {
           appointment={cancellingAppt}
           onConfirm={handleCancelConfirm}
           onClose={() => setCancellingAppt(null)}
+        />
+      )}
+
+      {/* Booking Details Modal */}
+      {viewingAppt && (
+        <BookingDetailsModal
+          appointment={viewingAppt}
+          onClose={() => setViewingAppt(null)}
         />
       )}
     </div>

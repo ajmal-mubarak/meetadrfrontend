@@ -88,6 +88,8 @@ interface BackendAppointment {
   cancelledBy?: string;
   cancelledByName?: string;
   createdAt?: string;
+  googleMapsUrl?: string;
+  google_maps_url?: string;
 }
 
 export interface BookingInput {
@@ -147,6 +149,7 @@ function mapAppointment(b: BackendAppointment): Appointment {
     review: b.doctorReview || b.review || null,
     isDependent: Boolean(b.is_dependent),
     dependentId: b.dependent_id || null,
+    googleMapsUrl: b.googleMapsUrl || b.google_maps_url || undefined,
   };
 }
 

@@ -783,7 +783,7 @@ export const PatientDashboard: React.FC = () => {
                     type="tel"
                     value={mobileNumber}
                     onChange={(e) => setMobileNumber(e.target.value)}
-                    placeholder="52 412 2794"
+                    placeholder="00 000 0000"
                     className="flex-1 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl px-4 py-2.5 text-xs text-slate-900 focus:outline-none font-medium"
                   />
                 </div>

@@ -16,12 +16,14 @@ import {
   X,
   Sparkles,
   TrendingUp,
-  UserCheck
+  UserCheck,
+  Eye,
 } from 'lucide-react';
 import { realAdminService, ProviderItem } from '../../services/realAdminService';
 import { Appointment, Doctor } from '../../types';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { CancelModal } from '../../components/common/CancelModal';
+import { BookingDetailsModal } from '../../components/common/BookingDetailsModal';
 import { useToast } from '../../context/ToastContext';
 import { useTranslation } from '../../i18n';
 
@@ -68,6 +70,7 @@ export const AdminBookings: React.FC = () => {
   const [bookingStatus, setBookingStatus] = useState<string>('all');
   const [bookingSearch, setBookingSearch] = useState<string>('');
   const [cancellingAppt, setCancellingAppt] = useState<Appointment | null>(null);
+  const [viewingAppt, setViewingAppt] = useState<Appointment | null>(null);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -955,16 +958,23 @@ export const AdminBookings: React.FC = () => {
                         <td className="px-5 py-3.5">
                           <StatusBadge status={appt.status} />
                         </td>
-                        <td className="px-5 py-3.5 text-right rtl:text-left">
-                          {appt.status?.toLowerCase() === 'confirmed' ? (
+                        <td className="px-5 py-3.5 text-right rtl:text-left space-x-1.5 rtl:space-x-reverse">
+                          <button
+                            type="button"
+                            onClick={() => setViewingAppt(appt)}
+                            className="px-2.5 py-1 text-[11px] font-semibold text-[#0E7490] hover:bg-[#E8F6F8] rounded-lg border border-[#CDEBF0] transition-colors cursor-pointer inline-flex items-center gap-1"
+                            title="View Booking Details"
+                          >
+                            <Eye className="w-3 h-3 text-[#2DA7B5]" />
+                            <span>{isArabic ? 'التفاصيل' : 'Details'}</span>
+                          </button>
+                          {appt.status?.toLowerCase() === 'confirmed' && (
                             <button
                               onClick={() => setCancellingAppt(appt)}
                               className="px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 rounded-lg border border-rose-200 transition-colors cursor-pointer"
                             >
                               {t('adminPortal.cancelBooking') || 'Cancel'}
                             </button>
-                          ) : (
-                            <span className="text-slate-400 text-[11px]">—</span>
                           )}
                         </td>
                       </tr>
@@ -1059,16 +1069,23 @@ export const AdminBookings: React.FC = () => {
                         <td className="px-5 py-3.5">
                           <StatusBadge status={appt.status} />
                         </td>
-                        <td className="px-5 py-3.5 text-right rtl:text-left">
-                          {appt.status?.toLowerCase() === 'confirmed' ? (
+                        <td className="px-5 py-3.5 text-right rtl:text-left space-x-1.5 rtl:space-x-reverse">
+                          <button
+                            type="button"
+                            onClick={() => setViewingAppt(appt)}
+                            className="px-2.5 py-1 text-[11px] font-semibold text-[#0E7490] hover:bg-[#E8F6F8] rounded-lg border border-[#CDEBF0] transition-colors cursor-pointer inline-flex items-center gap-1"
+                            title="View Booking Details"
+                          >
+                            <Eye className="w-3 h-3 text-[#2DA7B5]" />
+                            <span>{isArabic ? 'التفاصيل' : 'Details'}</span>
+                          </button>
+                          {appt.status?.toLowerCase() === 'confirmed' && (
                             <button
                               onClick={() => setCancellingAppt(appt)}
                               className="px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 rounded-lg border border-rose-200 transition-colors cursor-pointer"
                             >
                               {t('adminPortal.cancelBooking') || 'Cancel'}
                             </button>
-                          ) : (
-                            <span className="text-slate-400 text-[11px]">—</span>
                           )}
                         </td>
                       </tr>
@@ -1087,6 +1104,14 @@ export const AdminBookings: React.FC = () => {
           appointment={cancellingAppt}
           onClose={() => setCancellingAppt(null)}
           onConfirm={handleCancelConfirm}
+        />
+      )}
+
+      {/* Booking Details Modal */}
+      {viewingAppt && (
+        <BookingDetailsModal
+          appointment={viewingAppt}
+          onClose={() => setViewingAppt(null)}
         />
       )}
     </div>

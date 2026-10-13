@@ -6,6 +6,7 @@ import {
   Phone,
   Clock,
   ArrowLeft,
+  ExternalLink,
 } from 'lucide-react';
 import { realClinicService } from '../../services/realFacilityService';
 import { realDoctorService } from '../../services/realDoctorService';
@@ -92,9 +93,28 @@ export const ClinicDetails: React.FC = () => {
                 )}
               </div>
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">{clinic.name}</h1>
-              <div className="flex items-center gap-1.5 text-sm text-slate-500 mt-1">
-                <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
-                <span>{translateLocation(clinic.address || clinic.location)}</span>
+              <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500 mt-1">
+                <span className="flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
+                  <span>{translateLocation(clinic.address || clinic.location)}</span>
+                </span>
+                {(clinic.googleMapsUrl || clinic.address) && (
+                  <a
+                    href={
+                      clinic.googleMapsUrl ||
+                      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                        `${clinic.name} ${clinic.address || clinic.location}`
+                      )}`
+                    }
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-bold text-[#0E7490] hover:text-[#2DA7B5] bg-[#E8F6F8] px-2 py-0.5 rounded-md border border-[#CDEBF0] transition-colors"
+                  >
+                    <MapPin className="w-3.5 h-3.5 text-[#2DA7B5]" />
+                    <span>Location in Maps</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
               </div>
             </div>
 

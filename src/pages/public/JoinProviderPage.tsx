@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   Building2,
   Hospital,
+  Stethoscope,
   Users,
   Calendar,
   Award,
@@ -19,22 +20,25 @@ import {
   FileCheck,
   ClipboardList,
   Send,
+  ExternalLink,
 } from 'lucide-react';
 import { providerService } from '../../services/providerService';
 import { useToast } from '../../context/ToastContext';
 import { useTranslation } from '../../i18n';
 
-type ProviderType = 'hospital' | 'clinic';
+type ProviderType = 'hospital' | 'doctor';
 
 interface WizardData {
   providerType: ProviderType;
   facilityName: string;
+  specialty: string;
   contactPerson: string;
   countryCode: string;
   contactNumber: string;
   email: string;
   location: string;
   country: string;
+  googleMapsUrl: string;
   website: string;
   notes: string;
 }
@@ -42,19 +46,21 @@ interface WizardData {
 const INITIAL_DATA: WizardData = {
   providerType: 'hospital',
   facilityName: '',
+  specialty: '',
   contactPerson: '',
   countryCode: '+971',
   contactNumber: '',
   email: '',
   location: '',
   country: 'United Arab Emirates',
+  googleMapsUrl: '',
   website: '',
   notes: '',
 };
 
 const STEPS = [
   { id: 1, label: 'Provider Type', icon: Building2 },
-  { id: 2, label: 'Organization Details', icon: ClipboardList },
+  { id: 2, label: 'Practice Details', icon: ClipboardList },
   { id: 3, label: 'Review & Submit', icon: Send },
 ];
 
@@ -96,11 +102,16 @@ export const JoinProviderPage: React.FC = () => {
   };
 
   const validateStep2 = (): boolean => {
+    const isDoc = wizardData.providerType === 'doctor';
     if (!wizardData.facilityName.trim()) {
-      showToast('Please enter your facility name.', 'error');
+      showToast(isDoc ? 'Please enter the doctor name.' : 'Please enter your facility name.', 'error');
       return false;
     }
-    if (!wizardData.contactPerson.trim()) {
+    if (isDoc && !wizardData.specialty.trim()) {
+      showToast('Please enter your medical specialty.', 'error');
+      return false;
+    }
+    if (!isDoc && !wizardData.contactPerson.trim()) {
       showToast('Please enter the contact person name.', 'error');
       return false;
     }
@@ -140,11 +151,13 @@ export const JoinProviderPage: React.FC = () => {
       const result = await providerService.submitJoinRequest({
         providerType: wizardData.providerType,
         name: wizardData.facilityName.trim(),
+        specialty: wizardData.specialty.trim() || undefined,
         contactPerson: wizardData.contactPerson.trim() || wizardData.facilityName.trim(),
         contactNumber: `${wizardData.countryCode} ${wizardData.contactNumber.trim()}`,
         email: wizardData.email.trim(),
         country: wizardData.country,
         location: wizardData.location.trim(),
+        googleMapsUrl: wizardData.googleMapsUrl.trim(),
       });
       setSubmittedReference(result.id);
       setIsSuccess(true);
@@ -172,52 +185,46 @@ export const JoinProviderPage: React.FC = () => {
   ];
 
   const howItWorksSteps = [
-    { number: '01', title: 'Register', desc: 'Select Hospital or Clinic and fill in your facility details.' },
-    { number: '02', title: 'Verification', desc: 'Our team reviews your credentials and practice information.' },
-    { number: '03', title: 'Set Up Your Practice', desc: 'Add doctors, departments, consultation hours from your dashboard.' },
-    { number: '04', title: 'Start Connecting', desc: 'Patients discover your facility and book appointments directly.' },
+    { number: '01', title: 'Register', desc: 'Select Hospital / Clinic or Individual Doctor and fill in your details.' },
+    { number: '02', title: 'Verification', desc: 'Our team reviews your credentials and licensing information.' },
+    { number: '03', title: 'Set Up Your Practice', desc: 'Configure consultation slots, fees, and schedule availability.' },
+    { number: '04', title: 'Start Connecting', desc: 'Patients discover your profile and book consultations directly.' },
   ];
 
-  const providerTypes: {
-    type: ProviderType;
-    icon: typeof Hospital;
-    title: string;
-    desc: string;
-    cta: string;
-    features: string[];
-  }[] = [
-    {
-      type: 'clinic',
-      icon: Building2,
-      title: t('joinProvider.typeClinicTitle'),
-      desc: t('joinProvider.typeClinicDesc'),
-      cta: t('joinProvider.typeClinicCta'),
-      features: [
-        t('joinProvider.typeClinicItem1'),
-        t('joinProvider.typeClinicItem2'),
-        t('joinProvider.typeClinicItem3'),
-      ],
-    },
-    {
-      type: 'hospital',
-      icon: Hospital,
-      title: t('joinProvider.typeHospitalTitle'),
-      desc: t('joinProvider.typeHospitalDesc'),
-      cta: t('joinProvider.typeHospitalCta'),
-      features: [
-        t('joinProvider.typeHospitalItem1'),
-        t('joinProvider.typeHospitalItem2'),
-        t('joinProvider.typeHospitalItem3'),
-      ],
-    },
-  ];
+  const providerTypeInfo = {
+    type: 'hospital' as ProviderType,
+    icon: Hospital,
+    title: t('joinProvider.typeHospitalClinicTitle') || 'Hospital / Clinic',
+    desc: t('joinProvider.typeHospitalClinicDesc') || 'For tertiary hospitals, outpatient clinics, polyclinics, and integrated healthcare practices.',
+    cta: t('joinProvider.typeHospitalClinicCta') || 'Join as Hospital / Clinic',
+    features: [
+      t('joinProvider.typeHospitalClinicItem1') || 'Multi-doctor roster management & specialty organization',
+      t('joinProvider.typeHospitalClinicItem2') || 'Comprehensive physician verification & profiles',
+      t('joinProvider.typeHospitalClinicItem3') || 'Centralized outpatient appointment scheduling',
+      'Dedicated healthcare facility administration dashboard',
+    ],
+  };
+
+  const doctorTypeInfo = {
+    type: 'doctor' as ProviderType,
+    icon: Stethoscope,
+    title: 'Individual Doctor',
+    desc: 'For independent licensed physicians, consultants, private practitioners, and specialized medical doctors.',
+    cta: 'Join as Individual Doctor',
+    features: [
+      'Verified doctor directory profile with patient reviews',
+      'Direct patient consultation bookings & appointment management',
+      'Personalized schedule, consultation fees & slot duration',
+      'Dedicated independent doctor dashboard portal',
+    ],
+  };
 
   const faqs = [
-    { q: 'Who can join MeetAdr?', a: 'MeetAdr publicly onboards licensed Hospitals and Clinics operating in the UAE. Individual doctors are added by their affiliated Hospital or Clinic after account setup.' },
-    { q: 'How do I register my Hospital or Clinic?', a: 'Select your provider type (Hospital or Clinic), fill in your organization details, review, and submit. Our team will review your application within 1–2 business days.' },
-    { q: 'What about individual doctors?', a: 'Doctors are managed by the Hospital or Clinic they belong to. After your facility account is approved, you can add and manage your doctors directly from your dashboard.' },
-    { q: 'What information do I need to provide?', a: 'You start with your facility name, contact person, official email, phone number, and city. Our team will request licensing credentials during the verification step.' },
-    { q: 'How does provider verification work?', a: 'Our onboarding team verifies all submitted applications against UAE healthcare regulatory standards before activating your facility profile.' },
+    { q: 'Who can join MeetAdr?', a: 'MeetAdr onboards licensed Hospitals, Clinics, and Individual Doctors operating in the UAE. Both facilities and independent practitioners can accept patient bookings.' },
+    { q: 'How do I register my Hospital or Clinic?', a: 'Select Hospital / Clinic as your provider type, fill in your organization details, review, and submit. Our team will review your application within 1–2 business days.' },
+    { q: 'Can individual doctors register directly?', a: 'Yes! Licensed individual doctors can register directly as independent practitioners, set their consultation schedule, and receive verified patient bookings.' },
+    { q: 'What information do I need to provide?', a: 'You start with your name (or facility name), medical specialty (for doctors), contact person, official email, phone number, and city. Licensing credentials are confirmed during verification.' },
+    { q: 'How does provider verification work?', a: 'Our onboarding team verifies all submitted applications against UAE healthcare regulatory standards before activating your profile.' },
     { q: 'Can clinics and hospitals manage multiple doctors?', a: 'Yes. Both Clinics and Hospitals get a dedicated dashboard with full doctor roster management, scheduling tools, and centralized appointment oversight.' },
   ];
 
@@ -403,7 +410,7 @@ export const JoinProviderPage: React.FC = () => {
       </section>
 
       {/* ========================================================================= */}
-      {/* 4. PROVIDER TYPES (Hospital & Clinic only)                               */}
+      {/* 4. PROVIDER TYPES                                                        */}
       {/* ========================================================================= */}
       <section id="provider-types" className="py-16 sm:py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-2xl mx-auto mb-12 space-y-3">
@@ -414,51 +421,67 @@ export const JoinProviderPage: React.FC = () => {
             Who Can Join MeetAdr
           </h2>
           <p className="text-xs sm:text-sm text-slate-500">
-            MeetAdr onboards Hospitals and Clinics. Your facility manages doctors from the dashboard after registration.
+            MeetAdr onboards both healthcare facilities (Hospitals & Clinics) and licensed Individual Doctors. Choose your category to begin.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
-          {providerTypes.map((item) => (
-            <div
-              key={item.type}
-              className="bg-white rounded-3xl border border-[#E2EBF0] p-6 sm:p-8 shadow-xs hover:border-[#2DA7B5] hover:shadow-md transition-all flex flex-col justify-between text-left rtl:text-right space-y-6"
-            >
-              <div className="space-y-4">
-                <div className="w-12 h-12 rounded-2xl bg-[#E8F6F8] border border-[#CDEBF0] text-[#2DA7B5] flex items-center justify-center">
-                  <item.icon className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-slate-900">{item.title}</h3>
-                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">{item.desc}</p>
-                </div>
-                <div className="pt-2 border-t border-[#E2EBF0] space-y-2">
-                  {item.features.map((feat, i) => (
-                    <div key={i} className="flex items-start gap-2 text-xs text-slate-600 font-medium">
-                      <CheckCircle2 className="w-4 h-4 text-[#2DA7B5] shrink-0 mt-0.5" />
-                      <span>{feat}</span>
-                    </div>
-                  ))}
-                </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+          {/* Hospital / Clinic Card */}
+          <div className="bg-white rounded-3xl border border-[#E2EBF0] p-6 sm:p-8 shadow-xs hover:border-[#2DA7B5] hover:shadow-md transition-all flex flex-col justify-between text-left rtl:text-right space-y-6">
+            <div className="space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-[#E8F6F8] border border-[#CDEBF0] text-[#2DA7B5] flex items-center justify-center">
+                <Hospital className="w-6 h-6" />
               </div>
-              <button
-                type="button"
-                onClick={() => scrollToWizard(item.type)}
-                className="w-full py-3 bg-[#F8FAFC] hover:bg-[#2DA7B5] hover:text-white text-slate-700 border border-[#E2EBF0] hover:border-[#2DA7B5] text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
-              >
-                <span>{item.cta}</span>
-                <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
-              </button>
+              <div>
+                <h3 className="text-xl font-black text-slate-900">{providerTypeInfo.title}</h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">{providerTypeInfo.desc}</p>
+              </div>
+              <div className="pt-2 border-t border-[#E2EBF0] space-y-2.5">
+                {providerTypeInfo.features.map((feat, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs text-slate-600 font-medium">
+                    <CheckCircle2 className="w-4 h-4 text-[#2DA7B5] shrink-0 mt-0.5" />
+                    <span>{feat}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
-        </div>
+            <button
+              type="button"
+              onClick={() => scrollToWizard('hospital')}
+              className="w-full py-3.5 bg-[#2DA7B5] hover:bg-[#23929F] text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs"
+            >
+              <span>{providerTypeInfo.cta}</span>
+              <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
+            </button>
+          </div>
 
-        {/* Doctor note */}
-        <div className="mt-8 max-w-3xl mx-auto bg-white border border-[#E2EBF0] shadow-xs rounded-2xl p-4 flex items-start gap-3">
-          <ShieldCheck className="w-5 h-5 text-[#2DA7B5] shrink-0 mt-0.5" />
-          <div className="text-xs text-slate-600 leading-relaxed">
-            <span className="font-bold block text-slate-900">For Individual Doctors</span>
-            Doctors are added and managed by the Hospital or Clinic they are affiliated with. If you are a doctor, contact your facility administrator to be added to the MeetAdr roster.
+          {/* Individual Doctor Card */}
+          <div className="bg-white rounded-3xl border border-[#E2EBF0] p-6 sm:p-8 shadow-xs hover:border-[#2DA7B5] hover:shadow-md transition-all flex flex-col justify-between text-left rtl:text-right space-y-6">
+            <div className="space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-[#E8F6F8] border border-[#CDEBF0] text-[#2DA7B5] flex items-center justify-center">
+                <Stethoscope className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-slate-900">{doctorTypeInfo.title}</h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">{doctorTypeInfo.desc}</p>
+              </div>
+              <div className="pt-2 border-t border-[#E2EBF0] space-y-2.5">
+                {doctorTypeInfo.features.map((feat, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs text-slate-600 font-medium">
+                    <CheckCircle2 className="w-4 h-4 text-[#2DA7B5] shrink-0 mt-0.5" />
+                    <span>{feat}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => scrollToWizard('doctor')}
+              className="w-full py-3.5 bg-[#0E7490] hover:bg-[#155E75] text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs"
+            >
+              <span>{doctorTypeInfo.cta}</span>
+              <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
+            </button>
           </div>
         </div>
       </section>
@@ -576,75 +599,73 @@ export const JoinProviderPage: React.FC = () => {
                 <div className="bg-[#F8FAFC] rounded-3xl border border-[#E2EBF0] p-6 sm:p-10 space-y-6">
                   <div>
                     <h3 className="text-lg font-black text-slate-900">Select Provider Type</h3>
-                    <p className="text-xs text-slate-500 mt-1">Choose the type of healthcare facility you are registering.</p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Choose whether you are registering as a healthcare facility (Hospital / Clinic) or as an Individual Doctor.
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Clinic Card */}
-                    <button
-                      type="button"
-                      onClick={() => update('providerType', 'clinic')}
-                      className={`p-6 rounded-2xl border-2 text-left rtl:text-right cursor-pointer transition-all space-y-3 ${
-                        wizardData.providerType === 'clinic'
-                          ? 'bg-white border-[#2DA7B5] shadow-xs'
-                          : 'bg-white border-[#E2EBF0] hover:border-slate-300'
-                      }`}
-                    >
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
-                        wizardData.providerType === 'clinic' ? 'bg-[#E8F6F8] text-[#2DA7B5]' : 'bg-slate-100 text-slate-500'
-                      }`}>
-                        <Building2 className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-black text-slate-900">Clinic</h4>
-                        <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                          Outpatient clinics, polyclinics, and specialized medical centers.
-                        </p>
-                      </div>
-                      {wizardData.providerType === 'clinic' && (
-                        <div className="flex items-center gap-1 text-[#2DA7B5] text-[11px] font-bold">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Selected</span>
-                        </div>
-                      )}
-                    </button>
-
-                    {/* Hospital Card */}
+                    {/* Unified Hospital / Clinic Card */}
                     <button
                       type="button"
                       onClick={() => update('providerType', 'hospital')}
-                      className={`p-6 rounded-2xl border-2 text-left rtl:text-right cursor-pointer transition-all space-y-3 ${
+                      className={`p-6 rounded-2xl border-2 transition-all text-left rtl:text-right space-y-3 cursor-pointer ${
                         wizardData.providerType === 'hospital'
-                          ? 'bg-white border-[#2DA7B5] shadow-xs'
-                          : 'bg-white border-[#E2EBF0] hover:border-slate-300'
+                          ? 'border-[#2DA7B5] bg-white shadow-xs'
+                          : 'border-[#E2EBF0] bg-white/70 hover:border-slate-300'
                       }`}
                     >
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
-                        wizardData.providerType === 'hospital' ? 'bg-[#E8F6F8] text-[#2DA7B5]' : 'bg-slate-100 text-slate-500'
-                      }`}>
-                        <Hospital className="w-6 h-6" />
+                      <div className="flex items-center justify-between">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                          wizardData.providerType === 'hospital' ? 'bg-[#E8F6F8] text-[#2DA7B5]' : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          <Hospital className="w-6 h-6" />
+                        </div>
+                        {wizardData.providerType === 'hospital' && (
+                          <div className="flex items-center gap-1.5 text-[#2DA7B5] text-[11px] font-bold bg-[#E8F6F8] px-3 py-1 rounded-full border border-[#CDEBF0]">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Selected</span>
+                          </div>
+                        )}
                       </div>
                       <div>
-                        <h4 className="text-sm font-black text-slate-900">Hospital</h4>
+                        <h4 className="text-base font-black text-slate-900">Hospital / Clinic</h4>
                         <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                          Tertiary hospitals and large integrated healthcare organizations.
+                          Tertiary hospitals, outpatient clinics, polyclinics, and specialized medical centers.
                         </p>
                       </div>
-                      {wizardData.providerType === 'hospital' && (
-                        <div className="flex items-center gap-1 text-[#2DA7B5] text-[11px] font-bold">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Selected</span>
-                        </div>
-                      )}
                     </button>
-                  </div>
 
-                  {/* Doctor note */}
-                  <div className="bg-white border border-[#E2EBF0] rounded-2xl p-4 flex items-start gap-3">
-                    <ShieldCheck className="w-4 h-4 text-[#2DA7B5] shrink-0 mt-0.5" />
-                    <p className="text-[11px] text-slate-600 leading-relaxed">
-                      <span className="font-bold text-slate-900">Individual doctors</span> are not onboarded through this page. They are added by their affiliated Hospital or Clinic after account creation.
-                    </p>
+                    {/* Individual Doctor Card */}
+                    <button
+                      type="button"
+                      onClick={() => update('providerType', 'doctor')}
+                      className={`p-6 rounded-2xl border-2 transition-all text-left rtl:text-right space-y-3 cursor-pointer ${
+                        wizardData.providerType === 'doctor'
+                          ? 'border-[#2DA7B5] bg-white shadow-xs'
+                          : 'border-[#E2EBF0] bg-white/70 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                          wizardData.providerType === 'doctor' ? 'bg-[#E8F6F8] text-[#2DA7B5]' : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          <Stethoscope className="w-6 h-6" />
+                        </div>
+                        {wizardData.providerType === 'doctor' && (
+                          <div className="flex items-center gap-1.5 text-[#2DA7B5] text-[11px] font-bold bg-[#E8F6F8] px-3 py-1 rounded-full border border-[#CDEBF0]">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Selected</span>
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="text-base font-black text-slate-900">Individual Doctor</h4>
+                        <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                          Licensed independent physicians, specialists, consultants, and private doctors.
+                        </p>
+                      </div>
+                    </button>
                   </div>
 
                   <div className="flex justify-end pt-2">
@@ -660,50 +681,113 @@ export const JoinProviderPage: React.FC = () => {
                 </div>
               )}
 
-              {/* ─── STEP 2: Organization Details ─── */}
+              {/* ─── STEP 2: Organization / Practice Details ─── */}
               {currentStep === 2 && (
                 <div className="bg-[#F8FAFC] rounded-3xl border border-[#E2EBF0] p-6 sm:p-10 space-y-6">
                   <div>
                     <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#E8F6F8] border border-[#CDEBF0] text-[#0E7490] text-[10px] font-bold mb-2">
-                      {wizardData.providerType === 'hospital'
-                        ? <Hospital className="w-3 h-3 text-[#2DA7B5]" />
-                        : <Building2 className="w-3 h-3 text-[#2DA7B5]" />}
-                      <span className="capitalize">{wizardData.providerType} Registration</span>
+                      {wizardData.providerType === 'doctor' ? (
+                        <>
+                          <Stethoscope className="w-3 h-3 text-[#2DA7B5]" />
+                          <span>Individual Doctor Registration</span>
+                        </>
+                      ) : (
+                        <>
+                          <Hospital className="w-3 h-3 text-[#2DA7B5]" />
+                          <span>Hospital / Clinic Registration</span>
+                        </>
+                      )}
                     </div>
-                    <h3 className="text-lg font-black text-slate-900">Organization Details</h3>
-                    <p className="text-xs text-slate-500 mt-1">Provide your facility and contact information.</p>
+                    <h3 className="text-lg font-black text-slate-900">
+                      {wizardData.providerType === 'doctor' ? 'Doctor & Practice Details' : 'Organization Details'}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {wizardData.providerType === 'doctor'
+                        ? 'Provide your professional doctor profile and contact information.'
+                        : 'Provide your facility and contact information.'}
+                    </p>
                   </div>
 
                   <div className="space-y-4">
-                    {/* Facility Name */}
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                        {wizardData.providerType === 'hospital' ? 'Hospital Name' : 'Clinic Name'} *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={wizardData.facilityName}
-                        onChange={(e) => update('facilityName', e.target.value)}
-                        placeholder={wizardData.providerType === 'hospital' ? 'e.g. City Care Hospital' : 'e.g. Green Valley Clinic'}
-                        className="w-full bg-white border border-[#E2EBF0] rounded-xl px-4 py-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#2DA7B5] font-medium shadow-xs"
-                      />
-                    </div>
+                    {wizardData.providerType === 'doctor' ? (
+                      <>
+                        {/* Doctor Full Name */}
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                            Doctor Full Name *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={wizardData.facilityName}
+                            onChange={(e) => update('facilityName', e.target.value)}
+                            placeholder="e.g. Dr. Ahmed Hassan or Dr. Sarah Chen"
+                            className="w-full bg-white border border-[#E2EBF0] rounded-xl px-4 py-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#2DA7B5] font-medium shadow-xs"
+                          />
+                        </div>
 
-                    {/* Contact Person */}
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                        Contact Person Name *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={wizardData.contactPerson}
-                        onChange={(e) => update('contactPerson', e.target.value)}
-                        placeholder="e.g. Mohammed Al Rashid or Dr. Sarah Chen"
-                        className="w-full bg-white border border-[#E2EBF0] rounded-xl px-4 py-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#2DA7B5] font-medium shadow-xs"
-                      />
-                    </div>
+                        {/* Medical Specialty */}
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                            Medical Specialty *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={wizardData.specialty}
+                            onChange={(e) => update('specialty', e.target.value)}
+                            placeholder="e.g. Cardiology, Dermatology, Pediatrics, General Medicine"
+                            className="w-full bg-white border border-[#E2EBF0] rounded-xl px-4 py-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#2DA7B5] font-medium shadow-xs"
+                          />
+                        </div>
+
+                        {/* Clinic / Practice Affiliation (Optional) */}
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                            Clinic / Practice Affiliation <span className="font-normal text-slate-400">(Optional)</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={wizardData.contactPerson}
+                            onChange={(e) => update('contactPerson', e.target.value)}
+                            placeholder="e.g. Independent Practice, Elite Medical Centre Suites, etc."
+                            className="w-full bg-white border border-[#E2EBF0] rounded-xl px-4 py-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#2DA7B5] font-medium shadow-xs"
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        {/* Facility Name */}
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                            Hospital / Clinic Name *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={wizardData.facilityName}
+                            onChange={(e) => update('facilityName', e.target.value)}
+                            placeholder="e.g. City Care Hospital or Green Valley Clinic"
+                            className="w-full bg-white border border-[#E2EBF0] rounded-xl px-4 py-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#2DA7B5] font-medium shadow-xs"
+                          />
+                        </div>
+
+                        {/* Contact Person */}
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                            Contact Person Name *
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={wizardData.contactPerson}
+                            onChange={(e) => update('contactPerson', e.target.value)}
+                            placeholder="e.g. Mohammed Al Rashid or Dr. Sarah Chen"
+                            className="w-full bg-white border border-[#E2EBF0] rounded-xl px-4 py-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#2DA7B5] font-medium shadow-xs"
+                          />
+                        </div>
+                      </>
+                    )}
 
                     {/* Phone & Email */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -787,6 +871,26 @@ export const JoinProviderPage: React.FC = () => {
                       </div>
                     </div>
 
+                    {/* Location in Maps (Google Maps link) */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                        Location in Maps (Google Maps link) <span className="font-normal text-slate-400">(Optional)</span>
+                      </label>
+                      <div className="bg-white rounded-xl border border-[#E2EBF0] px-3.5 py-3 flex items-center shadow-xs">
+                        <MapPin className="w-3.5 h-3.5 text-[#2DA7B5] mr-2 rtl:mr-0 rtl:ml-2 shrink-0" />
+                        <input
+                          type="url"
+                          value={wizardData.googleMapsUrl}
+                          onChange={(e) => update('googleMapsUrl', e.target.value)}
+                          placeholder="https://maps.google.com/?q=..."
+                          className="w-full bg-transparent text-xs text-slate-900 focus:outline-none font-medium placeholder-slate-400"
+                        />
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        Provide a Google Maps pin or location link to help patients find your facility accurately.
+                      </p>
+                    </div>
+
                     {/* Website */}
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1.5">
@@ -849,12 +953,16 @@ export const JoinProviderPage: React.FC = () => {
                   <div className="bg-white rounded-2xl border border-[#E2EBF0] divide-y divide-[#E2EBF0] overflow-hidden shadow-xs">
                     <div className="p-4 flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        {wizardData.providerType === 'hospital'
-                          ? <Hospital className="w-5 h-5 text-[#2DA7B5]" />
-                          : <Building2 className="w-5 h-5 text-[#2DA7B5]" />}
+                        {wizardData.providerType === 'doctor' ? (
+                          <Stethoscope className="w-5 h-5 text-[#2DA7B5]" />
+                        ) : (
+                          <Hospital className="w-5 h-5 text-[#2DA7B5]" />
+                        )}
                         <div>
                           <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">Provider Type</p>
-                          <p className="text-sm font-bold text-slate-900 capitalize">{wizardData.providerType}</p>
+                          <p className="text-sm font-bold text-slate-900">
+                            {wizardData.providerType === 'doctor' ? 'Individual Doctor' : 'Hospital / Clinic'}
+                          </p>
                         </div>
                       </div>
                       <button type="button" onClick={() => setCurrentStep(1)} className="text-[10px] text-[#2DA7B5] font-bold hover:underline cursor-pointer">Edit</button>
@@ -863,20 +971,34 @@ export const JoinProviderPage: React.FC = () => {
                     <div className="p-4 flex items-center justify-between">
                       <div>
                         <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">
-                          {wizardData.providerType === 'hospital' ? 'Hospital' : 'Clinic'} Name
+                          {wizardData.providerType === 'doctor' ? 'Doctor Full Name' : 'Hospital / Clinic Name'}
                         </p>
                         <p className="text-sm font-bold text-slate-900">{wizardData.facilityName}</p>
                       </div>
                       <button type="button" onClick={() => setCurrentStep(2)} className="text-[10px] text-[#2DA7B5] font-bold hover:underline cursor-pointer">Edit</button>
                     </div>
 
-                    <div className="p-4 flex items-center justify-between">
-                      <div>
-                        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">Contact Person</p>
-                        <p className="text-sm font-bold text-slate-900">{wizardData.contactPerson}</p>
+                    {wizardData.providerType === 'doctor' && wizardData.specialty && (
+                      <div className="p-4 flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">Medical Specialty</p>
+                          <p className="text-sm font-bold text-slate-900">{wizardData.specialty}</p>
+                        </div>
+                        <button type="button" onClick={() => setCurrentStep(2)} className="text-[10px] text-[#2DA7B5] font-bold hover:underline cursor-pointer">Edit</button>
                       </div>
-                      <button type="button" onClick={() => setCurrentStep(2)} className="text-[10px] text-[#2DA7B5] font-bold hover:underline cursor-pointer">Edit</button>
-                    </div>
+                    )}
+
+                    {wizardData.contactPerson && (
+                      <div className="p-4 flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">
+                            {wizardData.providerType === 'doctor' ? 'Clinic / Practice Affiliation' : 'Contact Person'}
+                          </p>
+                          <p className="text-sm font-bold text-slate-900">{wizardData.contactPerson}</p>
+                        </div>
+                        <button type="button" onClick={() => setCurrentStep(2)} className="text-[10px] text-[#2DA7B5] font-bold hover:underline cursor-pointer">Edit</button>
+                      </div>
+                    )}
 
                     <div className="p-4">
                       <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">Contact Phone</p>
@@ -892,6 +1014,21 @@ export const JoinProviderPage: React.FC = () => {
                       <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">Location</p>
                       <p className="text-sm font-bold text-slate-900">{wizardData.location}, {wizardData.country}</p>
                     </div>
+
+                    {wizardData.googleMapsUrl && (
+                      <div className="p-4">
+                        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">Location in Maps</p>
+                        <a
+                          href={wizardData.googleMapsUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs font-bold text-[#0E7490] hover:underline flex items-center gap-1 mt-0.5 truncate"
+                        >
+                          <span className="truncate">{wizardData.googleMapsUrl}</span>
+                          <ExternalLink className="w-3 h-3 shrink-0" />
+                        </a>
+                      </div>
+                    )}
 
                     {wizardData.website && (
                       <div className="p-4">

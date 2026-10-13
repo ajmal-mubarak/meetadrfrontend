@@ -254,7 +254,7 @@ export const ContactPage: React.FC = () => {
             <strong className="block text-slate-900 font-bold text-sm">
               {isArabic ? 'الدعم الهاتفي' : 'Phone Support'}
             </strong>
-            <span dir="ltr" className="inline-block font-mono font-bold text-slate-800">+971 52 412 2794</span>
+            <span dir="ltr" className="inline-block font-mono font-bold text-slate-800">+971 00 000 0000</span>
             <span className="block text-slate-400">
               {isArabic ? 'يومياً: 8:00 صباحاً - 8:00 مساءً' : 'Sun - Thu: 8am - 8pm'}
             </span>
@@ -458,7 +458,7 @@ export const HelpPage: React.FC = () => {
           </strong>
           <p className="flex items-center gap-2">
             <span>{isArabic ? 'الهاتف المباشر:' : 'Direct Phone:'}</span>
-            <strong dir="ltr" className="font-mono text-sm text-[#2DA7B5]">+971 52 412 2794</strong>
+            <strong dir="ltr" className="font-mono text-sm text-[#2DA7B5]">+971 00 000 0000</strong>
           </p>
           <p className="flex items-center gap-2">
             <span>{isArabic ? 'البريد الإلكتروني:' : 'Email:'}</span>

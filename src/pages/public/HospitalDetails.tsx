@@ -117,9 +117,11 @@ export const HospitalDetails: React.FC = () => {
           (doc) => doc.specialty?.toLowerCase() === selectedSpecialty.toLowerCase()
         );
 
-  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-    `${hospital.name} ${hospital.address}`
-  )}`;
+  const googleMapsUrl =
+    hospital.googleMapsUrl ||
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+      `${hospital.name} ${hospital.address}`
+    )}`;
 
   return (
     <div className="bg-[#F4F7F9] min-h-screen py-6 sm:py-10 text-slate-900 selection:bg-teal-100 selection:text-teal-950">

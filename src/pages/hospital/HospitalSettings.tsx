@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Building2, MapPin, Phone, Clock, Save, ShieldCheck, Edit3, X, Check, Loader2 } from 'lucide-react';
+import { Building2, MapPin, Phone, Clock, Save, ShieldCheck, Edit3, X, Check, Loader2, ExternalLink } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useTranslation } from '../../i18n';
 import { realFacilityAdminService, FacilitySettingsData } from '../../services/realFacilityAdminService';
+import { ImageUpload } from '../../components/common/ImageUpload';
 
 export const HospitalSettings: React.FC = () => {
   const { user } = useAuth();
@@ -23,6 +24,8 @@ export const HospitalSettings: React.FC = () => {
 
   const [name, setName] = useState(initialHospitalName);
   const [address, setAddress] = useState(initialAddress);
+  const [photo, setPhoto] = useState('');
+  const [googleMapsUrl, setGoogleMapsUrl] = useState('');
   const [phone, setPhone] = useState(initialPhone);
   const [operatingHours, setOperatingHours] = useState(initialHours);
   const [emergency, setEmergency] = useState(initialEmergency);
@@ -32,6 +35,8 @@ export const HospitalSettings: React.FC = () => {
   const [savedData, setSavedData] = useState({
     name: initialHospitalName,
     address: initialAddress,
+    photo: '',
+    googleMapsUrl: '',
     phone: initialPhone,
     operatingHours: initialHours,
     emergency: initialEmergency,
@@ -47,12 +52,16 @@ export const HospitalSettings: React.FC = () => {
         if (isMounted && settings) {
           const loadedName = settings.name || initialHospitalName;
           const loadedAddress = settings.address || initialAddress;
+          const loadedPhoto = settings.photo || '';
+          const loadedMapsUrl = settings.google_maps_url || '';
           const loadedPhone = settings.phone || initialPhone;
           const loadedHours = settings.operating_hours || initialHours;
           const loadedEmergency = settings.emergency_available ?? initialEmergency;
 
           setName(loadedName);
           setAddress(loadedAddress);
+          setPhoto(loadedPhoto);
+          setGoogleMapsUrl(loadedMapsUrl);
           setPhone(loadedPhone);
           setOperatingHours(loadedHours);
           setEmergency(loadedEmergency);
@@ -61,6 +70,8 @@ export const HospitalSettings: React.FC = () => {
           setSavedData({
             name: loadedName,
             address: loadedAddress,
+            photo: loadedPhoto,
+            googleMapsUrl: loadedMapsUrl,
             phone: loadedPhone,
             operatingHours: loadedHours,
             emergency: loadedEmergency,
@@ -87,6 +98,8 @@ export const HospitalSettings: React.FC = () => {
       await realFacilityAdminService.updateSettings({
         name,
         address,
+        photo,
+        google_maps_url: googleMapsUrl.trim(),
         phone,
         operating_hours: operatingHours,
         emergency_available: emergency,
@@ -96,6 +109,8 @@ export const HospitalSettings: React.FC = () => {
       setSavedData({
         name,
         address,
+        photo,
+        googleMapsUrl: googleMapsUrl.trim(),
         phone,
         operatingHours,
         emergency,
@@ -117,6 +132,8 @@ export const HospitalSettings: React.FC = () => {
   const handleCancel = () => {
     setName(savedData.name);
     setAddress(savedData.address);
+    setPhoto(savedData.photo);
+    setGoogleMapsUrl(savedData.googleMapsUrl);
     setPhone(savedData.phone);
     setOperatingHours(savedData.operatingHours);
     setEmergency(savedData.emergency);
@@ -143,6 +160,21 @@ export const HospitalSettings: React.FC = () => {
 
       {/* Configuration Form */}
       <form onSubmit={handleSave} className="bg-white rounded-2xl border border-[#E2EBF0] p-6 shadow-xs space-y-5">
+        {/* Facility Image Upload Field */}
+        <ImageUpload
+          label={isArabic ? 'صورة المنشأة / الشعار' : 'Facility Photo / Architectural Image'}
+          value={photo}
+          onChange={setPhoto}
+          onRemove={() => setPhoto('')}
+          disabled={!isEditing}
+          helperText={
+            isArabic
+              ? 'قم برفع صورة واجهة المستشفى أو الشعار الرسمي (JPG, PNG, WebP)'
+              : 'Upload hospital or clinic facade photo or official badge (JPG, PNG, WebP)'
+          }
+          aspectRatio="wide"
+        />
+
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
             <Building2 className="w-3.5 h-3.5 text-slate-400" />
@@ -179,6 +211,44 @@ export const HospitalSettings: React.FC = () => {
                 : 'bg-[#F8FAFC] text-slate-700 border-[#E2EBF0] cursor-not-allowed'
             }`}
           />
+        </div>
+
+        {/* Location in Maps (Google Maps URL) */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-[#2DA7B5]" />
+              <span>{isArabic ? 'رابط الموقع على خرائط جوجل' : 'Location in Maps (Google Maps URL)'}</span>
+            </label>
+            {googleMapsUrl && (
+              <a
+                href={googleMapsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[11px] font-bold text-[#0E7490] hover:text-[#2DA7B5] flex items-center gap-1"
+              >
+                <span>{isArabic ? 'عرض الخريطة' : 'Preview in Maps'}</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
+          </div>
+          <input
+            type="url"
+            disabled={!isEditing}
+            value={googleMapsUrl}
+            onChange={(e) => setGoogleMapsUrl(e.target.value)}
+            placeholder="https://maps.google.com/?q=..."
+            className={`w-full p-3 rounded-xl text-sm transition-all border ${
+              isEditing
+                ? 'bg-white text-slate-900 border-[#2DA7B5] ring-2 ring-[#2DA7B5]/20 focus:outline-none'
+                : 'bg-[#F8FAFC] text-slate-700 border-[#E2EBF0] cursor-not-allowed'
+            }`}
+          />
+          <p className="text-[11px] text-slate-400 mt-1">
+            {isArabic
+              ? 'أدخل رابط خرائط جوجل لتمكين المرضى والإداريين من تتبع موقع المستشفى والوصول إليه بدقة.'
+              : 'Add your facility Google Maps link so patients and admins can navigate directly to your location.'}
+          </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

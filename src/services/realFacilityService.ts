@@ -38,6 +38,7 @@ interface BackendHospital {
   avg_rating?: number | null;
   total_reviews?: number;
   insurance_plans?: string;
+  google_maps_url?: string;
 }
 
 interface BackendClinic {
@@ -58,6 +59,7 @@ interface BackendClinic {
   doctor_count?: number;
   avg_rating?: number | null;
   total_reviews?: number;
+  google_maps_url?: string;
 }
 
 // ─── Mapping helpers ──────────────────────────────────────────────────────────
@@ -83,6 +85,7 @@ function mapHospital(b: BackendHospital): Hospital {
     about: b.about || '',
     aboutAr: b.about_ar,
     insurancePlans: b.insurance_plans || '',
+    googleMapsUrl: b.google_maps_url || '',
     status: b.status === 'deactivated' ? 'Deactivated' : 'Active',
   };
 }
@@ -102,6 +105,7 @@ function mapClinic(b: BackendClinic): Clinic {
     phone: b.phone || '',
     operatingHours: b.operating_hours || '',
     about: b.about || '',
+    googleMapsUrl: b.google_maps_url || '',
     status: b.status === 'deactivated' ? 'Deactivated' : 'Active',
   };
 }
