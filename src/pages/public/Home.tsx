@@ -420,7 +420,7 @@ export const Home: React.FC = () => {
       );
     }
     return true;
-  }).slice(0, 9);
+  }).slice(0, 6);
 
   // Global search autocomplete filtering - ONLY suggest based on letters entered (never before)
   const trimmedQuery = searchQuery.trim();

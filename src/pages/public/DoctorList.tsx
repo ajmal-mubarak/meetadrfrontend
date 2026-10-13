@@ -18,6 +18,8 @@ import {
   User,
   LocateFixed,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { realDoctorService } from '../../services/realDoctorService';
 import { Doctor } from '../../types';
@@ -46,6 +48,8 @@ export const DoctorList: React.FC = () => {
   const [location, setLocation] = useState('All');
   const [search, setSearch] = useState('');
   const [nearMeOnly, setNearMeOnly] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 6;
 
   const specialtyOptions: DropdownOption[] = useMemo(() => [
     { value: 'All', label: t('doctors.allSpecialties') },
@@ -190,6 +194,31 @@ export const DoctorList: React.FC = () => {
     return result;
   }, [doctors, specialty, location, search, nearMeOnly, detectedLoc]);
 
+  // Reset to page 1 whenever search or filter criteria change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [specialty, location, search, nearMeOnly]);
+
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+
+  // Clamp current page if totalPages shrinks
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  const paginatedDoctors = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filtered.slice(start, start + ITEMS_PER_PAGE);
+  }, [filtered, currentPage]);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages || newPage === currentPage) return;
+    setCurrentPage(newPage);
+    window.scrollTo({ top: 220, behavior: 'smooth' });
+  };
+
   return (
     <div className="bg-[#F4F7F9] min-h-screen py-10 selection:bg-teal-100 selection:text-slate-800 text-slate-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
@@ -328,14 +357,21 @@ export const DoctorList: React.FC = () => {
         <div className="flex items-center justify-between text-xs text-slate-500 font-medium px-1">
           <span>
             {t('doctors.showingAccredited', { count: filtered.length })}
+            {totalPages > 1 && (
+              <span className="text-slate-400 font-normal ml-1.5 rtl:ml-0 rtl:mr-1.5">
+                ({isArabic ? `صفحة ${currentPage} من ${totalPages}` : `Page ${currentPage} of ${totalPages}`})
+              </span>
+            )}
           </span>
-          {(specialty !== 'All' || location !== 'All' || search) && (
+          {(specialty !== 'All' || location !== 'All' || search || nearMeOnly) && (
             <button
               type="button"
               onClick={() => {
                 setSpecialty('All');
                 setLocation('All');
                 setSearch('');
+                setNearMeOnly(false);
+                setCurrentPage(1);
               }}
               className="text-[#2DA7B5] font-bold hover:underline cursor-pointer"
             >
@@ -371,9 +407,10 @@ export const DoctorList: React.FC = () => {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filtered.map((doc, idx) => (
-              <motion.div
+          <div className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {paginatedDoctors.map((doc, idx) => (
+                <motion.div
                 key={doc.id}
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -477,6 +514,89 @@ export const DoctorList: React.FC = () => {
                 </div>
               </motion.div>
             ))}
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-[#E2EBF0] text-xs">
+                <div className="text-slate-500 font-medium text-center sm:text-left rtl:sm:text-right">
+                  {isArabic ? (
+                    <>
+                      عرض <span className="font-bold text-slate-900">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> إلى{' '}
+                      <span className="font-bold text-slate-900">{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)}</span> من{' '}
+                      <span className="font-bold text-slate-900">{filtered.length}</span> طبيب
+                    </>
+                  ) : (
+                    <>
+                      Showing <span className="font-bold text-slate-900">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to{' '}
+                      <span className="font-bold text-slate-900">{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)}</span> of{' '}
+                      <span className="font-bold text-slate-900">{filtered.length}</span> doctors
+                    </>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  {/* Previous Button */}
+                  <button
+                    type="button"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="px-3.5 py-2 rounded-xl border border-[#CBD5E1] bg-white text-slate-700 font-bold hover:bg-[#E8F6F8] hover:text-[#0E7490] hover:border-[#2DA7B5] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-slate-700 disabled:hover:border-[#CBD5E1] transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  >
+                    <ChevronLeft className="w-4 h-4 rtl:rotate-180" />
+                    <span className="hidden sm:inline">{isArabic ? 'السابق' : 'Previous'}</span>
+                  </button>
+
+                  {/* Page Numbers */}
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                      if (
+                        totalPages > 7 &&
+                        pageNum !== 1 &&
+                        pageNum !== totalPages &&
+                        Math.abs(pageNum - currentPage) > 1
+                      ) {
+                        if (pageNum === 2 || pageNum === totalPages - 1) {
+                          return (
+                            <span key={pageNum} className="w-7 text-center text-slate-400 font-bold">
+                              ...
+                            </span>
+                          );
+                        }
+                        return null;
+                      }
+
+                      const isActive = pageNum === currentPage;
+                      return (
+                        <button
+                          key={pageNum}
+                          type="button"
+                          onClick={() => handlePageChange(pageNum)}
+                          className={`w-9 h-9 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
+                            isActive
+                              ? 'bg-[#2DA7B5] text-white shadow-xs font-black'
+                              : 'bg-white text-slate-700 border border-[#CBD5E1] hover:bg-[#E8F6F8] hover:text-[#0E7490] hover:border-[#2DA7B5]'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Next Button */}
+                  <button
+                    type="button"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="px-3.5 py-2 rounded-xl border border-[#CBD5E1] bg-white text-slate-700 font-bold hover:bg-[#E8F6F8] hover:text-[#0E7490] hover:border-[#2DA7B5] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-slate-700 disabled:hover:border-[#CBD5E1] transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  >
+                    <span className="hidden sm:inline">{isArabic ? 'التالي' : 'Next'}</span>
+                    <ChevronRight className="w-4 h-4 rtl:rotate-180" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
