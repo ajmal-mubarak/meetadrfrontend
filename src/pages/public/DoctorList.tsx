@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
   Stethoscope,
@@ -23,11 +23,13 @@ import {
 } from 'lucide-react';
 import { realDoctorService } from '../../services/realDoctorService';
 import { Doctor } from '../../types';
-import { SPECIALTIES, LOCATIONS, matchesLocation } from '../../data/mockSpecialties';
+import { SPECIALTIES, LOCATIONS, EMIRATES, AREAS, matchesLocation } from '../../data/mockSpecialties';
+import { UAE_EMIRATES } from '../../services/locationService';
 import { useTranslation } from '../../i18n';
 import { useUserLocation } from '../../context/LocationContext';
 import { useToast } from '../../context/ToastContext';
 import { CustomDropdown, DropdownOption } from '../../components/common/CustomDropdown';
+import { DoctorCard } from '../../components/common/DoctorCard';
 
 export const DoctorList: React.FC = () => {
   const {
@@ -42,14 +44,64 @@ export const DoctorList: React.FC = () => {
   } = useTranslation();
   const { showToast } = useToast();
   const { location: detectedLoc, status: locationStatus, detectLocation } = useUserLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const getUrlLocation = () => {
+    const locParam = searchParams.get('location');
+    const emParam = searchParams.get('emirate');
+    const candidate = locParam || emParam;
+    if (!candidate || candidate === 'All') return 'All';
+    const found = UAE_EMIRATES.find(
+      (e) => e.code.toLowerCase() === candidate.toLowerCase() || e.name.toLowerCase() === candidate.toLowerCase()
+    );
+    if (found) return found.name;
+    const locMatch = LOCATIONS.find((l) => l.toLowerCase() === candidate.toLowerCase());
+    if (locMatch) return locMatch;
+    return candidate;
+  };
+
+  const urlSpecialty = searchParams.get('specialty') || 'All';
+  const urlLocation = getUrlLocation();
+  const urlSearch = searchParams.get('search') || searchParams.get('q') || '';
+
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [specialty, setSpecialty] = useState('All');
-  const [location, setLocation] = useState('All');
-  const [search, setSearch] = useState('');
+  const [specialty, setSpecialty] = useState(urlSpecialty);
+  const [location, setLocation] = useState(urlLocation);
+  const [search, setSearch] = useState(urlSearch);
   const [nearMeOnly, setNearMeOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 6;
+
+  // Sync state if URL query parameters change (e.g., clicking Top Specialties, Home, etc.)
+  useEffect(() => {
+    const qSpec = searchParams.get('specialty') || 'All';
+    const qLoc = getUrlLocation();
+    const qTerm = searchParams.get('search') || searchParams.get('q') || '';
+    setSpecialty(qSpec);
+    setLocation(qLoc);
+    setSearch(qTerm);
+  }, [searchParams]);
+
+  const updateFilters = (newSpec?: string, newLoc?: string, newSearch?: string) => {
+    const nextSpec = newSpec !== undefined ? newSpec : specialty;
+    const nextLoc = newLoc !== undefined ? newLoc : location;
+    const nextSearch = newSearch !== undefined ? newSearch : search;
+
+    setSpecialty(nextSpec);
+    setLocation(nextLoc);
+    setSearch(nextSearch);
+
+    const params = new URLSearchParams();
+    if (nextSpec && nextSpec !== 'All') params.set('specialty', nextSpec);
+    if (nextLoc && nextLoc !== 'All') {
+      params.set('location', nextLoc);
+      const em = UAE_EMIRATES.find((e) => e.name.toLowerCase() === nextLoc.toLowerCase());
+      if (em) params.set('emirate', em.code);
+    }
+    if (nextSearch && nextSearch.trim()) params.set('search', nextSearch.trim());
+    setSearchParams(params);
+  };
 
   const specialtyOptions: DropdownOption[] = useMemo(() => [
     { value: 'All', label: t('doctors.allSpecialties') },
@@ -72,7 +124,14 @@ export const DoctorList: React.FC = () => {
     },
     { value: 'divider-1', label: '', isDivider: true },
     { value: 'All', label: t('doctors.allLocations') },
-    ...LOCATIONS.map((l) => ({
+    { value: 'divider-emirates', label: isArabic ? 'الإمارات' : 'Emirates', isDivider: true },
+    ...EMIRATES.map((l) => ({
+      value: l,
+      label: translateLocation(l),
+      icon: <MapPin className="w-3.5 h-3.5 text-[#2DA7B5]" />,
+    })),
+    { value: 'divider-areas', label: isArabic ? 'المناطق الشهيرة' : 'Popular Areas', isDivider: true },
+    ...AREAS.map((l) => ({
       value: l,
       label: translateLocation(l),
       icon: <MapPin className="w-3.5 h-3.5 text-slate-400" />,
@@ -246,14 +305,14 @@ export const DoctorList: React.FC = () => {
               <input
                 type="text"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => updateFilters(undefined, undefined, e.target.value)}
                 placeholder={t('doctors.searchPlaceholder')}
                 className="w-full pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-2.5 text-xs font-medium border border-[#E2EBF0] rounded-xl text-slate-900 focus:outline-hidden focus:border-[#2DA7B5] bg-[#F8FAFC] focus:bg-white transition-all placeholder:text-slate-400"
               />
               {search && (
                 <button
                   type="button"
-                  onClick={() => setSearch('')}
+                  onClick={() => updateFilters(undefined, undefined, '')}
                   className="absolute right-3 rtl:right-auto rtl:left-3 top-3 text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -265,7 +324,7 @@ export const DoctorList: React.FC = () => {
             <div className="sm:col-span-3">
               <CustomDropdown
                 value={specialty}
-                onChange={(val) => setSpecialty(val)}
+                onChange={(val) => updateFilters(val, undefined, undefined)}
                 options={specialtyOptions}
                 placeholder={t('doctors.allSpecialties')}
                 icon={<Stethoscope className="w-3.5 h-3.5 text-[#2DA7B5]" />}
@@ -282,7 +341,7 @@ export const DoctorList: React.FC = () => {
                     if (val === 'current') {
                       handleNearMeToggle();
                     } else {
-                      setLocation(val);
+                      updateFilters(undefined, val, undefined);
                       if (nearMeOnly) setNearMeOnly(false);
                     }
                   }}
@@ -339,7 +398,7 @@ export const DoctorList: React.FC = () => {
                 <button
                   key={spec}
                   type="button"
-                  onClick={() => setSpecialty(spec)}
+                  onClick={() => updateFilters(spec, undefined, undefined)}
                   className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                     specialty === spec
                       ? 'bg-[#2DA7B5] text-white shadow-xs font-bold'
@@ -367,9 +426,7 @@ export const DoctorList: React.FC = () => {
             <button
               type="button"
               onClick={() => {
-                setSpecialty('All');
-                setLocation('All');
-                setSearch('');
+                updateFilters('All', 'All', '');
                 setNearMeOnly(false);
                 setCurrentPage(1);
               }}
@@ -397,9 +454,7 @@ export const DoctorList: React.FC = () => {
             </p>
             <button
               onClick={() => {
-                setSpecialty('All');
-                setLocation('All');
-                setSearch('');
+                updateFilters('All', 'All', '');
               }}
               className="px-5 py-2.5 bg-[#2DA7B5] hover:bg-[#23929F] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
             >
@@ -410,110 +465,8 @@ export const DoctorList: React.FC = () => {
           <div className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {paginatedDoctors.map((doc, idx) => (
-                <motion.div
-                key={doc.id}
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25, delay: idx * 0.02 }}
-                className="bg-white rounded-3xl border border-[#E2EBF0] overflow-hidden hover:border-[#2DA7B5] hover:shadow-md transition-all flex flex-col justify-between group shadow-xs"
-              >
-                <div>
-                  {/* Photo & Rating */}
-                  <Link to={`/doctors/${doc.id}`} className="block relative aspect-16/10 overflow-hidden bg-slate-100 cursor-pointer">
-                    <img
-                      src={doc.photo}
-                      alt={doc.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      referrerPolicy="no-referrer"
-                    />
-                    {doc.rating > 0 && (
-                      <div className="absolute top-3 right-3 rtl:right-auto rtl:left-3 bg-white/95 backdrop-blur-md px-2.5 py-1 rounded-full text-xs font-bold text-slate-800 flex items-center gap-1 border border-[#E2EBF0] shadow-xs">
-                        <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                        <span>{doc.rating}</span>
-                        {doc.reviewCount ? (
-                          <span className="text-slate-400 text-[10px] font-normal">({doc.reviewCount})</span>
-                        ) : null}
-                      </div>
-                    )}
-
-                    {/* Live Next Slot badge */}
-                    <div className="absolute bottom-3 left-3 rtl:left-auto rtl:right-3 bg-white/95 backdrop-blur-md px-2.5 py-1 rounded-full text-[10px] font-bold text-slate-800 flex items-center gap-1.5 border border-[#E2EBF0] shadow-xs">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span>{t('doctors.nextSlotToday')}</span>
-                    </div>
-                  </Link>
-
-                  {/* Details */}
-                  <div className="p-5 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-semibold text-[#0E7490] bg-[#E8F6F8] border border-[#CDEBF0] px-2.5 py-0.5 rounded-full">
-                        {translateSpecialty(doc.specialty)}
-                      </span>
-                      <span className="text-xs text-slate-500 font-medium">
-                        {isArabic ? doc.experienceAr || translateExperience(doc.experience) : doc.experience}
-                      </span>
-                    </div>
-
-                    <Link to={`/doctors/${doc.id}`} className="block">
-                      <h3 className="text-base font-black text-slate-900 leading-snug truncate group-hover:text-[#2DA7B5] transition-colors">
-                        {isArabic ? doc.nameAr || translateDoctorName(doc.name, doc.id) : doc.name}
-                      </h3>
-                    </Link>
-
-                    <p className="text-xs text-slate-600 truncate flex items-center gap-1.5">
-                      <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span className="truncate">{translateHospitalName(doc.hospitalName || doc.clinicName || 'American Hospital Dubai')}</span>
-                    </p>
-
-                    <p className="text-xs text-slate-500 flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span className="truncate">{translateLocation(doc.location)}</span>
-                    </p>
-
-                    <p className="text-[11px] text-slate-600 line-clamp-2 leading-relaxed pt-1">
-                      {isArabic ? doc.aboutAr || translateDoctorAbout(doc.about, doc.id) : doc.about}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Card Footer with Price & Actions */}
-                <div className="p-5 pt-0 space-y-3">
-                  <div className="pt-3 border-t border-[#E2EBF0] flex items-center justify-between gap-2">
-                    <div>
-                      <span className="text-[10px] text-slate-400 block font-medium">{t('doctors.fee')}</span>
-                      <span className="text-sm font-black text-slate-900">{t('common.aed')} {doc.consultationFee || 350}</span>
-                    </div>
-                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      Available Today
-                    </span>
-                  </div>
-
-                  {doc.status === 'Deactivated' ? (
-                    <div className="w-full py-2 bg-slate-100 text-slate-400 text-center rounded-xl text-xs font-semibold cursor-not-allowed">
-                      Unavailable
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-2">
-                      <Link
-                        to={`/doctors/${doc.id}`}
-                        className="py-2.5 px-2 bg-[#F8FAFC] hover:bg-[#E8F6F8] hover:border-[#2DA7B5] hover:text-[#0E7490] text-slate-700 border border-[#CBD5E1] font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs group/btn"
-                      >
-                        <User className="w-3.5 h-3.5 text-slate-500 group-hover/btn:text-[#0E7490] transition-colors" />
-                        <span>{t('doctors.viewProfile')}</span>
-                      </Link>
-                      <Link
-                        to={`/book/doctor/${doc.id}`}
-                        className="py-2.5 px-2 bg-[#2DA7B5] hover:bg-[#23929F] text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-                      >
-                        <span>{t('doctors.bookAppointment')}</span>
-                        <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            ))}
+                <DoctorCard key={doc.id} doctor={doc} delayIndex={idx} />
+              ))}
             </div>
 
             {/* Pagination Controls */}

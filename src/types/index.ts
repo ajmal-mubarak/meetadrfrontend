@@ -39,7 +39,10 @@ export interface Doctor {
   availableDays: string[];
   availableSlots: string[];
   consultationFee?: number;
+  experienceYears?: number;
   status?: 'Active' | 'Deactivated';
+  isVerified?: boolean;
+  isActive?: boolean;
 }
 
 export interface Hospital {

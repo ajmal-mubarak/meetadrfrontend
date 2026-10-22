@@ -45,6 +45,7 @@ import { useToast } from '../../context/ToastContext';
 import { useUserLocation } from '../../context/LocationContext';
 import { UAE_EMIRATES } from '../../services/locationService';
 import { HospitalBrandLogo } from '../../components/common/HospitalLogos';
+import { DoctorCard } from '../../components/common/DoctorCard';
 
 import { useTranslation } from '../../i18n';
 
@@ -250,27 +251,46 @@ export const Home: React.FC = () => {
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const params = new URLSearchParams();
-    if (searchQuery.trim()) params.append('q', searchQuery.trim());
+
+    // Fuzzy / symptom search on condition
+    let specialtyFromCondition = '';
+    let conditionName = '';
     if (selectedCondition.trim()) {
-      const matched = HEALTH_CONDITIONS.find(
-        (c) => c.name.toLowerCase() === selectedCondition.trim().toLowerCase()
+      const qCond = selectedCondition.trim().toLowerCase();
+      const matched = (realConditions || HEALTH_CONDITIONS).find((c: any) =>
+        c.name.toLowerCase() === qCond ||
+        c.name.toLowerCase().includes(qCond) ||
+        (c.symptoms && c.symptoms.some((s: string) => s.toLowerCase().includes(qCond))) ||
+        (c.description && c.description.toLowerCase().includes(qCond))
       );
       if (matched) {
-        params.append('specialty', matched.specialtyQuery);
-        if (!searchQuery.trim()) {
-          params.append('q', matched.name);
-        }
-      } else {
-        if (!searchQuery.trim()) {
-          params.append('q', selectedCondition.trim());
-        }
+        specialtyFromCondition = matched.specialtyQuery;
+        conditionName = matched.name;
       }
     }
+
+    if (searchQuery.trim()) {
+      params.append('q', searchQuery.trim());
+    } else if (!specialtyFromCondition && (conditionName || selectedCondition.trim())) {
+      params.append('q', conditionName || selectedCondition.trim());
+    }
+
+    if (specialtyFromCondition) {
+      params.append('specialty', specialtyFromCondition);
+    }
+
     const emirateParam =
       selectedEmirate === 'auto'
         ? detectedLoc?.emirateCode || 'Dxb'
         : selectedEmirate;
-    if (emirateParam) params.append('emirate', emirateParam);
+    if (emirateParam) {
+      params.append('emirate', emirateParam);
+      const emObj = UAE_EMIRATES.find((e) => e.code.toLowerCase() === emirateParam.toLowerCase());
+      if (emObj) {
+        params.append('location', emObj.name);
+      }
+    }
+
     setShowSearchDropdown(false);
     setShowConditionDropdown(false);
     setShowLocationDropdown(false);
@@ -463,13 +483,14 @@ export const Home: React.FC = () => {
       ).slice(0, 2)
     : [];
 
-  // Health Condition suggestions for Field 2 (like old)
+  // Health Condition suggestions for Field 2 (supports name, specialist, description, and symptoms like leg pain)
   const conditionQuery = selectedCondition.trim().toLowerCase();
-  const matchingConditions = realConditions.filter((c) =>
+  const matchingConditions = (realConditions || HEALTH_CONDITIONS).filter((c: any) =>
     !conditionQuery ||
     c.name.toLowerCase().includes(conditionQuery) ||
     c.specialist.toLowerCase().includes(conditionQuery) ||
-    c.description.toLowerCase().includes(conditionQuery)
+    c.description.toLowerCase().includes(conditionQuery) ||
+    (c.symptoms && c.symptoms.some((s: string) => s.toLowerCase().includes(conditionQuery)))
   ).slice(0, 6);
 
   const hasAnySearchSuggestions =
@@ -563,7 +584,7 @@ export const Home: React.FC = () => {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.1 }}
-              className="text-sm sm:text-base lg:text-lg text-slate-600 mt-4 max-w-2xl mx-auto leading-relaxed"
+              className="text-sm sm:text-base lg:text-lg text-slate-600 mt-4 max-w-3xl lg:max-w-4xl mx-auto leading-relaxed text-balance"
             >
               {t('home.heroAccreditedSubtitle')}
             </motion.p>
@@ -574,16 +595,16 @@ export const Home: React.FC = () => {
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: 0.15 }}
-            className="max-w-4xl mx-auto mt-8 sm:mt-10 relative z-30 w-full"
+            className="max-w-5xl mx-auto mt-8 sm:mt-10 relative z-30 w-full"
           >
             <form
               onSubmit={handleSearchSubmit}
               className="bg-white rounded-2xl sm:rounded-full border border-[#E2EBF0] hover:border-[#CBD5E1] p-2 sm:p-2.5 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 transition-all relative w-full shadow-xs"
             >
               {/* Field 1: Doctor / Specialty / Hospital Search (Suggests only when user types letters) */}
-              <div className="flex-1 relative min-w-0" ref={searchRef}>
+              <div className="flex-[1.25] relative min-w-0" ref={searchRef}>
                 <div className="flex items-center px-4 py-3 sm:py-2.5 bg-[#F8FAFC] sm:bg-transparent rounded-xl sm:rounded-none">
-                  <Search className="w-4 h-4 text-slate-400 mr-3 rtl:mr-0 rtl:ml-3 shrink-0" />
+                  <Search className="w-4 h-4 text-slate-400 mr-2.5 rtl:mr-0 rtl:ml-2.5 shrink-0" />
                   <input
                     type="text"
                     value={searchQuery}
@@ -597,7 +618,7 @@ export const Home: React.FC = () => {
                       setShowSearchDropdown(e.target.value.trim().length > 0);
                     }}
                     placeholder={t('home.searchPlaceholder')}
-                    className="w-full min-w-0 bg-transparent text-sm text-slate-900 placeholder-slate-400 focus:outline-hidden font-medium"
+                    className="w-full min-w-0 bg-transparent text-sm text-slate-900 placeholder-slate-400 focus:outline-hidden font-medium truncate pr-1 rtl:pr-0 rtl:pl-1"
                   />
                   {searchQuery && (
                     <button
@@ -1572,86 +1593,10 @@ export const Home: React.FC = () => {
           </div>
         </div>
 
-        {/* Doctor Grid - Compact Cards with Small Images & No Consultation Fee */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredDoctors.map((doc) => (
-            <div
-              key={doc.id}
-              className="bg-white rounded-2xl border border-[#E2EBF0] p-5 hover:border-[#2DA7B5] hover:shadow-md transition-all flex flex-col justify-between group shadow-2xs"
-            >
-              <div>
-                {/* Header: Small Doctor Avatar & Rating */}
-                <div className="flex items-start gap-3.5">
-                  <Link to={`/doctors/${doc.id}`} className="shrink-0">
-                    <img
-                      src={doc.photo}
-                      alt={doc.name}
-                      className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover border border-[#E2EBF0] group-hover:scale-105 transition-transform"
-                      referrerPolicy="no-referrer"
-                    />
-                  </Link>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-1 mb-1">
-                      <span className="text-[10px] font-bold text-[#0E7490] bg-[#E8F6F8] border border-[#CDEBF0] px-2 py-0.5 rounded-full truncate">
-                        {translateSpecialty(doc.specialty)}
-                      </span>
-                      {doc.rating > 0 && (
-                        <div className="flex items-center gap-1 text-[11px] font-bold text-amber-500 shrink-0">
-                          <Star className="w-3 h-3 fill-amber-500" />
-                          <span>{doc.rating}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <Link to={`/doctors/${doc.id}`}>
-                      <h3 className="text-sm sm:text-base font-black text-slate-900 group-hover:text-[#0E7490] transition-colors truncate">
-                        {isArabic ? doc.nameAr || translateDoctorName(doc.name, doc.id) : doc.name}
-                      </h3>
-                    </Link>
-
-                    <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5 truncate">
-                      <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
-                      <span className="truncate">{translateHospitalName(doc.hospitalName || 'American Hospital Dubai')}</span>
-                    </p>
-                  </div>
-                </div>
-
-                {/* Experience & Availability Pill */}
-                <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500 bg-[#F8FAFC] px-3 py-1.5 rounded-xl border border-[#E2EBF0]">
-                  <span className="flex items-center gap-1 font-medium">
-                    <Award className="w-3.5 h-3.5 text-[#2DA7B5]" />
-                    <span>{isArabic ? doc.experienceAr || translateExperience(doc.experience) : doc.experience}</span>
-                  </span>
-                  <span className="flex items-center gap-1 font-semibold text-emerald-600">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    <span>{t('home.availableThisWeek')}</span>
-                  </span>
-                </div>
-
-                {/* About Snippet */}
-                <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed mt-2.5">
-                  {isArabic ? doc.aboutAr || translateDoctorAbout(doc.about, doc.id) : doc.about}
-                </p>
-              </div>
-
-              {/* Action Buttons (Without Fee) */}
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2">
-                <Link
-                  to={`/doctors/${doc.id}`}
-                  className="flex-1 py-2 bg-[#F8FAFC] hover:bg-[#E8F6F8] text-slate-700 hover:text-[#0E7490] text-xs font-bold rounded-xl transition-all text-center border border-[#E2EBF0] cursor-pointer"
-                >
-                  {t('doctors.viewProfile')}
-                </Link>
-                <Link
-                  to={`/book/doctor/${doc.id}`}
-                  className="flex-1 py-2 bg-[#2DA7B5] hover:bg-[#23929F] text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-                >
-                  <span>{t('home.book')}</span>
-                  <ArrowRight className="w-3 h-3 rtl:rotate-180" />
-                </Link>
-              </div>
-            </div>
+        {/* Doctor Grid - Unified Premium Doctor Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredDoctors.map((doc, idx) => (
+            <DoctorCard key={doc.id} doctor={doc} delayIndex={idx} />
           ))}
         </div>
 

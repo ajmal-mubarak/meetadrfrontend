@@ -3,30 +3,7 @@ import { Calendar, Clock, Check, Plus, Save } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { realDoctorPortalService } from '../../services/realDoctorPortalService';
 
-const ALL_DAYS = [
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-  'Sunday',
-];
-
-const STANDARD_SLOTS = [
-  '09:00 - 09:30',
-  '09:30 - 10:00',
-  '10:00 - 10:30',
-  '10:30 - 11:00',
-  '11:00 - 11:30',
-  '11:30 - 12:00',
-  '14:00 - 14:30',
-  '14:30 - 15:00',
-  '15:00 - 15:30',
-  '15:30 - 16:00',
-  '16:00 - 16:30',
-  '16:30 - 17:00',
-];
+import { WEEK_DAYS as ALL_DAYS, DEFAULT_PRESET_SLOTS as STANDARD_SLOTS } from '../../constants/schedule';
 
 export const DoctorSchedule: React.FC = () => {
   const { showToast } = useToast();

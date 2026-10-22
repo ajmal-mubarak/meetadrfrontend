@@ -1,28 +1,73 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Building2, MapPin, Star, Phone, Clock, Search, ShieldCheck, Activity, ArrowRight, ChevronDown } from 'lucide-react';
 import { realHospitalService } from '../../services/realFacilityService';
 import { Hospital } from '../../types';
-import { LOCATIONS, matchesLocation } from '../../data/mockSpecialties';
+import { LOCATIONS, EMIRATES, AREAS, matchesLocation } from '../../data/mockSpecialties';
+import { UAE_EMIRATES } from '../../services/locationService';
 import { useTranslation } from '../../i18n';
 import { CustomDropdown, DropdownOption } from '../../components/common/CustomDropdown';
 
 export const HospitalList: React.FC = () => {
   const { t, translateSpecialty, translateLocation, isArabic, translateHospitalName, translateHospitalAbout } = useTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const getUrlLocation = () => {
+    const locParam = searchParams.get('location');
+    const emParam = searchParams.get('emirate');
+    const candidate = locParam || emParam;
+    if (!candidate || candidate === 'All') return 'All';
+    const found = UAE_EMIRATES.find(
+      (e) => e.code.toLowerCase() === candidate.toLowerCase() || e.name.toLowerCase() === candidate.toLowerCase()
+    );
+    if (found) return found.name;
+    const locMatch = LOCATIONS.find((l) => l.toLowerCase() === candidate.toLowerCase());
+    if (locMatch) return locMatch;
+    return candidate;
+  };
+
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [location, setLocation] = useState('All');
+  const [search, setSearch] = useState(searchParams.get('search') || searchParams.get('q') || '');
+  const [location, setLocation] = useState(getUrlLocation());
+
+  useEffect(() => {
+    const qLoc = getUrlLocation();
+    const qTerm = searchParams.get('search') || searchParams.get('q') || '';
+    setLocation(qLoc);
+    setSearch(qTerm);
+  }, [searchParams]);
+
+  const updateLocation = (newLoc: string) => {
+    setLocation(newLoc);
+    const params = new URLSearchParams(searchParams);
+    if (newLoc && newLoc !== 'All') {
+      params.set('location', newLoc);
+      const em = UAE_EMIRATES.find((e) => e.name.toLowerCase() === newLoc.toLowerCase());
+      if (em) params.set('emirate', em.code);
+    } else {
+      params.delete('location');
+      params.delete('emirate');
+    }
+    setSearchParams(params);
+  };
 
   const locationOptions: DropdownOption[] = useMemo(() => [
     { value: 'All', label: t('hospitals.allLocations') },
-    ...LOCATIONS.map((l) => ({
+    { value: 'divider-emirates', label: isArabic ? 'الإمارات' : 'Emirates', isDivider: true },
+    ...EMIRATES.map((l) => ({
+      value: l,
+      label: translateLocation(l),
+      icon: <MapPin className="w-3.5 h-3.5 text-[#2DA7B5]" />,
+    })),
+    { value: 'divider-areas', label: isArabic ? 'المناطق الشهيرة' : 'Popular Areas', isDivider: true },
+    ...AREAS.map((l) => ({
       value: l,
       label: translateLocation(l),
       icon: <MapPin className="w-3.5 h-3.5 text-slate-400" />,
     })),
-  ], [t, translateLocation]);
+  ], [t, translateLocation, isArabic]);
 
   useEffect(() => {
     async function load() {
@@ -88,7 +133,7 @@ export const HospitalList: React.FC = () => {
           <div className="sm:col-span-4">
             <CustomDropdown
               value={location}
-              onChange={(val) => setLocation(val)}
+              onChange={(val) => updateLocation(val)}
               options={locationOptions}
               placeholder={t('hospitals.allLocations')}
               icon={<MapPin className="w-4 h-4 text-[#0D5C54]" />}

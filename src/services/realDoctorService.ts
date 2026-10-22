@@ -15,6 +15,7 @@ import apiClient from './api/apiClient';
 import { API_ENDPOINTS, buildApiUrl } from '../config/api';
 import type { PaginatedResponse } from './api/types';
 import { Doctor } from '../types';
+import { DEFAULT_DOCTOR_AVATAR } from '../utils/avatar';
 
 // ─── Backend Doctor Shape ─────────────────────────────────────────────────────
 
@@ -86,7 +87,7 @@ function mapDoctor(b: BackendDoctor): Doctor {
     id: String(b.id),
     name: b.name,
     nameAr: b.name_ar,
-    photo: b.photo || 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=400',
+    photo: b.photo || DEFAULT_DOCTOR_AVATAR,
     specialty: b.specialty || '',
     specialInterest: b.special_interests || [],
     experience,

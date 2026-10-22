@@ -4,6 +4,8 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useTranslation } from '../../i18n';
 import { patientService } from '../../services/patientService';
+import apiClient from '../../services/api/apiClient';
+import { API_ENDPOINTS } from '../../config/api';
 
 interface Dependent {
   id: string;
@@ -98,24 +100,38 @@ export const PatientProfile: React.FC = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
+    const cleanPhone = phone.replace(/[\s\-()]/g, '');
+    if (cleanPhone && !/^\+[0-9]{7,15}$/.test(cleanPhone)) {
+      showToast('Contact phone must include a valid country code and numbers only (e.g. +971501234567).', 'error');
+      setIsSaving(false);
+      return;
+    }
+
     try {
-      await patientService.updateProfile({
-        blood_group: bloodGroup,
-        emergency_contact: emergencyContact,
-        allergies,
-        insurance_provider: insuranceProvider,
-        insurance_number: insuranceNumber,
-      });
+      await Promise.all([
+        patientService.updateProfile({
+          blood_group: bloodGroup,
+          emergency_contact: emergencyContact,
+          allergies,
+          insurance_provider: insuranceProvider,
+          insurance_number: insuranceNumber,
+        }),
+        apiClient.patch(API_ENDPOINTS.AUTH.ME, {
+          name: name.trim(),
+          phone: cleanPhone,
+        }),
+      ]);
       setSavedData({
         name,
         email,
-        phone,
+        phone: cleanPhone,
         bloodGroup,
         emergencyContact,
         allergies,
         insuranceProvider,
         insuranceNumber,
       });
+      setPhone(cleanPhone);
       setIsEditing(false);
       showToast(isArabic ? 'تم تحديث الملف الصحي بنجاح.' : 'Patient health profile updated successfully.', 'success');
     } catch (err: any) {
@@ -254,7 +270,8 @@ export const PatientProfile: React.FC = () => {
                   required
                   disabled={!isEditing}
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => setPhone(e.target.value.replace(/[^\d+\s-]/g, ''))}
+                  placeholder="+971 50 123 4567"
                   className={iconInputClass}
                 />
               </div>

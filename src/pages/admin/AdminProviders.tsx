@@ -1,381 +1,624 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Building2,
-  Star,
+  Stethoscope,
   MapPin,
   Search,
-  ShieldCheck,
   CheckCircle,
   XCircle,
   Eye,
   Phone,
   Clock,
-  ExternalLink,
+  Calendar,
   X,
   AlertTriangle,
-  Stethoscope,
-  Activity,
-  Plus,
   Trash2,
+  Filter,
+  ShieldCheck,
+  RotateCcw,
 } from 'lucide-react';
 import { realAdminService, ProviderItem } from '../../services/realAdminService';
-import { Hospital, Clinic } from '../../types';
+import { Doctor } from '../../types';
 import { useToast } from '../../context/ToastContext';
-import { ImageUpload } from '../../components/common/ImageUpload';
+import { DEFAULT_DOCTOR_AVATAR } from '../../utils/avatar';
+
+interface UnifiedProviderItem {
+  id: string;
+  name: string;
+  name_ar?: string;
+  kind: 'facility' | 'doctor';
+  categoryLabel: 'Hospital' | 'Clinic' | 'Individual Doctor';
+  specialtyOrType?: string;
+  location: string;
+  address?: string;
+  phone?: string;
+  photo?: string;
+  status: 'Active' | 'Deactivated' | 'Pending';
+  createdAt?: string;
+  rating?: number;
+  consultationFee?: number;
+  experienceYears?: number;
+  operatingHours?: string;
+  about?: string;
+  raw: ProviderItem | Doctor;
+}
 
 export const AdminProviders: React.FC = () => {
   const { showToast } = useToast();
+
   const [providers, setProviders] = useState<ProviderItem[]>([]);
-  const [type, setType] = useState<'all' | 'hospital' | 'clinic'>('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'Active' | 'Deactivated'>('all');
-  const [search, setSearch] = useState('');
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedProvider, setSelectedProvider] = useState<ProviderItem | null>(null);
+
+  // Filters
+  const [typeFilter, setTypeFilter] = useState<'all' | 'facilities' | 'doctors'>('all');
+  const [locationFilter, setLocationFilter] = useState<string>('all');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'Active' | 'Pending' | 'Deactivated'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Modals: strictly View or Delete/Reject
+  const [viewItem, setViewItem] = useState<UnifiedProviderItem | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<UnifiedProviderItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
-  // Add Facility State
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isSubmittingAdd, setIsSubmittingAdd] = useState(false);
-  const [addForm, setAddForm] = useState({
-    name: '',
-    name_ar: '',
-    type: 'hospital' as 'hospital' | 'clinic',
-    location: 'Dubai',
-    address: '',
-    address_ar: '',
-    phone: '',
-    operating_hours: 'Open 24/7',
-    about: '',
-    photo: '',
-    emergency_available: true,
-    primary_specialty: 'General Medicine',
-    google_maps_url: '',
-  });
-
-  // Delete Facility State
-  const [providerToDelete, setProviderToDelete] = useState<ProviderItem | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  // Load data
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const [provs, docs] = await Promise.all([
+        realAdminService.getProviders(),
+        realAdminService.getDoctors(),
+      ]);
+      setProviders(provs);
+      setDoctors(docs);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to load provider directory', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function load() {
-      setIsLoading(true);
-      try {
-        const data = await realAdminService.getProviders();
-        setProviders(data);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Failed to load providers';
-        showToast(msg, 'error');
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    load();
+    loadData();
   }, []);
 
-  const handleToggleStatus = async (item: ProviderItem, newStatus: 'Active' | 'Deactivated') => {
-    setIsUpdatingStatus(true);
-    try {
-      await realAdminService.updateProviderStatus(item.id, newStatus);
-      setProviders((prev) =>
-        prev.map((p) => (p.id === item.id ? ({ ...p, status: newStatus } as ProviderItem) : p))
-      );
+  // Transform and unify list
+  const unifiedList = useMemo<UnifiedProviderItem[]>(() => {
+    const list: UnifiedProviderItem[] = [];
 
-      if (selectedProvider && selectedProvider.id === item.id) {
-        setSelectedProvider({ ...selectedProvider, status: newStatus } as ProviderItem);
+    // Facilities (Hospitals and Clinics)
+    providers.forEach((p) => {
+      const pType = ((p as any).type || (p.providerCategory === 'Clinic' ? 'clinic' : 'hospital')).toLowerCase();
+      const catLabel = pType === 'clinic' ? 'Clinic' : 'Hospital';
+      const status: 'Active' | 'Deactivated' | 'Pending' =
+        p.status === 'Active' ? 'Active' : p.status === 'Deactivated' ? 'Deactivated' : 'Pending';
+
+      list.push({
+        id: p.id,
+        name: p.name,
+        name_ar: (p as any).name_ar,
+        kind: 'facility',
+        categoryLabel: catLabel,
+        specialtyOrType: (p as any).primary_specialty || (catLabel === 'Hospital' ? 'General & Specialized' : 'Polyclinic'),
+        location: p.location || 'Dubai',
+        address: p.address,
+        phone: p.phone,
+        photo: (p as any).photo,
+        status,
+        createdAt: (p as any).created_at || (p as any).createdAt,
+        rating: p.rating,
+        operatingHours: (p as any).operating_hours || (p as any).operatingHours || 'Open 24/7',
+        about: (p as any).about,
+        raw: p,
+      });
+    });
+
+    // Individual & Affiliated Doctors
+    doctors.forEach((d) => {
+      const status: 'Active' | 'Deactivated' | 'Pending' = !d.isVerified
+        ? 'Pending'
+        : d.status === 'Active' || d.isActive
+        ? 'Active'
+        : 'Deactivated';
+
+      list.push({
+        id: d.id,
+        name: `Dr. ${d.name}`,
+        name_ar: (d as any).name_ar ? `د. ${(d as any).name_ar}` : undefined,
+        kind: 'doctor',
+        categoryLabel: 'Individual Doctor',
+        specialtyOrType: d.specialty,
+        location: d.location || 'Dubai',
+        address: d.hospitalName ? `Affiliated: ${d.hospitalName}` : 'Independent Practice',
+        phone: (d as any).phone,
+        photo: d.photo,
+        status,
+        createdAt: (d as any).created_at || (d as any).createdAt,
+        rating: d.rating,
+        consultationFee: d.consultationFee,
+        experienceYears: d.experienceYears,
+        about: d.about,
+        raw: d,
+      });
+    });
+
+    return list;
+  }, [providers, doctors]);
+
+  // Unique locations for filter dropdown
+  const uniqueLocations = useMemo(() => {
+    const set = new Set<string>();
+    unifiedList.forEach((item) => {
+      if (item.location) set.add(item.location);
+    });
+    return Array.from(set).sort();
+  }, [unifiedList]);
+
+  // Filtered List
+  const filteredList = useMemo(() => {
+    return unifiedList.filter((item) => {
+      // Type filter
+      if (typeFilter === 'facilities' && item.kind !== 'facility') return false;
+      if (typeFilter === 'doctors' && item.kind !== 'doctor') return false;
+
+      // Location filter
+      if (locationFilter !== 'all' && item.location.toLowerCase() !== locationFilter.toLowerCase()) {
+        return false;
       }
 
-      showToast(
-        newStatus === 'Active'
-          ? `${item.name} has been activated successfully.`
-          : `${item.name} has been deactivated.`,
-        newStatus === 'Active' ? 'success' : 'info'
-      );
+      // Status filter
+      if (statusFilter !== 'all' && item.status !== statusFilter) return false;
+
+      // Date Range filter (created at)
+      if (item.createdAt) {
+        const itemDate = new Date(item.createdAt);
+        if (dateFrom) {
+          const fromDate = new Date(dateFrom);
+          if (itemDate < fromDate) return false;
+        }
+        if (dateTo) {
+          const toDate = new Date(dateTo);
+          toDate.setHours(23, 59, 59, 999);
+          if (itemDate > toDate) return false;
+        }
+      }
+
+      // Search Query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesName = item.name.toLowerCase().includes(q);
+        const matchesLocation = item.location.toLowerCase().includes(q);
+        const matchesAddress = (item.address || '').toLowerCase().includes(q);
+        const matchesSpecialty = (item.specialtyOrType || '').toLowerCase().includes(q);
+        if (!matchesName && !matchesLocation && !matchesAddress && !matchesSpecialty) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [unifiedList, typeFilter, locationFilter, statusFilter, dateFrom, dateTo, searchQuery]);
+
+  // Accept / Activate Provider
+  const handleAcceptProvider = async (item: UnifiedProviderItem) => {
+    setIsUpdatingStatus(true);
+    try {
+      if (item.kind === 'facility') {
+        await realAdminService.updateProviderStatus(item.id, 'Active');
+        setProviders((prev) =>
+          prev.map((p) => (p.id === item.id ? { ...p, status: 'Active' } : p))
+        );
+      } else {
+        await realAdminService.updateDoctorStatus(item.id, 'Active');
+        setDoctors((prev) =>
+          prev.map((d) =>
+            d.id === item.id
+              ? { ...d, isVerified: true, status: 'Active', isActive: true }
+              : d
+          )
+        );
+      }
+      showToast(`${item.name} has been accepted and activated.`, 'success');
+      if (viewItem && viewItem.id === item.id) {
+        setViewItem({ ...viewItem, status: 'Active' });
+      }
     } catch (err: any) {
-      showToast(err.message || 'Failed to update facility status.', 'error');
+      showToast(err.message || 'Failed to activate provider.', 'error');
     } finally {
       setIsUpdatingStatus(false);
     }
   };
 
-  const handleAddProviderSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!addForm.name.trim()) {
-      showToast('Facility name is required.', 'error');
-      return;
-    }
-    setIsSubmittingAdd(true);
+  // Reject / Deactivate Provider
+  const handleDeactivateProvider = async (item: UnifiedProviderItem) => {
+    setIsUpdatingStatus(true);
     try {
-      const created = await realAdminService.createProvider({
-        name: addForm.name.trim(),
-        name_ar: addForm.name_ar.trim() || undefined,
-        type: addForm.type,
-        location: addForm.location.trim() || 'Dubai',
-        address: addForm.address.trim() || undefined,
-        address_ar: addForm.address_ar.trim() || undefined,
-        phone: addForm.phone.trim() || '+971 4 000 0000',
-        operating_hours: addForm.operating_hours.trim() || 'Open 24/7',
-        about: addForm.about.trim() || undefined,
-        photo: addForm.photo.trim() || (addForm.type === 'hospital'
-          ? 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&q=80&w=800'
-          : 'https://images.unsplash.com/photo-1581056771107-24ca5f033842?auto=format&fit=crop&q=80&w=800'),
-        emergency_available: addForm.emergency_available,
-        primary_specialty: addForm.primary_specialty.trim() || 'General Medicine',
-        google_maps_url: addForm.google_maps_url.trim() || undefined,
-      });
-
-      setProviders((prev) => [created, ...prev]);
-      showToast(`${created.providerCategory} '${created.name}' has been added successfully!`, 'success');
-      setIsAddModalOpen(false);
-      setAddForm({
-        name: '',
-        name_ar: '',
-        type: 'hospital',
-        location: 'Dubai',
-        address: '',
-        address_ar: '',
-        phone: '',
-        operating_hours: 'Open 24/7',
-        about: '',
-        photo: '',
-        emergency_available: true,
-        primary_specialty: 'General Medicine',
-        google_maps_url: '',
-      });
+      if (item.kind === 'facility') {
+        await realAdminService.updateProviderStatus(item.id, 'Deactivated');
+        setProviders((prev) =>
+          prev.map((p) => (p.id === item.id ? { ...p, status: 'Deactivated' } : p))
+        );
+      } else {
+        await realAdminService.updateDoctorStatus(item.id, 'Deactivated');
+        setDoctors((prev) =>
+          prev.map((d) =>
+            d.id === item.id
+              ? { ...d, isVerified: false, status: 'Deactivated', isActive: false }
+              : d
+          )
+        );
+      }
+      showToast(`${item.name} status set to deactivated.`, 'info');
+      if (viewItem && viewItem.id === item.id) {
+        setViewItem({ ...viewItem, status: 'Deactivated' });
+      }
     } catch (err: any) {
-      showToast(err.message || 'Failed to add facility.', 'error');
+      showToast(err.message || 'Failed to deactivate provider.', 'error');
     } finally {
-      setIsSubmittingAdd(false);
+      setIsUpdatingStatus(false);
     }
   };
 
-  const handleDeleteProviderConfirm = async () => {
-    if (!providerToDelete) return;
+  // Delete Provider Permanently
+  const handleDeleteProvider = async () => {
+    if (!itemToDelete) return;
     setIsDeleting(true);
     try {
-      await realAdminService.deleteProvider(providerToDelete.id);
-      setProviders((prev) => prev.filter((p) => p.id !== providerToDelete.id));
-      if (selectedProvider && selectedProvider.id === providerToDelete.id) {
-        setSelectedProvider(null);
+      if (itemToDelete.kind === 'facility') {
+        await realAdminService.deleteProvider(itemToDelete.id);
+        setProviders((prev) => prev.filter((p) => p.id !== itemToDelete.id));
+      } else {
+        await realAdminService.deleteDoctor(itemToDelete.id);
+        setDoctors((prev) => prev.filter((d) => d.id !== itemToDelete.id));
       }
-      showToast(`${providerToDelete.providerCategory} '${providerToDelete.name}' has been deleted successfully.`, 'info');
-      setProviderToDelete(null);
+      showToast(`${itemToDelete.name} has been deleted.`, 'success');
+      if (viewItem && viewItem.id === itemToDelete.id) {
+        setViewItem(null);
+      }
+      setItemToDelete(null);
     } catch (err: any) {
-      showToast(err.message || 'Failed to delete facility.', 'error');
+      showToast(err.message || 'Failed to delete provider.', 'error');
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const allProviders: ProviderItem[] = providers;
-
-  const filtered = allProviders.filter((p) => {
-    if (type !== 'all' && p.providerCategory.toLowerCase() !== type) return false;
-
-    const pStatus = p.status || 'Active';
-    if (statusFilter !== 'all' && pStatus !== statusFilter) return false;
-
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      return (
-        p.name.toLowerCase().includes(q) ||
-        p.location.toLowerCase().includes(q) ||
-        p.id.toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
-
-  const activeCount = allProviders.filter((p) => (p.status || 'Active') === 'Active').length;
-  const deactivatedCount = allProviders.filter((p) => p.status === 'Deactivated').length;
+  const handleClearFilters = () => {
+    setTypeFilter('all');
+    setLocationFilter('all');
+    setDateFrom('');
+    setDateTo('');
+    setStatusFilter('all');
+    setSearchQuery('');
+  };
 
   return (
     <div className="space-y-6">
-      {/* Top Header Card */}
-      <div className="bg-white rounded-2xl border border-[#E2EBF0] p-6 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-bold text-slate-900">Providers Directory</h1>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#E8F6F8] text-[#0E7490] border border-[#CDEBF0]">
-              {allProviders.length} Facilities
-            </span>
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-xl bg-teal-50 border border-teal-200 text-teal-600 flex items-center justify-center font-bold">
+            <Building2 className="w-6 h-6" />
           </div>
-          <p className="text-xs text-slate-500 mt-1">
-            Registered medical institutions, licensing verifications, and operational status management.
-          </p>
+          <div>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Providers Directory</h1>
+            <p className="text-sm text-slate-500 mt-0.5">
+              Comprehensive directory of all medical providers (Hospitals, Clinics, and Individual Doctors) with multi-criteria filtering
+            </p>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Status Filter */}
-          <div className="flex rounded-xl bg-[#F1F5F9] p-1 text-xs font-semibold border border-[#E2EBF0]">
-            <button
-              onClick={() => setStatusFilter('all')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                statusFilter === 'all'
-                  ? 'bg-white text-slate-900 shadow-xs font-bold border border-[#E2EBF0]'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              All ({allProviders.length})
-            </button>
-            <button
-              onClick={() => setStatusFilter('Active')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                statusFilter === 'Active'
-                  ? 'bg-white text-emerald-700 shadow-xs font-bold border border-[#E2EBF0]'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Active ({activeCount})
-            </button>
-            <button
-              onClick={() => setStatusFilter('Deactivated')}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                statusFilter === 'Deactivated'
-                  ? 'bg-white text-rose-700 shadow-xs font-bold border border-[#E2EBF0]'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Deactivated ({deactivatedCount})
-            </button>
-          </div>
-
-          {/* Add Hospital / Clinic Button */}
-          <button
-            type="button"
-            onClick={() => setIsAddModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#2DA7B5] hover:bg-[#23929F] text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Hospital / Clinic</span>
-          </button>
-
-          {/* Search Box */}
-          <div className="relative w-full sm:w-56">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search facility..."
-              className="w-full pl-9 pr-3 py-2 text-xs bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none transition-all"
-            />
-          </div>
+        <div className="text-xs text-slate-400 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200">
+          Showing <span className="font-bold text-slate-800">{filteredList.length}</span> of{' '}
+          <span className="font-bold text-slate-800">{unifiedList.length}</span> Total Providers
         </div>
       </div>
 
-      {/* Table Container */}
-      <div className="bg-white rounded-2xl border border-[#E2EBF0] shadow-xs overflow-hidden">
+      {/* Filter Controls Bar */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+        {/* Row 1: Search & Type Tabs */}
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          <div className="flex-1 relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search provider by name, specialty, address, or location..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition-all font-medium"
+            />
+          </div>
+
+          <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200">
+            <button
+              type="button"
+              onClick={() => setTypeFilter('all')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                typeFilter === 'all'
+                  ? 'bg-white text-teal-700 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              All Providers ({unifiedList.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setTypeFilter('facilities')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                typeFilter === 'facilities'
+                  ? 'bg-white text-teal-700 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              Hospitals & Clinics ({providers.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setTypeFilter('doctors')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                typeFilter === 'doctors'
+                  ? 'bg-white text-teal-700 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Stethoscope className="w-3.5 h-3.5" />
+              Doctors ({doctors.length})
+            </button>
+          </div>
+        </div>
+
+        {/* Row 2: Location, Date Range, Status Filters */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Location Filter */}
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-600">
+              <MapPin className="w-3.5 h-3.5 text-slate-400" />
+              <span>Location:</span>
+              <select
+                aria-label="Filter providers by location"
+                value={locationFilter}
+                onChange={(e) => setLocationFilter(e.target.value)}
+                className="bg-transparent text-slate-800 font-bold focus:outline-none cursor-pointer"
+              >
+                <option value="all">All Emirates</option>
+                {uniqueLocations.map((loc) => (
+                  <option key={loc} value={loc}>
+                    {loc}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Status Filter */}
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-600">
+              <Filter className="w-3.5 h-3.5 text-slate-400" />
+              <span>Status:</span>
+              <select
+                aria-label="Filter providers by status"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as any)}
+                className="bg-transparent text-slate-800 font-bold focus:outline-none cursor-pointer"
+              >
+                <option value="all">All</option>
+                <option value="Active">Active / Approved</option>
+                <option value="Pending">Pending Application</option>
+                <option value="Deactivated">Deactivated</option>
+              </select>
+            </div>
+
+            {/* Date Range: From */}
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-600">
+              <Calendar className="w-3.5 h-3.5 text-slate-400" />
+              <span>Registered From:</span>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="bg-transparent text-slate-800 font-bold focus:outline-none cursor-pointer"
+              />
+            </div>
+
+            {/* Date Range: To */}
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-600">
+              <span>To:</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="bg-transparent text-slate-800 font-bold focus:outline-none cursor-pointer"
+              />
+            </div>
+          </div>
+
+          {(locationFilter !== 'all' || statusFilter !== 'all' || dateFrom || dateTo || searchQuery || typeFilter !== 'all') && (
+            <button
+              type="button"
+              onClick={handleClearFilters}
+              className="inline-flex items-center gap-1 text-teal-700 hover:text-teal-800 font-bold hover:underline transition-colors ml-auto"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Reset Filters
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Directory Table */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#F8FAFC] text-slate-500 font-semibold border-b border-[#E2EBF0]">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500 font-bold">
               <tr>
-                <th className="px-5 py-3">Facility Name</th>
-                <th className="px-5 py-3">Type</th>
-                <th className="px-5 py-3">Location</th>
-                <th className="px-5 py-3">Phone</th>
-                <th className="px-5 py-3">Rating</th>
-                <th className="px-5 py-3">Status</th>
-                <th className="px-5 py-3 text-right">Actions</th>
+                <th className="py-3.5 px-4">Provider</th>
+                <th className="py-3.5 px-4">Category</th>
+                <th className="py-3.5 px-4">Specialty / Scope</th>
+                <th className="py-3.5 px-4">Location & Address</th>
+                <th className="py-3.5 px-4">Registered Date</th>
+                <th className="py-3.5 px-4">Status</th>
+                <th className="py-3.5 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 text-slate-700">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-12 text-center text-slate-400">
-                    <div className="w-6 h-6 border-2 border-[#2DA7B5] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                    Loading medical facilities...
+                  <td colSpan={7} className="py-12 text-center">
+                    <div className="inline-flex items-center gap-2 text-slate-500 font-medium">
+                      <div className="w-5 h-5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
+                      Loading providers directory...
+                    </div>
                   </td>
                 </tr>
-              ) : filtered.length === 0 ? (
+              ) : filteredList.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-12 text-center text-slate-500">
-                    No facilities found matching your search.
+                  <td colSpan={7} className="py-12 text-center">
+                    <Building2 className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                    <p className="text-base font-bold text-slate-700">No providers match your filter criteria</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Try clearing or loosening the date range, location, or type filter
+                    </p>
                   </td>
                 </tr>
               ) : (
-                filtered.map((item) => {
-                  const isProviderActive = (item.status || 'Active') === 'Active';
+                filteredList.map((item) => {
+                  const isItemActive = item.status === 'Active';
+                  const isItemPending = item.status === 'Pending';
+
                   return (
-                    <tr key={item.id} className="hover:bg-[#F8FAFC] transition-colors">
-                      <td className="px-5 py-3.5 font-bold text-slate-900">
-                        <div className="flex items-center gap-2.5">
-                          <img
-                            src={item.photo}
-                            alt={item.name}
-                            className="w-9 h-9 rounded-xl object-cover bg-slate-100 shrink-0 border border-[#E2EBF0]"
-                            referrerPolicy="no-referrer"
-                          />
+                    <tr key={`${item.kind}-${item.id}`} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-3">
+                          {item.kind === 'facility' ? (
+                            <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-200 text-teal-700 font-bold flex items-center justify-center shrink-0">
+                              <Building2 className="w-5 h-5" />
+                            </div>
+                          ) : (
+                            <img
+                              src={item.photo || DEFAULT_DOCTOR_AVATAR}
+                              alt={item.name}
+                              className="w-10 h-10 rounded-xl object-cover bg-slate-100 border border-slate-200 shrink-0"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = DEFAULT_DOCTOR_AVATAR;
+                              }}
+                            />
+                          )}
                           <div>
-                            <div className="font-bold text-slate-900">{item.name}</div>
-                            <div className="text-[10px] text-slate-400 font-mono">ID: {item.id}</div>
+                            <div
+                              onClick={() => setViewItem(item)}
+                              className="font-bold text-slate-900 hover:text-teal-600 transition-colors cursor-pointer"
+                            >
+                              {item.name}
+                            </div>
+                            <div className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
+                              {item.phone && (
+                                <span className="flex items-center gap-1" dir="ltr">
+                                  <Phone className="w-3 h-3" />
+                                  {item.phone}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-5 py-3.5">
+
+                      <td className="py-3.5 px-4">
                         <span
-                          className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#E8F6F8] text-[#0E7490] border border-[#CDEBF0]"
+                          className={`inline-block px-2.5 py-1 rounded-lg text-xs font-bold ${
+                            item.categoryLabel === 'Hospital'
+                              ? 'bg-blue-50 text-blue-800 border border-blue-200'
+                              : item.categoryLabel === 'Clinic'
+                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                              : 'bg-purple-50 text-purple-800 border border-purple-200'
+                          }`}
                         >
-                          Hospital / Clinic
+                          {item.categoryLabel}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 text-slate-600">
-                        <div className="flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span className="truncate max-w-[180px]">{item.location}</span>
+
+                      <td className="py-3.5 px-4 text-xs font-semibold text-slate-800">
+                        {item.specialtyOrType || 'General Practice'}
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        <div className="text-xs space-y-0.5">
+                          <div className="font-semibold text-slate-800 flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                            {item.location}
+                          </div>
+                          {item.address && (
+                            <div className="text-slate-500 truncate max-w-[190px]">{item.address}</div>
+                          )}
                         </div>
                       </td>
-                      <td className="px-5 py-3.5 text-slate-700 font-mono">{item.phone}</td>
-                      <td className="px-5 py-3.5 text-slate-800 font-bold">
-                        {item.rating && item.rating > 0 ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className="flex items-center text-amber-600 font-bold">
-                              <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500 mr-0.5" />
-                              {Number(item.rating).toFixed(1)}
-                            </span>
-                            {item.reviewCount ? (
-                              <span className="text-slate-400 font-normal text-[11px]">
-                                ({item.reviewCount})
-                              </span>
-                            ) : null}
-                          </div>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-500">
-                            Unrated
-                          </span>
-                        )}
+
+                      <td className="py-3.5 px-4 text-xs text-slate-500 whitespace-nowrap">
+                        {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'N/A'}
                       </td>
-                      <td className="px-5 py-3.5">
-                        {isProviderActive ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <CheckCircle className="w-3 h-3 text-emerald-600" />
-                            Active
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                            <XCircle className="w-3 h-3 text-rose-600" />
-                            Deactivated
-                          </span>
-                        )}
+
+                      <td className="py-3.5 px-4">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
+                            isItemActive
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : isItemPending
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-rose-100 text-rose-800'
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              isItemActive ? 'bg-emerald-500' : isItemPending ? 'bg-amber-500' : 'bg-rose-500'
+                            }`}
+                          />
+                          {item.status}
+                        </span>
                       </td>
-                      <td className="px-5 py-3.5 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="inline-flex items-center gap-1">
+                          {/* STRICTLY VIEW */}
                           <button
                             type="button"
-                            onClick={() => setSelectedProvider(item)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#F8FAFC] hover:bg-[#E8F6F8] hover:text-[#0E7490] hover:border-[#CDEBF0] text-slate-700 rounded-xl text-xs font-semibold transition-all border border-[#E2EBF0] cursor-pointer shadow-2xs whitespace-nowrap"
+                            onClick={() => setViewItem(item)}
+                            title="View Details"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs transition-colors border border-slate-200"
                           >
-                            <Eye className="w-3.5 h-3.5 text-slate-500" />
-                            <span>View</span>
+                            <Eye className="w-3.5 h-3.5" />
+                            View
                           </button>
+
+                          {/* STRICTLY ACCEPT OR REJECT/DELETE */}
+                          {!isItemActive ? (
+                            <button
+                              type="button"
+                              onClick={() => handleAcceptProvider(item)}
+                              title="Accept / Activate Provider"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition-colors shadow-xs"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              Accept
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleDeactivateProvider(item)}
+                              title="Deactivate Provider"
+                              className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                            >
+                              <XCircle className="w-4 h-4" />
+                            </button>
+                          )}
+
                           <button
                             type="button"
-                            onClick={() => setProviderToDelete(item)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white hover:bg-rose-50 text-rose-600 hover:text-rose-700 rounded-xl text-xs font-semibold transition-all border border-rose-200 cursor-pointer shadow-2xs whitespace-nowrap"
-                            title={`Delete ${item.name}`}
+                            onClick={() => setItemToDelete(item)}
+                            title="Delete / Reject Application"
+                            className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                           >
-                            <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                            <span>Delete</span>
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -388,239 +631,140 @@ export const AdminProviders: React.FC = () => {
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* PROVIDER DETAILS & ACTIVATION / DEACTIVATION MODAL                        */}
-      {/* ========================================================================= */}
-      {selectedProvider && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-2xl w-full border border-[#E2EBF0] shadow-2xl overflow-hidden my-6 animate-in fade-in zoom-in-95 duration-200">
-            {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-[#E2EBF0] flex items-center justify-between bg-[#F8FAFC]">
-              <div className="flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-[#2DA7B5]" />
-                <h2 className="text-base font-bold text-slate-900">
-                  {selectedProvider.providerCategory} Profile & Licensing
-                </h2>
+      {/* VIEW PROVIDER MODAL (Strictly View Only) */}
+      {viewItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-100 p-6 space-y-6">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-4">
+                {viewItem.kind === 'facility' ? (
+                  <div className="w-16 h-16 rounded-2xl bg-teal-50 border border-teal-200 text-teal-700 font-bold flex items-center justify-center">
+                    <Building2 className="w-8 h-8" />
+                  </div>
+                ) : (
+                  <img
+                    src={viewItem.photo || DEFAULT_DOCTOR_AVATAR}
+                    alt={viewItem.name}
+                    className="w-16 h-16 rounded-2xl object-cover bg-slate-100 border border-slate-200"
+                  />
+                )}
+                <div>
+                  <h3 className="text-xl font-black text-slate-900">{viewItem.name}</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 text-xs font-bold">
+                      {viewItem.categoryLabel}
+                    </span>
+                    <span className="text-xs text-slate-500 flex items-center gap-1">
+                      <MapPin className="w-3 h-3" />
+                      {viewItem.location}
+                    </span>
+                  </div>
+                </div>
               </div>
+
               <button
                 type="button"
-                onClick={() => setSelectedProvider(null)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                onClick={() => setViewItem(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Modal Body */}
-            <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
-              {/* Provider Hero Card */}
-              <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-[#E2EBF0] flex flex-col sm:flex-row sm:items-center gap-4">
-                <img
-                  src={selectedProvider.photo}
-                  alt={selectedProvider.name}
-                  className="w-20 h-20 rounded-2xl object-cover border-2 border-white shadow-sm shrink-0"
-                  referrerPolicy="no-referrer"
-                />
-                <div className="space-y-1 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-lg font-bold text-slate-900">{selectedProvider.name}</h3>
-                    <span
-                      className="text-[10px] font-bold px-2.5 py-0.5 rounded-full border bg-[#E8F6F8] text-[#0E7490] border-[#CDEBF0]"
-                    >
-                      {selectedProvider.providerCategory}
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                      MOH Licensed
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{selectedProvider.address || selectedProvider.location}</span>
-                    </span>
-                    {selectedProvider.googleMapsUrl && (
-                      <a
-                        href={selectedProvider.googleMapsUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0E7490] hover:text-[#2DA7B5] bg-[#E8F6F8] px-2 py-0.5 rounded-md border border-[#CDEBF0] transition-colors"
-                      >
-                        <MapPin className="w-3 h-3 text-[#2DA7B5]" />
-                        <span>Location in Maps</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-slate-400 font-mono">Facility ID: {selectedProvider.id}</p>
-                </div>
+            {/* Status overview */}
+            <div
+              className={`p-4 rounded-2xl border flex items-center justify-between text-xs ${
+                viewItem.status === 'Active'
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                  : viewItem.status === 'Pending'
+                  ? 'bg-amber-50 border-amber-200 text-amber-900'
+                  : 'bg-rose-50 border-rose-200 text-rose-900'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4" />
+                <span className="font-bold uppercase tracking-wider">
+                  Status: {viewItem.status === 'Active' ? 'Active / Approved Provider' : viewItem.status === 'Pending' ? 'Pending Approval' : 'Deactivated'}
+                </span>
+              </div>
+              <span>Registered: {viewItem.createdAt ? new Date(viewItem.createdAt).toLocaleDateString() : 'N/A'}</span>
+            </div>
+
+            {/* Details Grid */}
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-slate-400 font-medium">Specialty / Scope</span>
+                <div className="font-bold text-slate-800 mt-1">{viewItem.specialtyOrType || 'General'}</div>
               </div>
 
-              {/* Status Alert Banner */}
-              {(selectedProvider.status || 'Active') === 'Active' ? (
-                <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200 flex items-start gap-3">
-                  <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-                  <div className="text-xs text-emerald-900 space-y-0.5">
-                    <span className="font-bold block text-sm">Status: Active & Verified</span>
-                    <p className="text-emerald-700 leading-relaxed">
-                      This medical facility is active in MeetAdr directories. Patients can browse affiliated doctors, request consultations, and book appointments.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-4 rounded-2xl bg-rose-50/80 border border-rose-200 flex items-start gap-3">
-                  <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-                  <div className="text-xs text-rose-900 space-y-0.5">
-                    <span className="font-bold block text-sm">Status: Deactivated / Suspended</span>
-                    <p className="text-rose-700 leading-relaxed">
-                      This facility is temporarily deactivated. Doctors rostered under this facility cannot receive public bookings until reactivated by administrative staff.
-                    </p>
-                  </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-slate-400 font-medium">Contact Phone</span>
+                <div className="font-bold text-slate-800 mt-1" dir="ltr">{viewItem.phone || 'N/A'}</div>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-slate-400 font-medium">Address / Affiliation</span>
+                <div className="font-bold text-slate-800 mt-1">{viewItem.address || viewItem.location}</div>
+              </div>
+
+              {viewItem.operatingHours && (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-slate-400 font-medium">Operating Hours</span>
+                  <div className="font-bold text-slate-800 mt-1">{viewItem.operatingHours}</div>
                 </div>
               )}
 
-              {/* Key Metrics Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2EBF0]">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Rostered Doctors</span>
-                  <span className="font-bold text-[#0E7490] mt-0.5 block flex items-center gap-1">
-                    <Stethoscope className="w-3.5 h-3.5 text-[#2DA7B5]" />
-                    {selectedProvider.doctorCount || selectedProvider.doctorIds.length} Specialists
-                  </span>
+              {viewItem.consultationFee && (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-slate-400 font-medium">Consultation Fee</span>
+                  <div className="font-bold text-teal-700 mt-1">AED {viewItem.consultationFee}</div>
                 </div>
-                <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2EBF0]">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Facility Rating</span>
-                  <span className="font-bold text-amber-600 mt-0.5 flex items-center gap-1">
-                    {selectedProvider.rating && selectedProvider.rating > 0 && selectedProvider.reviewCount ? (
-                      <>
-                        <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                        {Number(selectedProvider.rating).toFixed(1)} / 5.0
-                        <span className="text-[11px] text-slate-400 font-normal">({selectedProvider.reviewCount})</span>
-                      </>
-                    ) : (
-                      <span className="text-[11px] text-slate-500 font-medium">Unrated (0 reviews)</span>
-                    )}
-                  </span>
-                </div>
-                <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2EBF0]">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Emergency Care</span>
-                  <span className="font-bold text-slate-900 mt-0.5 block">
-                    {'emergencyAvailable' in selectedProvider && selectedProvider.emergencyAvailable
-                      ? '24/7 Available'
-                      : 'Clinical Hours'}
-                  </span>
-                </div>
-                <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2EBF0]">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Contact Phone</span>
-                  <span className="font-bold text-slate-900 mt-0.5 block font-mono">{selectedProvider.phone}</span>
-                </div>
-              </div>
+              )}
 
-              {/* About Section */}
-              <div className="space-y-3 text-xs">
-                <div>
-                  <h4 className="font-bold text-slate-800 flex items-center gap-1.5 mb-1">
-                    <Activity className="w-4 h-4 text-[#2DA7B5]" />
-                    <span>About Institutional Facility</span>
-                  </h4>
-                  <p className="text-slate-600 bg-[#F8FAFC] p-3 rounded-xl border border-[#E2EBF0] leading-relaxed">
-                    {selectedProvider.about}
-                  </p>
+              {viewItem.experienceYears && (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <span className="text-slate-400 font-medium">Experience</span>
+                  <div className="font-bold text-slate-800 mt-1">{viewItem.experienceYears} Years</div>
                 </div>
-
-                {/* Specialties or Departments */}
-                <div>
-                  <h4 className="font-bold text-slate-800 flex items-center gap-1.5 mb-1.5">
-                    <Stethoscope className="w-4 h-4 text-[#2DA7B5]" />
-                    <span>Clinical Specialties & Departments</span>
-                  </h4>
-                  <div className="flex flex-wrap gap-1.5">
-                    {'specialties' in selectedProvider ? (
-                      selectedProvider.specialties.map((s) => (
-                        <span
-                          key={s}
-                          className="px-2.5 py-1 rounded-lg bg-[#E8F6F8] text-[#0E7490] text-[11px] font-semibold border border-[#CDEBF0]"
-                        >
-                          {s}
-                        </span>
-                      ))
-                    ) : 'specialty' in selectedProvider ? (
-                      <span className="px-2.5 py-1 rounded-lg bg-[#E8F6F8] text-[#0E7490] text-[11px] font-semibold border border-[#CDEBF0]">
-                        {selectedProvider.specialty}
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-
-                {/* Operating Hours */}
-                <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2EBF0] flex items-center gap-3">
-                  <Clock className="w-4 h-4 text-slate-500 shrink-0" />
-                  <div>
-                    <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Operating Hours</span>
-                    <span className="font-semibold text-slate-800">{selectedProvider.operatingHours}</span>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
 
-            {/* Modal Footer / Action Bar */}
-            <div className="px-6 py-4 bg-[#F8FAFC] border-t border-[#E2EBF0] flex flex-col sm:flex-row items-center justify-between gap-3">
-              <Link
-                to={
-                  selectedProvider.providerCategory === 'Hospital'
-                    ? `/hospitals/${selectedProvider.id}`
-                    : `/clinics/${selectedProvider.id}`
-                }
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs font-bold text-[#0E7490] hover:text-[#2DA7B5] flex items-center gap-1 cursor-pointer"
+            {viewItem.about && (
+              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                <span className="text-slate-400 font-medium block mb-1">About</span>
+                <p className="text-slate-700 leading-relaxed">{viewItem.about}</p>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setViewItem(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors"
               >
-                <span>View Public Page</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </Link>
+                Close
+              </button>
 
-              <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const toDel = selectedProvider;
-                    setSelectedProvider(null);
-                    setProviderToDelete(toDel);
-                  }}
-                  className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                  title="Delete Facility"
-                >
-                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                  <span>Delete</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSelectedProvider(null)}
-                  className="px-4 py-2.5 bg-white hover:bg-[#F8FAFC] text-slate-700 rounded-xl text-xs font-semibold transition-colors border border-[#E2EBF0] cursor-pointer shadow-2xs"
-                >
-                  Close
-                </button>
-
-                {(selectedProvider.status || 'Active') === 'Active' ? (
+              <div className="flex items-center gap-2">
+                {viewItem.status !== 'Active' ? (
                   <button
                     type="button"
                     disabled={isUpdatingStatus}
-                    onClick={() => handleToggleStatus(selectedProvider, 'Deactivated')}
-                    className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    onClick={() => handleAcceptProvider(viewItem)}
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors shadow-xs"
                   >
-                    <XCircle className="w-4 h-4" />
-                    <span>{isUpdatingStatus ? 'Updating...' : `Deactivate ${selectedProvider.providerCategory}`}</span>
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    Accept / Activate
                   </button>
                 ) : (
                   <button
                     type="button"
                     disabled={isUpdatingStatus}
-                    onClick={() => handleToggleStatus(selectedProvider, 'Active')}
-                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    onClick={() => handleDeactivateProvider(viewItem)}
+                    className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors shadow-xs"
                   >
-                    <CheckCircle className="w-4 h-4" />
-                    <span>{isUpdatingStatus ? 'Updating...' : `Activate ${selectedProvider.providerCategory}`}</span>
+                    <XCircle className="w-3.5 h-3.5" />
+                    Deactivate
                   </button>
                 )}
               </div>
@@ -629,255 +773,41 @@ export const AdminProviders: React.FC = () => {
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* ADD FACILITY MODAL                                                        */}
-      {/* ========================================================================= */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-xl w-full border border-[#E2EBF0] shadow-2xl overflow-hidden my-6 animate-in fade-in zoom-in-95 duration-200">
-            <div className="px-6 py-4 border-b border-[#E2EBF0] flex items-center justify-between bg-[#F8FAFC]">
-              <div className="flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-[#2DA7B5]" />
-                <h2 className="text-base font-bold text-slate-900">Add Hospital / Clinic</h2>
+      {/* DELETE / REJECT MODAL */}
+      {itemToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5" />
               </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">Delete Provider</h3>
+                <p className="text-xs text-slate-500">Permanent directory removal</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Are you sure you want to permanently delete{' '}
+              <span className="font-bold text-slate-900">{itemToDelete.name}</span>? This will remove this{' '}
+              {itemToDelete.categoryLabel} from the platform.
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 type="button"
-                onClick={() => setIsAddModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddProviderSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
-              {/* Unified Facility Type Banner */}
-              <div className="bg-[#E8F6F8] border border-[#CDEBF0] rounded-2xl p-3.5 flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-[#2DA7B5] shrink-0" />
-                <span className="text-[#0E7490] text-xs font-bold">Facility Type: Hospital / Clinic (All facility management fields enabled)</span>
-              </div>
-
-              {/* Name (English & Arabic) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">
-                    Facility Name (English) <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={addForm.name}
-                    onChange={(e) => setAddForm((prev) => ({ ...prev, name: e.target.value }))}
-                    placeholder="e.g. Kings College Hospital London"
-                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Facility Name (Arabic)</label>
-                  <input
-                    type="text"
-                    dir="rtl"
-                    value={addForm.name_ar}
-                    onChange={(e) => setAddForm((prev) => ({ ...prev, name_ar: e.target.value }))}
-                    placeholder="مثال: مستشفى كينجز كوليدج"
-                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Location & Phone */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Emirate / City</label>
-                  <select
-                    value={addForm.location}
-                    onChange={(e) => setAddForm((prev) => ({ ...prev, location: e.target.value }))}
-                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
-                  >
-                    <option value="Dubai">Dubai</option>
-                    <option value="Abu Dhabi">Abu Dhabi</option>
-                    <option value="Sharjah">Sharjah</option>
-                    <option value="Ajman">Ajman</option>
-                    <option value="Ras Al Khaimah">Ras Al Khaimah</option>
-                    <option value="Fujairah">Fujairah</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Contact Phone</label>
-                  <input
-                    type="text"
-                    value={addForm.phone}
-                    onChange={(e) => setAddForm((prev) => ({ ...prev, phone: e.target.value }))}
-                    placeholder="+971 4 519 9999"
-                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none font-mono"
-                  />
-                </div>
-              </div>
-
-              {/* Address */}
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">Physical Address</label>
-                <input
-                  type="text"
-                  value={addForm.address}
-                  onChange={(e) => setAddForm((prev) => ({ ...prev, address: e.target.value }))}
-                  placeholder="e.g. Dubai Hills Estate, Al Khail Road, Dubai"
-                  className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
-                />
-              </div>
-
-              {/* Location in Maps (Google Maps URL) */}
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">Location in Maps (Google Maps URL)</label>
-                <div className="relative">
-                  <input
-                    type="url"
-                    value={addForm.google_maps_url}
-                    onChange={(e) => setAddForm((prev) => ({ ...prev, google_maps_url: e.target.value }))}
-                    placeholder="https://maps.google.com/?q=..."
-                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Operating Hours & Specialty/Emergency */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Operating Hours</label>
-                  <input
-                    type="text"
-                    value={addForm.operating_hours}
-                    onChange={(e) => setAddForm((prev) => ({ ...prev, operating_hours: e.target.value }))}
-                    placeholder="e.g. Open 24/7 or 08:00 - 22:00"
-                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
-                  />
-                </div>
-                <div>
-                  {addForm.type === 'clinic' ? (
-                    <>
-                      <label className="block text-slate-700 font-semibold mb-1">Primary Specialty</label>
-                      <input
-                        type="text"
-                        value={addForm.primary_specialty}
-                        onChange={(e) => setAddForm((prev) => ({ ...prev, primary_specialty: e.target.value }))}
-                        placeholder="e.g. Dermatology, Orthopedics"
-                        className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
-                      />
-                    </>
-                  ) : (
-                    <div className="pt-6 flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="emergency_available"
-                        checked={addForm.emergency_available}
-                        onChange={(e) => setAddForm((prev) => ({ ...prev, emergency_available: e.target.checked }))}
-                        className="w-4 h-4 text-[#2DA7B5] rounded border-[#E2EBF0] focus:ring-[#2DA7B5]"
-                      />
-                      <label htmlFor="emergency_available" className="text-slate-700 font-semibold cursor-pointer">
-                        24/7 Emergency Care Available
-                      </label>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Photo Image Upload Field */}
-              <ImageUpload
-                label="Facility Photo / Logo (Optional)"
-                value={addForm.photo}
-                onChange={(base64) => setAddForm((prev) => ({ ...prev, photo: base64 }))}
-                onRemove={() => setAddForm((prev) => ({ ...prev, photo: '' }))}
-                helperText="Upload hospital/clinic exterior, interior or official logo (JPG, PNG, WebP)"
-                aspectRatio="wide"
-              />
-
-              {/* About description */}
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">About Facility</label>
-                <textarea
-                  rows={3}
-                  value={addForm.about}
-                  onChange={(e) => setAddForm((prev) => ({ ...prev, about: e.target.value }))}
-                  placeholder="Provide a brief clinical overview of this institution..."
-                  className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none resize-none"
-                />
-              </div>
-
-              {/* Form Actions */}
-              <div className="pt-3 border-t border-[#E2EBF0] flex items-center justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 bg-white hover:bg-[#F8FAFC] text-slate-700 rounded-xl text-xs font-semibold border border-[#E2EBF0] cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingAdd}
-                  className="px-5 py-2 bg-[#2DA7B5] hover:bg-[#23929F] text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  {isSubmittingAdd ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Creating...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-4 h-4" />
-                      <span>Create {addForm.type === 'hospital' ? 'Hospital' : 'Clinic'}</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* DELETE CONFIRMATION MODAL                                                 */}
-      {/* ========================================================================= */}
-      {providerToDelete && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full border border-rose-200 shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600">
-              <AlertTriangle className="w-6 h-6" />
-            </div>
-
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Delete Medical Facility?</h3>
-              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                Are you sure you want to permanently delete <strong className="text-slate-800">{providerToDelete.name}</strong> ({providerToDelete.providerCategory})?
-                This action will remove the facility from all MeetAdr directories.
-              </p>
-            </div>
-
-            <div className="pt-2 flex items-center justify-end gap-2.5">
-              <button
-                type="button"
-                disabled={isDeleting}
-                onClick={() => setProviderToDelete(null)}
-                className="px-4 py-2 bg-white hover:bg-[#F8FAFC] text-slate-700 rounded-xl text-xs font-semibold border border-[#E2EBF0] cursor-pointer"
+                onClick={() => setItemToDelete(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 disabled={isDeleting}
-                onClick={handleDeleteProviderConfirm}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                onClick={handleDeleteProvider}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition-colors disabled:opacity-50"
               >
-                {isDeleting ? (
-                  <>
-                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Deleting...</span>
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="w-4 h-4" />
-                    <span>Yes, Delete Facility</span>
-                  </>
-                )}
+                {isDeleting ? 'Deleting...' : 'Confirm Delete'}
               </button>
             </div>
           </div>

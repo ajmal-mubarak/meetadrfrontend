@@ -80,6 +80,7 @@ export const ConditionsPage: React.FC = () => {
       newParams.set('letter', letter);
     }
     setSearchParams(newParams);
+    window.scrollTo({ top: 380, behavior: 'smooth' });
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -91,12 +92,14 @@ export const ConditionsPage: React.FC = () => {
       newParams.delete('search');
     }
     setSearchParams(newParams);
+    window.scrollTo({ top: 380, behavior: 'smooth' });
   };
 
   const handleClearFilters = () => {
     setSelectedLetter('All');
     setSearchQuery('');
     setSearchParams({});
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Filter conditions
@@ -175,6 +178,7 @@ export const ConditionsPage: React.FC = () => {
                   const newParams = new URLSearchParams(searchParams);
                   newParams.delete('search');
                   setSearchParams(newParams);
+                  window.scrollTo({ top: 380, behavior: 'smooth' });
                 }}
                 className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg mr-1 cursor-pointer"
               >

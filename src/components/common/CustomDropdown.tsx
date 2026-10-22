@@ -129,10 +129,15 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
               {options.map((opt, idx) => {
                 if (opt.isDivider) {
                   return (
-                    <div
-                      key={`divider-${idx}`}
-                      className="h-px bg-slate-100 my-1 mx-1.5"
-                    />
+                    <div key={`divider-${idx}`} className="my-1">
+                      {opt.label ? (
+                        <div className="px-2.5 pt-1.5 pb-0.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider select-none">
+                          {opt.label}
+                        </div>
+                      ) : (
+                        <div className="h-px bg-slate-100 mx-1.5" />
+                      )}
+                    </div>
                   );
                 }
 

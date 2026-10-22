@@ -23,6 +23,8 @@ import apiClient from './api/apiClient';
 import { API_ENDPOINTS } from '../config/api';
 import type { PaginatedResponse } from './api/types';
 import { Appointment, Doctor } from '../types';
+import { DEFAULT_DOCTOR_AVATAR } from '../utils/avatar';
+import { WEEK_DAYS, DEFAULT_PRESET_SLOTS } from '../constants/schedule';
 
 export interface FacilityDashboardMetrics {
   facility_id: string;
@@ -79,6 +81,10 @@ export interface FacilitySettingsData {
   image?: string;
   photo?: string;
   google_maps_url?: string;
+  default_available_days?: string[];
+  default_standard_slots?: string[];
+  defaultAvailableDays?: string[];
+  defaultStandardSlots?: string[];
 }
 
 interface BackendAppointment {
@@ -165,7 +171,7 @@ function mapDoctor(d: BackendDoctor): Doctor {
   return {
     id: String(d.id),
     name: d.name,
-    photo: d.photo || 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=400',
+    photo: d.photo || DEFAULT_DOCTOR_AVATAR,
     specialty: d.specialty,
     specialInterest: d.special_interests || ['General Practice'],
     experience: d.experience_text || `${d.experience_years || 5} years`,
@@ -262,6 +268,7 @@ export const realFacilityAdminService = {
     consultation_fee?: number;
     available_days?: string[];
     standard_slots?: string[];
+    username?: string;
     email?: string;
     password?: string;
   }): Promise<Doctor> {
@@ -278,6 +285,7 @@ export const realFacilityAdminService = {
       available_days: doctorData.available_days,
       standard_slots: doctorData.standard_slots,
     };
+    if (doctorData.username) payload.username = doctorData.username;
     if (doctorData.email) payload.email = doctorData.email;
     if (doctorData.password) payload.password = doctorData.password;
     const created = await apiClient.post<BackendDoctor>(
@@ -314,6 +322,8 @@ export const realFacilityAdminService = {
       photo?: string;
       consultation_fee: number;
       status?: 'Active' | 'Deactivated';
+      available_days?: string[];
+      standard_slots?: string[];
     }>
   ): Promise<Doctor> {
     const payload: Record<string, unknown> = {};
@@ -325,6 +335,8 @@ export const realFacilityAdminService = {
     if (doctorData.about !== undefined) payload.about = doctorData.about;
     if (doctorData.photo !== undefined) payload.photo = doctorData.photo;
     if (doctorData.consultation_fee !== undefined) payload.consultation_fee = doctorData.consultation_fee;
+    if (doctorData.available_days !== undefined) payload.available_days = doctorData.available_days;
+    if (doctorData.standard_slots !== undefined) payload.standard_slots = doctorData.standard_slots;
 
     const updated = await apiClient.patch<BackendDoctor>(
       API_ENDPOINTS.FACILITIES.DOCTOR_DETAIL(id),
@@ -452,6 +464,26 @@ export const realFacilityAdminService = {
       website: data.website || '',
       photo: data.photo || data.image || '',
       google_maps_url: data.google_maps_url || '',
+      defaultAvailableDays: (data.defaultAvailableDays && data.defaultAvailableDays.length > 0)
+        ? data.defaultAvailableDays
+        : (data.default_available_days && data.default_available_days.length > 0)
+        ? data.default_available_days
+        : WEEK_DAYS.slice(0, 5),
+      defaultStandardSlots: (data.defaultStandardSlots && data.defaultStandardSlots.length > 0)
+        ? data.defaultStandardSlots
+        : (data.default_standard_slots && data.default_standard_slots.length > 0)
+        ? data.default_standard_slots
+        : DEFAULT_PRESET_SLOTS,
+      default_available_days: (data.default_available_days && data.default_available_days.length > 0)
+        ? data.default_available_days
+        : (data.defaultAvailableDays && data.defaultAvailableDays.length > 0)
+        ? data.defaultAvailableDays
+        : WEEK_DAYS.slice(0, 5),
+      default_standard_slots: (data.default_standard_slots && data.default_standard_slots.length > 0)
+        ? data.default_standard_slots
+        : (data.defaultStandardSlots && data.defaultStandardSlots.length > 0)
+        ? data.defaultStandardSlots
+        : DEFAULT_PRESET_SLOTS,
     };
   },
 
@@ -472,6 +504,10 @@ export const realFacilityAdminService = {
     if (updates.description !== undefined) payload.description = updates.description;
     if (updates.photo !== undefined) payload.photo = updates.photo;
     if (updates.google_maps_url !== undefined) payload.google_maps_url = updates.google_maps_url;
+    if (updates.default_available_days !== undefined) payload.default_available_days = updates.default_available_days;
+    else if (updates.defaultAvailableDays !== undefined) payload.default_available_days = updates.defaultAvailableDays;
+    if (updates.default_standard_slots !== undefined) payload.default_standard_slots = updates.default_standard_slots;
+    else if (updates.defaultStandardSlots !== undefined) payload.default_standard_slots = updates.defaultStandardSlots;
 
     const data = await apiClient.patch<FacilitySettingsData>(
       API_ENDPOINTS.FACILITIES.SETTINGS,
@@ -490,6 +526,26 @@ export const realFacilityAdminService = {
       website: data.website || '',
       photo: data.photo || data.image || '',
       google_maps_url: data.google_maps_url || '',
+      defaultAvailableDays: (data.defaultAvailableDays && data.defaultAvailableDays.length > 0)
+        ? data.defaultAvailableDays
+        : (data.default_available_days && data.default_available_days.length > 0)
+        ? data.default_available_days
+        : WEEK_DAYS.slice(0, 5),
+      defaultStandardSlots: (data.defaultStandardSlots && data.defaultStandardSlots.length > 0)
+        ? data.defaultStandardSlots
+        : (data.default_standard_slots && data.default_standard_slots.length > 0)
+        ? data.default_standard_slots
+        : DEFAULT_PRESET_SLOTS,
+      default_available_days: (data.default_available_days && data.default_available_days.length > 0)
+        ? data.default_available_days
+        : (data.defaultAvailableDays && data.defaultAvailableDays.length > 0)
+        ? data.defaultAvailableDays
+        : WEEK_DAYS.slice(0, 5),
+      default_standard_slots: (data.default_standard_slots && data.default_standard_slots.length > 0)
+        ? data.default_standard_slots
+        : (data.defaultStandardSlots && data.defaultStandardSlots.length > 0)
+        ? data.defaultStandardSlots
+        : DEFAULT_PRESET_SLOTS,
     };
   },
 };

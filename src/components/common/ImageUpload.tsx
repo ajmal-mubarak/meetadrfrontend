@@ -7,6 +7,7 @@ interface ImageUploadProps {
   onChange: (value: string) => void;
   onRemove?: () => void;
   helperText?: string;
+  placeholder?: string;
   disabled?: boolean;
   maxDimension?: number;
   quality?: number;

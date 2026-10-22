@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Stethoscope,
-  Star,
+  ShieldCheck,
   Search,
   CheckCircle,
   XCircle,
@@ -10,138 +9,57 @@ import {
   Building2,
   Calendar,
   Clock,
-  ExternalLink,
   X,
-  ShieldCheck,
-  Award,
-  AlertTriangle,
   MapPin,
   GraduationCap,
-  ArrowLeft,
   Users,
-  ShieldAlert,
-  ChevronRight,
-  Sparkles,
-  Plus,
+  CheckSquare,
+  Square,
+  Filter,
+  AlertTriangle,
+  Stethoscope,
+  ArrowRight,
+  ExternalLink,
 } from 'lucide-react';
 import { realAdminService, ProviderItem } from '../../services/realAdminService';
 import { Doctor } from '../../types';
 import { useToast } from '../../context/ToastContext';
-import { ImageUpload } from '../../components/common/ImageUpload';
-
-interface FacilityGroup {
-  id: string;
-  name: string;
-  nameAr?: string;
-  type: 'hospital' | 'clinic';
-  location: string;
-  address?: string;
-  phone?: string;
-  photo?: string;
-  doctors: Doctor[];
-  verifiedCount: number;
-  pendingCount: number;
-}
+import { DEFAULT_DOCTOR_AVATAR } from '../../utils/avatar';
 
 export const AdminDoctors: React.FC = () => {
   const { showToast } = useToast();
+
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [providers, setProviders] = useState<ProviderItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Navigation: null = show hospital boxes; FacilityGroup = show that hospital's doctors
-  const [selectedFacility, setSelectedFacility] = useState<FacilityGroup | null>(null);
+  // Verification filter: 'pending' (default) | 'verified' | 'all'
+  const [verificationTab, setVerificationTab] = useState<'pending' | 'verified' | 'all'>('pending');
 
-  // Filters for Hospital Boxes view
-  const [facilitySearch, setFacilitySearch] = useState('');
-  const [facilityTypeFilter, setFacilityTypeFilter] = useState<'all' | 'hospital' | 'clinic'>('all');
-  const [facilityStatusFilter, setFacilityStatusFilter] = useState<'all' | 'pending' | 'verified'>('all');
+  // Search & Filter
+  const [searchQuery, setSearchQuery] = useState('');
+  const [affiliationFilter, setAffiliationFilter] = useState<'all' | 'hospital' | 'independent'>('all');
 
-  // Filters for Doctor Roster view
-  const [doctorSearch, setDoctorSearch] = useState('');
-  const [doctorStatusFilter, setDoctorStatusFilter] = useState<'all' | 'Active' | 'Deactivated'>('all');
+  // Multi-select for bulk verification
+  const [selectedDoctorIds, setSelectedDoctorIds] = useState<string[]>([]);
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
-  // Modal
-  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  // View Doctor Credentials Modal
+  const [viewDoctor, setViewDoctor] = useState<Doctor | null>(null);
+  const [isProcessingSingle, setIsProcessingSingle] = useState(false);
 
-  // Add Doctor Modal
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isSubmittingDoctor, setIsSubmittingDoctor] = useState(false);
-  const [doctorForm, setDoctorForm] = useState({
-    name: '',
-    name_ar: '',
-    specialty: '',
-    location: 'Dubai',
-    facilityId: '',
-    consultation_fee: 150,
-    experience_years: 5,
-    education: 'MBBS, MD',
-    about: '',
-    photo: '',
-  });
-
-  const handleCreateDoctor = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!doctorForm.name.trim() || !doctorForm.specialty.trim() || !doctorForm.location.trim()) {
-      showToast('Doctor name, specialty, and location are required.', 'error');
-      return;
-    }
-    setIsSubmittingDoctor(true);
-    try {
-      const selectedFacilityItem = providers.find((p) => p.id === doctorForm.facilityId);
-      const isHospital = (selectedFacilityItem as any)?.type === 'hospital' || selectedFacilityItem?.providerCategory === 'Hospital';
-      const isClinic = (selectedFacilityItem as any)?.type === 'clinic' || selectedFacilityItem?.providerCategory === 'Clinic';
-
-      const created = await realAdminService.createDoctor({
-        name: doctorForm.name.trim(),
-        name_ar: doctorForm.name_ar.trim() || undefined,
-        specialty: doctorForm.specialty.trim(),
-        location: doctorForm.location.trim(),
-        consultation_fee: Number(doctorForm.consultation_fee) || 100,
-        experience_years: Number(doctorForm.experience_years) || 1,
-        education: doctorForm.education.trim() || undefined,
-        about: doctorForm.about.trim() || undefined,
-        photo: doctorForm.photo.trim() || undefined,
-        hospital_id: isHospital ? doctorForm.facilityId : undefined,
-        clinic_id: isClinic ? doctorForm.facilityId : undefined,
-      });
-
-      setDoctors((prev) => [created, ...prev]);
-      showToast(`Dr. ${created.name} has been successfully registered.`, 'success');
-      setIsAddModalOpen(false);
-      setDoctorForm({
-        name: '',
-        name_ar: '',
-        specialty: '',
-        location: 'Dubai',
-        facilityId: '',
-        consultation_fee: 150,
-        experience_years: 5,
-        education: 'MBBS, MD',
-        about: '',
-        photo: '',
-      });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to create doctor.';
-      showToast(msg, 'error');
-    } finally {
-      setIsSubmittingDoctor(false);
-    }
-  };
-
+  // Load doctors and providers
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [doctorsData, providersData] = await Promise.all([
+      const [docs, provs] = await Promise.all([
         realAdminService.getDoctors(),
         realAdminService.getProviders(),
       ]);
-      setDoctors(doctorsData);
-      setProviders(providersData);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to load doctors and facilities data';
-      showToast(msg, 'error');
+      setDoctors(docs);
+      setProviders(provs);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to load doctors for verification', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -151,1081 +69,567 @@ export const AdminDoctors: React.FC = () => {
     loadData();
   }, []);
 
-  // Group doctors by hospital/facility
-  const facilityGroups = useMemo<FacilityGroup[]>(() => {
-    const map = new Map<string, FacilityGroup>();
+  // Filtered doctors
+  const filteredDoctors = useMemo(() => {
+    return doctors.filter((doc) => {
+      // Tab filter
+      if (verificationTab === 'pending' && doc.isVerified) return false;
+      if (verificationTab === 'verified' && !doc.isVerified) return false;
 
-    // 1. Initialize from providers directory
-    providers.forEach((p) => {
-      const pAny = p as any;
-      const type = (pAny.type || (p.providerCategory === 'Clinic' ? 'clinic' : 'hospital')) as 'hospital' | 'clinic';
-      map.set(p.id, {
-        id: p.id,
-        name: p.name,
-        nameAr: p.nameAr,
-        type,
-        location: pAny.city || p.location || 'United Arab Emirates',
-        address: p.address,
-        phone: p.phone,
-        photo: p.photo || (type === 'clinic' 
-          ? 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&q=80&w=600'
-          : 'https://images.unsplash.com/photo-1587351021759-3e566b6af7cc?auto=format&fit=crop&q=80&w=600'),
-        doctors: [],
-        verifiedCount: 0,
-        pendingCount: 0,
-      });
-    });
+      // Affiliation filter
+      const isAffiliated = !!(doc.hospitalId || doc.hospitalName);
+      if (affiliationFilter === 'hospital' && !isAffiliated) return false;
+      if (affiliationFilter === 'independent' && isAffiliated) return false;
 
-    // 2. Associate each doctor with their hospital
-    const unmatchedDoctors: Doctor[] = [];
-
-    doctors.forEach((doc) => {
-      let matched = false;
-      const docHospitalId = doc.hospitalId || doc.clinicId;
-
-      if (docHospitalId && map.has(docHospitalId)) {
-        const group = map.get(docHospitalId)!;
-        group.doctors.push(doc);
-        matched = true;
-      } else {
-        // Match by normalized name
-        const docHospitalName = (doc.hospitalName || doc.clinicName || '').trim().toLowerCase();
-        for (const group of map.values()) {
-          if (docHospitalName && group.name.trim().toLowerCase() === docHospitalName) {
-            group.doctors.push(doc);
-            matched = true;
-            break;
-          }
+      // Search Query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesName = doc.name.toLowerCase().includes(q);
+        const matchesSpecialty = (doc.specialty || '').toLowerCase().includes(q);
+        const matchesLocation = (doc.location || '').toLowerCase().includes(q);
+        const matchesHospital = (doc.hospitalName || '').toLowerCase().includes(q);
+        if (!matchesName && !matchesSpecialty && !matchesLocation && !matchesHospital) {
+          return false;
         }
       }
 
-      if (!matched) {
-        unmatchedDoctors.push(doc);
-      }
+      return true;
     });
+  }, [doctors, verificationTab, affiliationFilter, searchQuery]);
 
-    // 3. If there are unmatched doctors, group them by facility name or as independent
-    if (unmatchedDoctors.length > 0) {
-      const byName = new Map<string, Doctor[]>();
-      unmatchedDoctors.forEach((doc) => {
-        const facName = doc.hospitalName || doc.clinicName || 'Independent Medical Practitioners';
-        if (!byName.has(facName)) byName.set(facName, []);
-        byName.get(facName)!.push(doc);
-      });
+  // Counts
+  const pendingCount = useMemo(() => doctors.filter((d) => !d.isVerified).length, [doctors]);
+  const verifiedCount = useMemo(() => doctors.filter((d) => d.isVerified).length, [doctors]);
 
-      byName.forEach((docs, facName) => {
-        map.set(`custom-${facName}`, {
-          id: `custom-${facName}`,
-          name: facName,
-          type: 'hospital',
-          location: docs[0]?.location || 'United Arab Emirates',
-          photo: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&q=80&w=600',
-          doctors: docs,
-          verifiedCount: 0,
-          pendingCount: 0,
-        });
-      });
-    }
-
-    // 4. Calculate verification counts
-    const result: FacilityGroup[] = [];
-    map.forEach((g) => {
-      g.verifiedCount = g.doctors.filter((d) => (d.status || 'Active') === 'Active').length;
-      g.pendingCount = g.doctors.filter((d) => d.status === 'Deactivated').length;
-      result.push(g);
-    });
-
-    // Sort: facilities with doctors first, then alphabetical
-    return result.sort((a, b) => {
-      if (b.doctors.length !== a.doctors.length) {
-        return b.doctors.length - a.doctors.length;
-      }
-      return a.name.localeCompare(b.name);
-    });
-  }, [providers, doctors]);
-
-  // Keep active selectedFacility synced with updated doctors
-  const currentFacility = useMemo(() => {
-    if (!selectedFacility) return null;
-    return facilityGroups.find((g) => g.id === selectedFacility.id) || selectedFacility;
-  }, [facilityGroups, selectedFacility]);
-
-  // Handle Verify or Deactivate status toggle
-  const handleToggleStatus = async (doctor: Doctor, newStatus: 'Active' | 'Deactivated') => {
-    setIsUpdatingStatus(true);
-    try {
-      await realAdminService.updateDoctorStatus(doctor.id, newStatus);
-      setDoctors((prev) =>
-        prev.map((d) => (d.id === doctor.id ? { ...d, status: newStatus } : d))
-      );
-      if (selectedDoctor && selectedDoctor.id === doctor.id) {
-        setSelectedDoctor({ ...selectedDoctor, status: newStatus });
-      }
-      showToast(
-        newStatus === 'Active'
-          ? `Dr. ${doctor.name} has been verified and activated.`
-          : `Dr. ${doctor.name} has been deactivated.`,
-        newStatus === 'Active' ? 'success' : 'info'
-      );
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to update doctor status.';
-      showToast(msg, 'error');
-    } finally {
-      setIsUpdatingStatus(false);
+  // Bulk Selection
+  const handleToggleSelectAll = () => {
+    if (selectedDoctorIds.length === filteredDoctors.length) {
+      setSelectedDoctorIds([]);
+    } else {
+      setSelectedDoctorIds(filteredDoctors.map((d) => d.id));
     }
   };
 
-  // Filtered facilities for main view
-  const filteredFacilities = useMemo(() => {
-    return facilityGroups.filter((f) => {
-      if (facilityTypeFilter !== 'all' && f.type !== facilityTypeFilter) return false;
-      if (facilityStatusFilter === 'pending' && f.pendingCount === 0) return false;
-      if (facilityStatusFilter === 'verified' && (f.pendingCount > 0 || f.doctors.length === 0)) return false;
+  const handleToggleSelectOne = (id: string) => {
+    setSelectedDoctorIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
 
-      if (facilitySearch.trim()) {
-        const q = facilitySearch.toLowerCase();
-        const matchFacility = f.name.toLowerCase().includes(q) || f.location.toLowerCase().includes(q);
-        const matchDoctor = f.doctors.some(
-          (d) => d.name.toLowerCase().includes(q) || d.specialty.toLowerCase().includes(q)
+  const handleBulkAction = async (action: 'verify' | 'deactivate') => {
+    if (selectedDoctorIds.length === 0) return;
+
+    setIsBulkProcessing(true);
+    try {
+      const res = await realAdminService.bulkDoctorAction(selectedDoctorIds, action);
+      showToast(res.message || `Bulk ${action === 'verify' ? 'verification' : 'rejection'} completed.`, 'success');
+      setSelectedDoctorIds([]);
+      await loadData();
+    } catch (err: any) {
+      showToast(err.message || `Failed to perform bulk action.`, 'error');
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
+  // Single Doctor Verify / Reject
+  const handleVerifyDoctor = async (doctor: Doctor, verify: boolean) => {
+    setIsProcessingSingle(true);
+    try {
+      if (verify) {
+        await realAdminService.updateDoctorStatus(doctor.id, 'Active');
+        setDoctors((prev) =>
+          prev.map((d) =>
+            d.id === doctor.id
+              ? { ...d, isVerified: true, status: 'Active', isActive: true }
+              : d
+          )
         );
-        return matchFacility || matchDoctor;
-      }
-      return true;
-    });
-  }, [facilityGroups, facilityTypeFilter, facilityStatusFilter, facilitySearch]);
-
-  // Filtered doctors inside selected facility
-  const filteredDoctorsInFacility = useMemo(() => {
-    if (!currentFacility) return [];
-    return currentFacility.doctors.filter((d) => {
-      const docStatus = d.status || 'Active';
-      if (doctorStatusFilter !== 'all' && docStatus !== doctorStatusFilter) return false;
-
-      if (doctorSearch.trim()) {
-        const q = doctorSearch.toLowerCase();
-        return (
-          d.name.toLowerCase().includes(q) ||
-          d.specialty.toLowerCase().includes(q) ||
-          d.id.toLowerCase().includes(q)
+        if (viewDoctor && viewDoctor.id === doctor.id) {
+          setViewDoctor({ ...viewDoctor, isVerified: true, status: 'Active', isActive: true });
+        }
+        showToast(`Dr. ${doctor.name} has been verified and account activated!`, 'success');
+      } else {
+        await realAdminService.updateDoctorStatus(doctor.id, 'Deactivated');
+        setDoctors((prev) =>
+          prev.map((d) =>
+            d.id === doctor.id
+              ? { ...d, isVerified: false, status: 'Deactivated', isActive: false }
+              : d
+          )
         );
+        if (viewDoctor && viewDoctor.id === doctor.id) {
+          setViewDoctor({ ...viewDoctor, isVerified: false, status: 'Deactivated', isActive: false });
+        }
+        showToast(`Dr. ${doctor.name} status updated to unverified/deactivated.`, 'info');
       }
-      return true;
-    });
-  }, [currentFacility, doctorStatusFilter, doctorSearch]);
-
-  // Overall statistics
-  const totalDoctorsCount = doctors.length;
-  const totalVerifiedCount = doctors.filter((d) => (d.status || 'Active') === 'Active').length;
-  const totalPendingCount = doctors.filter((d) => d.status === 'Deactivated').length;
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update verification status.', 'error');
+    } finally {
+      setIsProcessingSingle(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
-      {/* ========================================================================= */}
-      {/* 1. TOP HEADER & BREADCRUMBS                                               */}
-      {/* ========================================================================= */}
-      <div className="bg-white rounded-2xl border border-[#E2EBF0] p-6 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          {currentFacility ? (
-            <div className="space-y-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedFacility(null);
-                  setDoctorSearch('');
-                  setDoctorStatusFilter('all');
-                }}
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0E7490] hover:text-[#2DA7B5] mb-1 transition-colors cursor-pointer"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back to All Hospitals & Clinics</span>
-              </button>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <h1 className="text-2xl font-bold text-slate-900">{currentFacility.name}</h1>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#E8F6F8] text-[#0E7490] border border-[#CDEBF0]">
-                  {currentFacility.doctors.length} Doctors Affiliated
-                </span>
-                <span className="px-2 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600">
-                  {currentFacility.type}
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
-                <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                <span>{currentFacility.location}</span>
-                <span className="text-slate-300">•</span>
-                <span>Review doctor licenses, approve newly added practitioners, or manage active roster.</span>
-              </p>
-            </div>
-          ) : (
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-2xl font-bold text-slate-900">Doctors Verification</h1>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#E8F6F8] text-[#0E7490] border border-[#CDEBF0]">
-                  {facilityGroups.length} Medical Facilities
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">
-                Select a hospital or clinic to review, verify, or deactivate affiliated medical doctors.
-              </p>
-            </div>
-          )}
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-xl bg-teal-50 border border-teal-200 text-teal-600 flex items-center justify-center font-bold">
+            <ShieldCheck className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Doctors Verification</h1>
+            <p className="text-sm text-slate-500 mt-0.5">
+              Strictly for verifying credentials and activating doctor accounts created by hospitals, clinics, or self-registration
+            </p>
+          </div>
         </div>
 
-        {/* Actions & Global Summary Stats */}
-        <div className="flex flex-wrap items-center gap-3">
+        {/* Link to Doctor Management for Full Add/Edit/Delete */}
+        <Link
+          to="/admin/doctors-manage"
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all border border-slate-200"
+        >
+          <Stethoscope className="w-3.5 h-3.5 text-teal-600" />
+          <span>Go to Doctors Management (Add/Edit/Delete)</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
+
+      {/* Tabs Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200">
           <button
             type="button"
             onClick={() => {
-              setDoctorForm((prev) => ({
-                ...prev,
-                facilityId: currentFacility && !currentFacility.id.startsWith('custom-') ? currentFacility.id : '',
-                location: currentFacility ? currentFacility.location : 'Dubai',
-              }));
-              setIsAddModalOpen(true);
+              setVerificationTab('pending');
+              setSelectedDoctorIds([]);
             }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#0E7490] to-[#2DA7B5] text-white text-xs font-bold hover:shadow-md hover:shadow-[#0E7490]/20 transition-all cursor-pointer shadow-xs shrink-0"
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
+              verificationTab === 'pending'
+                ? 'bg-white text-amber-700 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
           >
-            <Plus className="w-4 h-4" />
-            <span>Add Individual Doctor</span>
+            <span className="w-2 h-2 rounded-full bg-amber-500" />
+            Pending Verification ({pendingCount})
           </button>
 
-          {!currentFacility && (
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="px-3 py-2 rounded-xl bg-[#F8FAFC] border border-[#E2EBF0] text-center min-w-[80px]">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Total</span>
-                <span className="text-sm font-bold text-slate-900">{totalDoctorsCount}</span>
-              </div>
-              <div className="px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-center min-w-[80px]">
-                <span className="text-[10px] uppercase font-bold text-emerald-600 block tracking-wider">Verified</span>
-                <span className="text-sm font-bold text-emerald-700">{totalVerifiedCount}</span>
-              </div>
-              <div className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-center min-w-[80px]">
-                <span className="text-[10px] uppercase font-bold text-amber-600 block tracking-wider">Unverified</span>
-                <span className="text-sm font-bold text-amber-700">{totalPendingCount}</span>
-              </div>
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={() => {
+              setVerificationTab('verified');
+              setSelectedDoctorIds([]);
+            }}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
+              verificationTab === 'verified'
+                ? 'bg-white text-emerald-700 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            Verified Doctors ({verifiedCount})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setVerificationTab('all');
+              setSelectedDoctorIds([]);
+            }}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+              verificationTab === 'all'
+                ? 'bg-white text-teal-700 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            All Doctors ({doctors.length})
+          </button>
+        </div>
+
+        {/* Filters */}
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search doctor or specialty..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
+            />
+          </div>
+
+          <div className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600">
+            <span>Affiliation:</span>
+            <select
+              aria-label="Filter doctors by affiliation"
+              value={affiliationFilter}
+              onChange={(e) => setAffiliationFilter(e.target.value as any)}
+              className="bg-transparent text-slate-800 font-bold focus:outline-none cursor-pointer"
+            >
+              <option value="all">All</option>
+              <option value="hospital">Hospital Affiliated</option>
+              <option value="independent">Independent</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* 2. VIEW A: HOSPITAL BOXES GRID (Default View)                             */}
-      {/* ========================================================================= */}
-      {!currentFacility && (
-        <div className="space-y-5">
-          {/* Filters Bar for Hospitals */}
-          <div className="bg-white rounded-2xl border border-[#E2EBF0] p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Type Filter */}
-              <div className="flex rounded-xl bg-[#F1F5F9] p-1 text-xs font-semibold border border-[#E2EBF0]">
-                <button
-                  type="button"
-                  onClick={() => setFacilityTypeFilter('all')}
-                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                    facilityTypeFilter === 'all'
-                      ? 'bg-white text-slate-900 shadow-xs font-bold border border-[#E2EBF0]'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  All Facilities ({facilityGroups.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFacilityTypeFilter('hospital')}
-                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                    facilityTypeFilter === 'hospital'
-                      ? 'bg-white text-[#0E7490] shadow-xs font-bold border border-[#E2EBF0]'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Hospitals
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFacilityTypeFilter('clinic')}
-                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                    facilityTypeFilter === 'clinic'
-                      ? 'bg-white text-[#0E7490] shadow-xs font-bold border border-[#E2EBF0]'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Clinics
-                </button>
-              </div>
-
-              {/* Status Verification Filter */}
-              <div className="flex rounded-xl bg-[#F1F5F9] p-1 text-xs font-semibold border border-[#E2EBF0]">
-                <button
-                  type="button"
-                  onClick={() => setFacilityStatusFilter('all')}
-                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                    facilityStatusFilter === 'all'
-                      ? 'bg-white text-slate-900 shadow-xs font-bold border border-[#E2EBF0]'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  All Status
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFacilityStatusFilter('pending')}
-                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                    facilityStatusFilter === 'pending'
-                      ? 'bg-white text-amber-700 shadow-xs font-bold border border-[#E2EBF0]'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Has Unverified ({facilityGroups.filter((g) => g.pendingCount > 0).length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFacilityStatusFilter('verified')}
-                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                    facilityStatusFilter === 'verified'
-                      ? 'bg-white text-emerald-700 shadow-xs font-bold border border-[#E2EBF0]'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Fully Verified
-                </button>
-              </div>
-            </div>
-
-            {/* Search Box */}
-            <div className="relative w-full md:w-72">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-              <input
-                type="text"
-                value={facilitySearch}
-                onChange={(e) => setFacilitySearch(e.target.value)}
-                placeholder="Search facility or doctor..."
-                className="w-full pl-9 pr-3 py-2 text-xs bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none transition-all"
-              />
-            </div>
+      {/* Bulk Action Bar */}
+      {selectedDoctorIds.length > 0 && (
+        <div className="bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center justify-between gap-3 animate-fadeIn">
+          <div className="flex items-center gap-3">
+            <span className="w-7 h-7 rounded-full bg-teal-500/30 flex items-center justify-center text-xs font-bold border border-teal-400/50">
+              {selectedDoctorIds.length}
+            </span>
+            <span className="text-sm font-semibold">
+              {selectedDoctorIds.length} {selectedDoctorIds.length === 1 ? 'doctor' : 'doctors'} selected for verification
+            </span>
           </div>
 
-          {/* Hospital Boxes Grid */}
-          {isLoading ? (
-            <div className="bg-white rounded-2xl border border-[#E2EBF0] p-16 text-center text-slate-400">
-              <div className="w-8 h-8 border-3 border-[#2DA7B5] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-sm font-semibold text-slate-600">Loading hospitals & doctor rosters...</p>
-            </div>
-          ) : filteredFacilities.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-[#E2EBF0] p-12 text-center text-slate-500">
-              <Building2 className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-              <p className="text-sm font-semibold text-slate-700">No medical facilities found</p>
-              <p className="text-xs text-slate-400 mt-1">Try clearing your search query or filters.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {filteredFacilities.map((facility) => {
-                const hasPending = facility.pendingCount > 0;
-                return (
-                  <div
-                    key={facility.id}
-                    onClick={() => setSelectedFacility(facility)}
-                    className="bg-white rounded-2xl border border-[#E2EBF0] hover:border-[#2DA7B5] hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col group cursor-pointer"
-                  >
-                    {/* Facility Image Header */}
-                    <div className="relative h-44 w-full bg-slate-100 overflow-hidden">
-                      <img
-                        src={facility.photo}
-                        alt={facility.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-
-                      {/* Top Badges */}
-                      <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
-                        <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-white/95 text-slate-800 shadow-xs backdrop-blur-xs">
-                          {facility.type}
-                        </span>
-                        {hasPending ? (
-                          <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500 text-white shadow-xs flex items-center gap-1">
-                            <AlertTriangle className="w-3 h-3" />
-                            {facility.pendingCount} Needs Verification
-                          </span>
-                        ) : facility.doctors.length > 0 ? (
-                          <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500 text-white shadow-xs flex items-center gap-1">
-                            <CheckCircle className="w-3 h-3" />
-                            Verified
-                          </span>
-                        ) : (
-                          <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-700/80 text-white shadow-xs">
-                            No Doctors
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Bottom Info on Image */}
-                      <div className="absolute bottom-3 left-3 right-3 text-white">
-                        <p className="text-[11px] flex items-center gap-1 text-slate-200 font-medium">
-                          <MapPin className="w-3 h-3 text-[#2DA7B5]" />
-                          <span>{facility.location}</span>
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Facility Card Body */}
-                    <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                      <div>
-                        <h3 className="font-bold text-slate-900 text-base group-hover:text-[#0E7490] transition-colors line-clamp-1">
-                          {facility.name}
-                        </h3>
-                        {facility.address && (
-                          <p className="text-xs text-slate-500 mt-1 line-clamp-1">
-                            {facility.address}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Doctor Stats & Action Button */}
-                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-xl bg-[#E8F6F8] text-[#0E7490] flex items-center justify-center font-bold text-xs">
-                            {facility.doctors.length}
-                          </div>
-                          <div className="text-[11px]">
-                            <span className="font-bold text-slate-800 block">
-                              {facility.doctors.length} Doctors
-                            </span>
-                            <span className="text-slate-400">
-                              {facility.verifiedCount} active
-                              {hasPending ? ` • ${facility.pendingCount} pending` : ''}
-                            </span>
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#2DA7B5] group-hover:bg-[#0E7490] text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer"
-                        >
-                          <span>View Doctors</span>
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* 3. VIEW B: DOCTORS ROSTER FOR SELECTED HOSPITAL                           */}
-      {/* ========================================================================= */}
-      {currentFacility && (
-        <div className="space-y-5">
-          {/* Hospital Banner Info Card */}
-          <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-2xl p-6 text-white shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <img
-                src={currentFacility.photo}
-                alt={currentFacility.name}
-                className="w-16 h-16 rounded-2xl object-cover border-2 border-white/20 shrink-0"
-                referrerPolicy="no-referrer"
-              />
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-bold text-white">{currentFacility.name}</h2>
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-white/10 text-slate-200">
-                    {currentFacility.type}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-300 flex items-center gap-1.5 mt-1">
-                  <MapPin className="w-3.5 h-3.5 text-[#2DA7B5]" />
-                  <span>{currentFacility.location}</span>
-                  {currentFacility.phone && (
-                    <>
-                      <span className="text-slate-600">•</span>
-                      <span>Phone: {currentFacility.phone}</span>
-                    </>
-                  )}
-                </p>
-              </div>
-            </div>
-
-            {/* Quick Actions in Banner */}
-            <div className="flex items-center gap-2.5">
-              <div className="px-3 py-1.5 rounded-xl bg-white/10 text-center border border-white/10">
-                <span className="text-[10px] text-slate-300 block uppercase font-bold">Total</span>
-                <span className="text-sm font-bold text-white">{currentFacility.doctors.length} Doctors</span>
-              </div>
-              <div className="px-3 py-1.5 rounded-xl bg-emerald-500/20 text-center border border-emerald-500/30">
-                <span className="text-[10px] text-emerald-300 block uppercase font-bold">Verified</span>
-                <span className="text-sm font-bold text-emerald-300">{currentFacility.verifiedCount} Active</span>
-              </div>
-              <div className="px-3 py-1.5 rounded-xl bg-amber-500/20 text-center border border-amber-500/30">
-                <span className="text-[10px] text-amber-300 block uppercase font-bold">Pending</span>
-                <span className="text-sm font-bold text-amber-300">{currentFacility.pendingCount} Unverified</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Filters Bar for Doctors Table */}
-          <div className="bg-white rounded-2xl border border-[#E2EBF0] p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex rounded-xl bg-[#F1F5F9] p-1 text-xs font-semibold border border-[#E2EBF0]">
-              <button
-                type="button"
-                onClick={() => setDoctorStatusFilter('all')}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                  doctorStatusFilter === 'all'
-                    ? 'bg-white text-slate-900 shadow-xs font-bold border border-[#E2EBF0]'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                All ({currentFacility.doctors.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setDoctorStatusFilter('Active')}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                  doctorStatusFilter === 'Active'
-                    ? 'bg-white text-emerald-700 shadow-xs font-bold border border-[#E2EBF0]'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Verified Active ({currentFacility.verifiedCount})
-              </button>
-              <button
-                type="button"
-                onClick={() => setDoctorStatusFilter('Deactivated')}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                  doctorStatusFilter === 'Deactivated'
-                    ? 'bg-white text-rose-700 shadow-xs font-bold border border-[#E2EBF0]'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Unverified / Deactivated ({currentFacility.pendingCount})
-              </button>
-            </div>
-
-            <div className="relative w-full sm:w-64">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-              <input
-                type="text"
-                value={doctorSearch}
-                onChange={(e) => setDoctorSearch(e.target.value)}
-                placeholder="Search by doctor or specialty..."
-                className="w-full pl-9 pr-3 py-2 text-xs bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none transition-all"
-              />
-            </div>
-          </div>
-
-          {/* Doctors Table */}
-          <div className="bg-white rounded-2xl border border-[#E2EBF0] shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#F8FAFC] text-slate-500 font-semibold border-b border-[#E2EBF0]">
-                  <tr>
-                    <th className="px-5 py-3">Doctor Details</th>
-                    <th className="px-5 py-3">Specialty</th>
-                    <th className="px-5 py-3">Experience & Rating</th>
-                    <th className="px-5 py-3">Verification Status</th>
-                    <th className="px-5 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredDoctorsInFacility.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-5 py-12 text-center text-slate-500">
-                        <Stethoscope className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                        <p className="font-semibold text-slate-700">No doctors found in this facility</p>
-                        <p className="text-xs text-slate-400 mt-1">Try adjusting your status filter or search query.</p>
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredDoctorsInFacility.map((doc) => {
-                      const isVerified = (doc.status || 'Active') === 'Active';
-
-                      return (
-                        <tr key={doc.id} className="hover:bg-[#F8FAFC] transition-colors">
-                          {/* Doctor Avatar & Name */}
-                          <td className="px-5 py-3.5 font-bold text-slate-900">
-                            <div className="flex items-center gap-3">
-                              <img
-                                src={doc.photo}
-                                alt={doc.name}
-                                className="w-10 h-10 rounded-xl object-cover bg-slate-100 shrink-0 border border-[#E2EBF0]"
-                                referrerPolicy="no-referrer"
-                              />
-                              <div>
-                                <div className="text-slate-900 font-bold">{doc.name}</div>
-                                <div className="text-[10px] text-slate-400 font-mono">ID: {doc.id}</div>
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* Specialty */}
-                          <td className="px-5 py-3.5 text-[#0E7490] font-semibold">
-                            {doc.specialty}
-                          </td>
-
-                          {/* Experience & Rating */}
-                          <td className="px-5 py-3.5 text-slate-700">
-                            <div className="flex items-center gap-1.5">
-                              <span className="flex items-center text-amber-600 font-bold">
-                                <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500 mr-0.5" />
-                                {doc.rating}
-                              </span>
-                              <span className="text-slate-400 font-normal">({doc.experience})</span>
-                            </div>
-                          </td>
-
-                          {/* Status Badge */}
-                          <td className="px-5 py-3.5">
-                            {isVerified ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                <CheckCircle className="w-3 h-3 text-emerald-600" />
-                                Verified & Active
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                <AlertTriangle className="w-3 h-3 text-amber-600" />
-                                Newly Added (Unverified)
-                              </span>
-                            )}
-                          </td>
-
-                          {/* Actions: View Doctor + Verify (if unverified) or Deactivate (if verified) */}
-                          <td className="px-5 py-3.5 text-right">
-                            <div className="inline-flex items-center gap-2">
-                              {/* 1. View Doctor Button */}
-                              <button
-                                type="button"
-                                onClick={() => setSelectedDoctor(doc)}
-                                className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#F8FAFC] hover:bg-[#E8F6F8] hover:text-[#0E7490] hover:border-[#CDEBF0] text-slate-700 rounded-xl text-xs font-semibold transition-all border border-[#E2EBF0] cursor-pointer shadow-2xs whitespace-nowrap"
-                              >
-                                <Eye className="w-3.5 h-3.5 text-slate-500" />
-                                <span>View Doctor</span>
-                              </button>
-
-                              {/* 2. Conditional Verify vs Deactivate Button */}
-                              {!isVerified ? (
-                                <button
-                                  type="button"
-                                  disabled={isUpdatingStatus}
-                                  onClick={() => handleToggleStatus(doc, 'Active')}
-                                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50 whitespace-nowrap"
-                                  title="Approve credentials and activate doctor"
-                                >
-                                  <ShieldCheck className="w-3.5 h-3.5" />
-                                  <span>Verify</span>
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  disabled={isUpdatingStatus}
-                                  onClick={() => handleToggleStatus(doc, 'Deactivated')}
-                                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 hover:border-rose-300 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-50 whitespace-nowrap"
-                                  title="Deactivate doctor from public bookings"
-                                >
-                                  <XCircle className="w-3.5 h-3.5 text-rose-600" />
-                                  <span>Deactivate</span>
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={isBulkProcessing}
+              onClick={() => handleBulkAction('verify')}
+              className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
+            >
+              <CheckCircle className="w-3.5 h-3.5" />
+              Bulk Verify & Activate ({selectedDoctorIds.length})
+            </button>
+            <button
+              type="button"
+              disabled={isBulkProcessing}
+              onClick={() => handleBulkAction('deactivate')}
+              className="px-4 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
+            >
+              <XCircle className="w-3.5 h-3.5" />
+              Bulk Reject / Unverify
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedDoctorIds([])}
+              className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-medium transition-colors"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* 4. DOCTOR PROFILE & VERIFICATION MODAL                                    */}
-      {/* ========================================================================= */}
-      {selectedDoctor && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-2xl w-full border border-[#E2EBF0] shadow-2xl overflow-hidden my-6 animate-in fade-in zoom-in-95 duration-200">
-            {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-[#E2EBF0] flex items-center justify-between bg-[#F8FAFC]">
-              <div className="flex items-center gap-2">
-                <Stethoscope className="w-5 h-5 text-[#2DA7B5]" />
-                <h2 className="text-base font-bold text-slate-900">Doctor Profile & Verification</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedDoctor(null)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
-              {/* Doctor Hero Card */}
-              <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-[#E2EBF0] flex flex-col sm:flex-row sm:items-center gap-4">
-                <img
-                  src={selectedDoctor.photo}
-                  alt={selectedDoctor.name}
-                  className="w-20 h-20 rounded-2xl object-cover border-2 border-white shadow-sm shrink-0"
-                  referrerPolicy="no-referrer"
-                />
-                <div className="space-y-1 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-lg font-bold text-slate-900">{selectedDoctor.name}</h3>
-                    {(selectedDoctor.status || 'Active') === 'Active' ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        <CheckCircle className="w-3 h-3 text-emerald-600" />
-                        Verified Specialist
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                        <AlertTriangle className="w-3 h-3 text-amber-600" />
-                        Unverified
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs font-semibold text-[#0E7490]">{selectedDoctor.specialty}</p>
-                  <p className="text-xs text-slate-500 flex items-center gap-1">
-                    <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{selectedDoctor.hospitalName || selectedDoctor.clinicName || 'Medical Facility'}</span>
-                  </p>
-                  <p className="text-[11px] text-slate-400 font-mono">System ID: {selectedDoctor.id}</p>
-                </div>
-              </div>
-
-              {/* Status Alert Banner */}
-              {(selectedDoctor.status || 'Active') === 'Active' ? (
-                <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200 flex items-start gap-3">
-                  <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-                  <div className="text-xs text-emerald-900 space-y-0.5">
-                    <span className="font-bold block text-sm">Status: Verified & Active</span>
-                    <p className="text-emerald-700 leading-relaxed">
-                      This doctor is verified by platform administrators, listed in public directories, and accepting active patient appointments.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 flex items-start gap-3">
-                  <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                  <div className="text-xs text-amber-900 space-y-0.5">
-                    <span className="font-bold block text-sm">Status: Newly Added / Unverified</span>
-                    <p className="text-amber-800 leading-relaxed">
-                      This doctor requires administrator verification before their profile is published for patient bookings. Click &quot;Verify Doctor&quot; below to approve credentials.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Key Metrics Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2EBF0]">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Experience</span>
-                  <span className="font-bold text-slate-900 mt-0.5 block">{selectedDoctor.experience}</span>
-                </div>
-                <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2EBF0]">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Patient Rating</span>
-                  <span className="font-bold text-amber-600 mt-0.5 flex items-center gap-1">
-                    <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                    {selectedDoctor.rating} ({selectedDoctor.reviewCount} reviews)
-                  </span>
-                </div>
-                <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2EBF0]">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Consultation Fee</span>
-                  <span className="font-bold text-[#0E7490] mt-0.5 block">AED {selectedDoctor.consultationFee || 350}</span>
-                </div>
-                <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2EBF0]">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Location</span>
-                  <span className="font-bold text-slate-900 mt-0.5 block truncate">{selectedDoctor.location}</span>
-                </div>
-              </div>
-
-              {/* Education & Bio */}
-              <div className="space-y-3 text-xs">
-                <div>
-                  <h4 className="font-bold text-slate-800 flex items-center gap-1.5 mb-1">
-                    <GraduationCap className="w-4 h-4 text-[#2DA7B5]" />
-                    <span>Education & Board Certification</span>
-                  </h4>
-                  <p className="text-slate-600 bg-[#F8FAFC] p-3 rounded-xl border border-[#E2EBF0] leading-relaxed">
-                    {selectedDoctor.education || 'MD, Board Certified in Specialist Medicine'}
-                  </p>
-                </div>
-
-                <div>
-                  <h4 className="font-bold text-slate-800 flex items-center gap-1.5 mb-1">
-                    <Award className="w-4 h-4 text-[#2DA7B5]" />
-                    <span>About & Clinical Focus</span>
-                  </h4>
-                  <p className="text-slate-600 bg-[#F8FAFC] p-3 rounded-xl border border-[#E2EBF0] leading-relaxed">
-                    {selectedDoctor.about || 'Specialist practitioner providing patient care.'}
-                  </p>
-                </div>
-
-                {/* Available Slots Preview */}
-                <div>
-                  <h4 className="font-bold text-slate-800 flex items-center gap-1.5 mb-1.5">
-                    <Clock className="w-4 h-4 text-[#2DA7B5]" />
-                    <span>Rostered Slots Preview</span>
-                  </h4>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedDoctor.availableSlots && selectedDoctor.availableSlots.length > 0 ? (
-                      selectedDoctor.availableSlots.slice(0, 8).map((slot) => (
-                        <span
-                          key={slot}
-                          className="px-2.5 py-1 rounded-lg bg-[#F8FAFC] text-slate-700 text-[11px] font-mono font-medium border border-[#E2EBF0]"
-                        >
-                          {slot}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-slate-400 italic text-xs">No active slots configured</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Modal Footer / Action Bar */}
-            <div className="px-6 py-4 bg-[#F8FAFC] border-t border-[#E2EBF0] flex flex-col sm:flex-row items-center justify-between gap-3">
-              <Link
-                to={`/doctors/${selectedDoctor.id}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs font-bold text-[#0E7490] hover:text-[#2DA7B5] flex items-center gap-1 cursor-pointer"
-              >
-                <span>View Public Profile Page</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </Link>
-
-              <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
-                <button
-                  type="button"
-                  onClick={() => setSelectedDoctor(null)}
-                  className="px-4 py-2.5 bg-white hover:bg-[#F8FAFC] text-slate-700 rounded-xl text-xs font-semibold transition-colors border border-[#E2EBF0] cursor-pointer shadow-2xs"
-                >
-                  Close
-                </button>
-
-                {(selectedDoctor.status || 'Active') === 'Active' ? (
+      {/* Verification Table */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500 font-bold">
+              <tr>
+                <th className="py-3.5 px-4 w-12 text-center">
                   <button
                     type="button"
-                    disabled={isUpdatingStatus}
-                    onClick={() => handleToggleStatus(selectedDoctor, 'Deactivated')}
-                    className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    onClick={handleToggleSelectAll}
+                    aria-label={selectedDoctorIds.length === filteredDoctors.length && filteredDoctors.length > 0 ? 'Deselect all' : 'Select all'}
+                    className="text-slate-400 hover:text-teal-600 transition-colors"
                   >
-                    <XCircle className="w-4 h-4" />
-                    <span>{isUpdatingStatus ? 'Updating...' : 'Deactivate Doctor'}</span>
+                    {selectedDoctorIds.length === filteredDoctors.length && filteredDoctors.length > 0 ? (
+                      <CheckSquare className="w-4 h-4 text-teal-600" />
+                    ) : (
+                      <Square className="w-4 h-4" />
+                    )}
+                  </button>
+                </th>
+                <th className="py-3.5 px-4">Doctor Details</th>
+                <th className="py-3.5 px-4">Specialty & Education</th>
+                <th className="py-3.5 px-4">Created By / Affiliation</th>
+                <th className="py-3.5 px-4">Fee & Location</th>
+                <th className="py-3.5 px-4">Verification Status</th>
+                <th className="py-3.5 px-4 text-right">Verification Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-slate-700">
+              {isLoading ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center">
+                    <div className="inline-flex items-center gap-2 text-slate-500 font-medium">
+                      <div className="w-5 h-5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
+                      Loading verification queue...
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredDoctors.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center">
+                    <ShieldCheck className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                    <p className="text-base font-bold text-slate-700">
+                      {verificationTab === 'pending'
+                        ? 'No pending doctor verifications!'
+                        : 'No doctors match this verification filter'}
+                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {verificationTab === 'pending'
+                        ? 'All registered and affiliated doctors have been verified and activated.'
+                        : 'Try selecting a different tab or clearing search filters.'}
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                filteredDoctors.map((doc) => {
+                  const isSelected = selectedDoctorIds.includes(doc.id);
+                  const isDocVerified = !!doc.isVerified;
+
+                  return (
+                    <tr
+                      key={doc.id}
+                      className={`hover:bg-slate-50 transition-colors ${
+                        isSelected ? 'bg-teal-50/60' : ''
+                      }`}
+                    >
+                      <td className="py-3.5 px-4 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSelectOne(doc.id)}
+                          aria-label={`Select ${doc.name}`}
+                          className="text-slate-400 hover:text-teal-600 transition-colors"
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4 text-teal-600" />
+                          ) : (
+                            <Square className="w-4 h-4" />
+                          )}
+                        </button>
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={doc.photo || DEFAULT_DOCTOR_AVATAR}
+                            alt={doc.name}
+                            className="w-10 h-10 rounded-xl object-cover bg-slate-100 border border-slate-200 shrink-0"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = DEFAULT_DOCTOR_AVATAR;
+                            }}
+                          />
+                          <div>
+                            <div
+                              onClick={() => setViewDoctor(doc)}
+                              className="font-bold text-slate-900 hover:text-teal-600 transition-colors cursor-pointer"
+                            >
+                              Dr. {doc.name}
+                            </div>
+                            <div className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                              <span>ID: {doc.id.slice(0, 8)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        <div className="space-y-0.5 text-xs">
+                          <span className="inline-block px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 font-bold border border-teal-200">
+                            {doc.specialty}
+                          </span>
+                          <div className="text-slate-500">{doc.education || 'MBBS'}</div>
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        <div className="text-xs">
+                          {doc.hospitalName ? (
+                            <div className="flex items-center gap-1.5 font-semibold text-slate-800">
+                              <Building2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                              <span className="truncate max-w-[170px]">{doc.hospitalName}</span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-500 italic">Independent Practice</span>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 px-4 text-xs">
+                        <div className="font-semibold text-slate-800">AED {doc.consultationFee || 200}</div>
+                        <div className="text-slate-400 flex items-center gap-1 mt-0.5">
+                          <MapPin className="w-3 h-3" />
+                          {doc.location || 'Dubai'}
+                        </div>
+                      </td>
+
+                      <td className="py-3.5 px-4">
+                        {isDocVerified ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                            <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                            Verified & Active
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
+                            <Clock className="w-3.5 h-3.5 text-amber-600" />
+                            Pending Verification
+                          </span>
+                        )}
+                      </td>
+
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="inline-flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setViewDoctor(doc)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition-colors border border-slate-200"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            View
+                          </button>
+
+                          {!isDocVerified ? (
+                            <button
+                              type="button"
+                              onClick={() => handleVerifyDoctor(doc, true)}
+                              className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition-colors shadow-xs"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              Verify & Activate
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleVerifyDoctor(doc, false)}
+                              className="inline-flex items-center gap-1 px-3 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition-colors border border-rose-200"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              Reject / Unverify
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* VIEW CREDENTIALS MODAL */}
+      {viewDoctor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-100 p-6 space-y-6">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-4">
+                <img
+                  src={viewDoctor.photo || DEFAULT_DOCTOR_AVATAR}
+                  alt={viewDoctor.name}
+                  className="w-16 h-16 rounded-2xl object-cover bg-slate-100 border border-slate-200"
+                />
+                <div>
+                  <h3 className="text-xl font-black text-slate-900">Dr. {viewDoctor.name}</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 text-xs font-bold">
+                      {viewDoctor.specialty}
+                    </span>
+                    <span className="text-xs text-slate-500 flex items-center gap-1">
+                      <MapPin className="w-3 h-3" />
+                      {viewDoctor.location}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewDoctor(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Verification Status Header */}
+            <div
+              className={`p-4 rounded-2xl border flex items-center justify-between ${
+                viewDoctor.isVerified
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                  : 'bg-amber-50 border-amber-200 text-amber-900'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <ShieldCheck
+                  className={`w-5 h-5 ${viewDoctor.isVerified ? 'text-emerald-600' : 'text-amber-600'}`}
+                />
+                <div>
+                  <span className="font-bold text-xs uppercase tracking-wider block">
+                    {viewDoctor.isVerified ? 'Account Verified & Active' : 'Account Pending Verification'}
+                  </span>
+                  <span className="text-xs opacity-80">
+                    {viewDoctor.isVerified
+                      ? 'Doctor is fully authorized to receive patient bookings on the platform.'
+                      : 'Doctor account is deactivated until an administrator verifies credentials.'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Credentials Grid */}
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-slate-400 font-medium">Practice Affiliation</span>
+                <div className="font-bold text-slate-800 mt-1">
+                  {viewDoctor.hospitalName || 'Independent Practice'}
+                </div>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-slate-400 font-medium">Education / Degrees</span>
+                <div className="font-bold text-slate-800 mt-1">{viewDoctor.education || 'MBBS, MD'}</div>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-slate-400 font-medium">Clinical Experience</span>
+                <div className="font-bold text-slate-800 mt-1">{viewDoctor.experienceYears || 1} Years</div>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <span className="text-slate-400 font-medium">Consultation Fee</span>
+                <div className="font-bold text-teal-700 mt-1">AED {viewDoctor.consultationFee || 200}</div>
+              </div>
+            </div>
+
+            {viewDoctor.about && (
+              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                <span className="text-slate-400 font-medium block mb-1">Biography / Experience</span>
+                <p className="text-slate-700 leading-relaxed">{viewDoctor.about}</p>
+              </div>
+            )}
+
+            {/* Verification Actions in Modal */}
+            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setViewDoctor(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors"
+              >
+                Close
+              </button>
+
+              <div className="flex items-center gap-2">
+                {!viewDoctor.isVerified ? (
+                  <button
+                    type="button"
+                    disabled={isProcessingSingle}
+                    onClick={() => handleVerifyDoctor(viewDoctor, true)}
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors shadow-xs"
+                  >
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    Verify & Activate Doctor
                   </button>
                 ) : (
                   <button
                     type="button"
-                    disabled={isUpdatingStatus}
-                    onClick={() => handleToggleStatus(selectedDoctor, 'Active')}
-                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    disabled={isProcessingSingle}
+                    onClick={() => handleVerifyDoctor(viewDoctor, false)}
+                    className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors shadow-xs"
                   >
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>{isUpdatingStatus ? 'Updating...' : 'Verify Doctor'}</span>
+                    <XCircle className="w-3.5 h-3.5" />
+                    Reject / Unverify
                   </button>
                 )}
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* 5. ADD INDIVIDUAL DOCTOR MODAL                                            */}
-      {/* ========================================================================= */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-2xl w-full border border-[#E2EBF0] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-8">
-            {/* Modal Header */}
-            <div className="px-6 py-5 bg-gradient-to-r from-[#0E7490] to-[#2DA7B5] text-white flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
-                  <Stethoscope className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-white">Add Individual Doctor</h3>
-                  <p className="text-xs text-white/80">Register an independent doctor or affiliate them with a facility</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAddModalOpen(false)}
-                className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Form */}
-            <form onSubmit={handleCreateDoctor} className="p-6 space-y-4 max-h-[calc(85vh-130px)] overflow-y-auto text-xs">
-              {/* Name Fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">
-                    Doctor Name (English) <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={doctorForm.name}
-                    onChange={(e) => setDoctorForm((prev) => ({ ...prev, name: e.target.value }))}
-                    placeholder="e.g. Dr. Sara Ahmed"
-                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Doctor Name (Arabic)</label>
-                  <input
-                    type="text"
-                    dir="rtl"
-                    value={doctorForm.name_ar}
-                    onChange={(e) => setDoctorForm((prev) => ({ ...prev, name_ar: e.target.value }))}
-                    placeholder="مثال: د. سارة أحمد"
-                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Specialty & Location */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">
-                    Medical Specialty <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={doctorForm.specialty}
-                    onChange={(e) => setDoctorForm((prev) => ({ ...prev, specialty: e.target.value }))}
-                    placeholder="e.g. General Medicine, Cardiology, Dermatology"
-                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">
-                    Emirate / Location <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={doctorForm.location}
-                    onChange={(e) => setDoctorForm((prev) => ({ ...prev, location: e.target.value }))}
-                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
-                  >
-                    <option value="Dubai">Dubai</option>
-                    <option value="Abu Dhabi">Abu Dhabi</option>
-                    <option value="Sharjah">Sharjah</option>
-                    <option value="Ajman">Ajman</option>
-                    <option value="Ras Al Khaimah">Ras Al Khaimah</option>
-                    <option value="Fujairah">Fujairah</option>
-                    <option value="Umm Al Quwain">Umm Al Quwain</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Facility Affiliation */}
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">Practice Affiliation</label>
-                <select
-                  value={doctorForm.facilityId}
-                  onChange={(e) => setDoctorForm((prev) => ({ ...prev, facilityId: e.target.value }))}
-                  className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
-                >
-                  <option value="">Independent Doctor (Self-Practicing / Unaffiliated)</option>
-                  {providers.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.providerCategory || (p as any).type || 'Facility'}) — {(p as any).city || p.location}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Leave as Independent Doctor for standalone private practitioners.
-                </p>
-              </div>
-
-              {/* Fee & Experience */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Consultation Fee (AED)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="10"
-                    value={doctorForm.consultation_fee}
-                    onChange={(e) => setDoctorForm((prev) => ({ ...prev, consultation_fee: Number(e.target.value) }))}
-                    placeholder="150"
-                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Years of Experience</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="60"
-                    value={doctorForm.experience_years}
-                    onChange={(e) => setDoctorForm((prev) => ({ ...prev, experience_years: Number(e.target.value) }))}
-                    placeholder="5"
-                    className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none font-mono"
-                  />
-                </div>
-              </div>
-
-              {/* Education */}
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">Education & Qualifications</label>
-                <input
-                  type="text"
-                  value={doctorForm.education}
-                  onChange={(e) => setDoctorForm((prev) => ({ ...prev, education: e.target.value }))}
-                  placeholder="e.g. MBBS, MD, Royal College of Physicians"
-                  className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none"
-                />
-              </div>
-
-              {/* Doctor Photo Image Upload */}
-              <ImageUpload
-                label="Doctor Photo"
-                value={doctorForm.photo}
-                onChange={(base64) => setDoctorForm((prev) => ({ ...prev, photo: base64 }))}
-                onRemove={() => setDoctorForm((prev) => ({ ...prev, photo: '' }))}
-                helperText="Upload doctor photo / headshot (JPG, PNG, WebP)"
-                aspectRatio="square"
-              />
-
-              {/* About / Bio */}
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">About Doctor / Professional Bio</label>
-                <textarea
-                  rows={3}
-                  value={doctorForm.about}
-                  onChange={(e) => setDoctorForm((prev) => ({ ...prev, about: e.target.value }))}
-                  placeholder="Brief summary of doctor's background, clinical expertise, and approach to care..."
-                  className="w-full px-3 py-2 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl focus:border-[#2DA7B5] focus:bg-white focus:outline-none resize-none"
-                />
-              </div>
-
-              {/* Actions */}
-              <div className="pt-3 border-t border-[#E2EBF0] flex items-center justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingDoctor}
-                  className="px-5 py-2 bg-gradient-to-r from-[#0E7490] to-[#2DA7B5] hover:opacity-95 text-white rounded-xl font-bold transition-all shadow-xs disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>{isSubmittingDoctor ? 'Creating...' : 'Create Doctor'}</span>
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

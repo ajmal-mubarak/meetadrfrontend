@@ -16,6 +16,7 @@ import {
 import { realDoctorService } from '../../services/realDoctorService';
 import { Doctor } from '../../types';
 import { useTranslation } from '../../i18n';
+import { DEFAULT_DOCTOR_AVATAR } from '../../utils/avatar';
 
 export const DoctorDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -90,8 +91,11 @@ export const DoctorDetails: React.FC = () => {
             <div className="bg-white rounded-3xl border border-[#E2EBF0] p-6 shadow-sm">
               <div className="flex flex-col sm:flex-row gap-6 items-start">
                 <img
-                  src={doctor.photo}
+                  src={doctor.photo || DEFAULT_DOCTOR_AVATAR}
                   alt={doctor.name}
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = DEFAULT_DOCTOR_AVATAR;
+                  }}
                   className="w-28 h-28 rounded-2xl object-cover border border-[#E2EBF0] shrink-0 bg-slate-100"
                   referrerPolicy="no-referrer"
                 />

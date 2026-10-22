@@ -19,8 +19,10 @@
 
 import apiClient from './api/apiClient';
 import { API_ENDPOINTS } from '../config/api';
+import { DEFAULT_DOCTOR_AVATAR } from '../utils/avatar';
 import type { PaginatedResponse } from './api/types';
 import { Appointment, Doctor, Hospital, Clinic, ProviderRequest } from '../types';
+import { WEEK_DAYS, DEFAULT_PRESET_SLOTS } from '../constants/schedule';
 
 export interface AdminAnalyticsReport {
   totalUsers: number;
@@ -77,7 +79,7 @@ function mapDoctor(d: BackendAdminDoctor): Doctor {
   return {
     id: String(d.id),
     name: d.name,
-    photo: d.photo || 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=400',
+    photo: d.photo || DEFAULT_DOCTOR_AVATAR,
     specialty: d.specialty,
     specialInterest: d.special_interests || rawAny.specialInterest || ['General Practice'],
     experience: d.experience_text || rawAny.experience || `${d.experience_years || 5} years`,
@@ -85,8 +87,10 @@ function mapDoctor(d: BackendAdminDoctor): Doctor {
     about: d.about || '',
     rating: Number(d.rating) || 0,
     reviewCount: Number(d.review_count || rawAny.reviewCount) || 0,
-    hospitalId: rawAny.hospitalId || rawAny.hospital_id || rawAny.clinicId || rawAny.clinic_id || d.facility_id || '',
-    hospitalName: rawAny.hospitalName || rawAny.hospital_name || rawAny.clinicName || rawAny.clinic_name || d.facility_name || 'Medical Facility',
+    hospitalId: rawAny.hospitalId || rawAny.hospital_id || '',
+    clinicId: rawAny.clinicId || rawAny.clinic_id || '',
+    hospitalName: rawAny.hospitalName || rawAny.hospital_name || (!rawAny.clinicName && !rawAny.clinic_name ? d.facility_name : '') || '',
+    clinicName: rawAny.clinicName || rawAny.clinic_name || '',
     location: d.location || 'United Arab Emirates',
     availableDays: d.available_days || rawAny.availableDays || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Saturday'],
     availableSlots: d.standard_slots || rawAny.availableSlots || ['09:00 - 09:30', '10:00 - 10:30', '11:00 - 11:30'],
@@ -177,15 +181,33 @@ interface BackendProviderFacility {
   total_reviews?: number;
   photo?: string;
   google_maps_url?: string;
+  default_available_days?: string[];
+  default_standard_slots?: string[];
+  defaultAvailableDays?: string[];
+  defaultStandardSlots?: string[];
 }
 
 export type ProviderItem = (Hospital | Clinic) & {
   providerCategory: 'Hospital' | 'Clinic';
+  defaultAvailableDays?: string[];
+  defaultStandardSlots?: string[];
+  default_available_days?: string[];
+  default_standard_slots?: string[];
 };
 
 function mapProvider(p: BackendProviderFacility): ProviderItem {
   const isClinic = (p.type || p.facility_type)?.toLowerCase() === 'clinic';
   const status = (p.status?.toLowerCase() === 'active' ? 'Active' : 'Deactivated') as 'Active' | 'Deactivated';
+  const defaultDays = (p.defaultAvailableDays && p.defaultAvailableDays.length > 0)
+    ? p.defaultAvailableDays
+    : (p.default_available_days && p.default_available_days.length > 0)
+    ? p.default_available_days
+    : WEEK_DAYS.slice(0, 5);
+  const defaultSlots = (p.defaultStandardSlots && p.defaultStandardSlots.length > 0)
+    ? p.defaultStandardSlots
+    : (p.default_standard_slots && p.default_standard_slots.length > 0)
+    ? p.default_standard_slots
+    : DEFAULT_PRESET_SLOTS;
   const common = {
     id: String(p.id),
     name: p.name,
@@ -205,6 +227,10 @@ function mapProvider(p: BackendProviderFacility): ProviderItem {
     googleMapsUrl: p.google_maps_url || '',
     status,
     providerCategory: isClinic ? ('Clinic' as const) : ('Hospital' as const),
+    defaultAvailableDays: defaultDays,
+    defaultStandardSlots: defaultSlots,
+    default_available_days: defaultDays,
+    default_standard_slots: defaultSlots,
   };
 
   if (isClinic) {
@@ -302,6 +328,10 @@ export const realAdminService = {
     photo?: string;
     hospital_id?: string;
     clinic_id?: string;
+    facility_id?: string;
+    username?: string;
+    email?: string;
+    password?: string;
     available_days?: string[];
     standard_slots?: string[];
   }): Promise<Doctor> {
@@ -319,6 +349,10 @@ export const realAdminService = {
     if (data.photo) payload.photo = data.photo;
     if (data.hospital_id) payload.hospitalId = data.hospital_id;
     if (data.clinic_id) payload.clinicId = data.clinic_id;
+    if (data.facility_id) payload.facilityId = data.facility_id;
+    if (data.username) payload.username = data.username;
+    if (data.email) payload.email = data.email;
+    if (data.password) payload.password = data.password;
     if (data.available_days) payload.availableDays = data.available_days;
     if (data.standard_slots) payload.standardSlots = data.standard_slots;
 
@@ -464,13 +498,211 @@ export const realAdminService = {
   },
 
   /**
-   * Regenerate setup invitation token and return the one-time setup link.
+   * Resend onboarding invitation or get setup link for approved request.
    * POST /api/v1/admin/requests/{id}/resend-invitation/
    */
-  async resendInvitation(id: string): Promise<{ setup_link: string; admin_email: string; facility_name: string; expires_at: string }> {
+  async resendInvitation(id: string): Promise<{
+    message: string;
+    setup_link: string;
+    admin_email: string;
+    facility_name: string;
+    expires_at: string;
+  }> {
     return await apiClient.post(
       API_ENDPOINTS.ADMIN.REQUEST_RESEND_INVITATION(id),
       {}
     );
   },
+
+  /**
+   * Update doctor details (specialty, location, fee, experience, about, photo, hospital/clinic affiliation).
+   * PATCH /api/v1/admin/doctors/{id}/
+   */
+  async updateDoctor(id: string, data: {
+    name?: string;
+    name_ar?: string;
+    specialty?: string;
+    location?: string;
+    consultation_fee?: number;
+    experience_years?: number;
+    education?: string;
+    about?: string;
+    about_ar?: string;
+    photo?: string;
+    hospital_id?: string;
+    clinic_id?: string;
+    facilityId?: string;
+    status?: string;
+    available_days?: string[];
+    standard_slots?: string[];
+  }): Promise<Doctor> {
+    const payload: Record<string, any> = {};
+    if (data.name !== undefined) payload.name = data.name;
+    if (data.name_ar !== undefined) payload.nameAr = data.name_ar;
+    if (data.specialty !== undefined) payload.specialty = data.specialty;
+    if (data.location !== undefined) payload.location = data.location;
+    if (data.consultation_fee !== undefined) payload.consultationFee = data.consultation_fee;
+    if (data.experience_years !== undefined) payload.experienceYears = data.experience_years;
+    if (data.education !== undefined) payload.education = data.education;
+    if (data.about !== undefined) payload.about = data.about;
+    if (data.about_ar !== undefined) payload.aboutAr = data.about_ar;
+    if (data.photo !== undefined) payload.photo = data.photo;
+    if (data.status !== undefined) payload.status = data.status;
+    if (data.hospital_id !== undefined) payload.hospitalId = data.hospital_id;
+    if (data.clinic_id !== undefined) payload.clinicId = data.clinic_id;
+    if (data.facilityId !== undefined) payload.facilityId = data.facilityId;
+    if (data.available_days !== undefined) payload.availableDays = data.available_days;
+    if (data.standard_slots !== undefined) payload.standardSlots = data.standard_slots;
+
+    const response = await apiClient.patch<BackendAdminDoctor>(
+      API_ENDPOINTS.ADMIN.DOCTOR_DETAIL(id),
+      payload
+    );
+    return mapDoctor(response);
+  },
+
+  /**
+   * Delete an individual doctor.
+   * DELETE /api/v1/admin/doctors/{id}/
+   */
+  async deleteDoctor(id: string): Promise<void> {
+    await apiClient.delete(API_ENDPOINTS.ADMIN.DOCTOR_DETAIL(id));
+  },
+
+  /**
+   * Bulk action for doctors (verify, deactivate, delete).
+   * POST /api/v1/admin/doctors/bulk-action/
+   */
+  async bulkDoctorAction(
+    arg1: 'verify' | 'deactivate' | 'delete' | string[],
+    arg2?: 'verify' | 'deactivate' | 'delete' | string[]
+  ): Promise<{ message: string; count: number }> {
+    const action = typeof arg1 === 'string' ? arg1 : (typeof arg2 === 'string' ? arg2 : 'verify');
+    const doctor_ids = Array.isArray(arg1) ? arg1 : (Array.isArray(arg2) ? arg2 : []);
+    return await apiClient.post(
+      API_ENDPOINTS.ADMIN.DOCTOR_BULK,
+      { action, doctor_ids }
+    );
+  },
+
+  /**
+   * Update hospital or clinic facility details.
+   * PATCH /api/v1/admin/providers/{id}/
+   */
+  async updateProvider(id: string, data: {
+    name?: string;
+    name_ar?: string;
+    type?: 'hospital' | 'clinic';
+    location?: string;
+    address?: string;
+    address_ar?: string;
+    phone?: string;
+    operating_hours?: string;
+    about?: string;
+    about_ar?: string;
+    google_maps_url?: string;
+    photo?: string;
+    status?: string;
+    emergency_available?: boolean;
+    insurance_plans?: string;
+    primary_specialty?: string;
+    default_available_days?: string[];
+    default_standard_slots?: string[];
+    defaultAvailableDays?: string[];
+    defaultStandardSlots?: string[];
+  }): Promise<ProviderItem> {
+    const response = await apiClient.patch<BackendProviderFacility>(
+      API_ENDPOINTS.ADMIN.PROVIDER_DETAIL(id),
+      data
+    );
+    return mapProvider(response);
+  },
+
+  /**
+   * Bulk action for provider facilities (activate, deactivate, delete).
+   * POST /api/v1/admin/providers/bulk-action/
+   */
+  async bulkProviderAction(
+    arg1: 'activate' | 'deactivate' | 'delete' | string[],
+    arg2?: 'activate' | 'deactivate' | 'delete' | string[]
+  ): Promise<{ message: string; count: number }> {
+    const action = typeof arg1 === 'string' ? arg1 : (typeof arg2 === 'string' ? arg2 : 'activate');
+    const provider_ids = Array.isArray(arg1) ? arg1 : (Array.isArray(arg2) ? arg2 : []);
+    return await apiClient.post(
+      API_ENDPOINTS.ADMIN.PROVIDER_BULK,
+      { action, provider_ids }
+    );
+  },
+
+  /**
+   * List all registered patients across the platform.
+   * GET /api/v1/admin/patients/
+   */
+  async getPatients(params?: { search?: string; hospital_id?: string; doctor_id?: string }): Promise<AdminPatientItem[]> {
+    return await apiClient.get<AdminPatientItem[]>(
+      API_ENDPOINTS.ADMIN.PATIENTS,
+      { params }
+    );
+  },
+
+  /**
+   * Get specific patient details with full appointment history.
+   * GET /api/v1/admin/patients/{id}/
+   */
+  async getPatientDetail(id: string): Promise<AdminPatientDetail> {
+    return await apiClient.get<AdminPatientDetail>(
+      API_ENDPOINTS.ADMIN.PATIENT_DETAIL(id)
+    );
+  },
 };
+
+export interface AdminPatientItem {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  avatar?: string;
+  gender?: string;
+  dob?: string;
+  blood_group?: string;
+  location?: string;
+  is_verified?: boolean;
+  emergency_contact?: string;
+  insurance_provider?: string;
+  insurance_number?: string;
+  allergies?: string;
+  total_appointments: number;
+  attended_facilities: Array<{ id: string; name: string; type: string }>;
+  attended_doctors: Array<{ id: string; name: string; specialty: string }>;
+  recent_appointments: Array<{
+    id: string;
+    date: string;
+    time_slot: string;
+    status: string;
+    doctor_name: string;
+    facility_name: string;
+  }>;
+  created_at: string;
+}
+
+export interface AdminPatientDetail extends AdminPatientItem {
+  dependents: Array<{
+    id: string;
+    name: string;
+    relation: string;
+    gender?: string;
+    dob?: string;
+    blood_group?: string;
+  }>;
+  appointments: Array<{
+    id: string;
+    date: string;
+    time_slot: string;
+    status: string;
+    notes?: string;
+    doctor_name: string;
+    doctor_specialty: string;
+    facility_name: string;
+    facility_type: string;
+  }>;
+}

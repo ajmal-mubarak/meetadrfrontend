@@ -10,6 +10,8 @@ import {
   BarChart3,
   LogOut,
   UserCheck,
+  UserPlus,
+  ShieldCheck,
   ChevronRight,
   ExternalLink,
   Menu,
@@ -96,10 +98,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     if (user.role === 'admin') {
       return [
         { name: t('navigation.adminDashboard'), path: '/admin/dashboard', icon: LayoutDashboard },
-        { name: t('navigation.doctorsVerification'), path: '/admin/doctors', icon: Stethoscope },
-        { name: t('navigation.providersDirectory'), path: '/admin/providers', icon: Building2 },
+        { name: t('navigation.doctorsVerification') || 'Doctors Verification', path: '/admin/doctors', icon: ShieldCheck },
+        { name: t('navigation.doctorsManagement') || 'Doctors Management', path: '/admin/doctors-manage', icon: Stethoscope },
+        { name: t('navigation.hospitalsManagement') || 'Hospitals Management', path: '/admin/hospitals', icon: Building2 },
+        { name: t('navigation.patientManagement') || 'Patient Management', path: '/admin/patients', icon: Users },
+        { name: t('navigation.providersDirectory'), path: '/admin/providers', icon: UserCheck },
         { name: t('navigation.bookingsRegistry'), path: '/admin/bookings', icon: Calendar },
-        { name: t('navigation.providerRequests'), path: '/admin/requests', icon: UserCheck },
+        { name: t('navigation.providerRequests'), path: '/admin/requests', icon: UserPlus },
         { name: t('navigation.analyticalReports'), path: '/admin/reports', icon: BarChart3 },
       ];
     }

@@ -12,15 +12,193 @@ import {
   ChevronDown,
   LocateFixed,
   Loader2,
+  ChevronLeft,
 } from 'lucide-react';
 import { realDoctorService } from '../../services/realDoctorService';
 import { realHospitalService, realClinicService } from '../../services/realFacilityService';
 import { Doctor, Hospital, Clinic } from '../../types';
-import { SPECIALTIES, LOCATIONS, matchesLocation } from '../../data/mockSpecialties';
+import { SPECIALTIES, LOCATIONS, EMIRATES, AREAS, matchesLocation } from '../../data/mockSpecialties';
+import { HEALTH_CONDITIONS } from '../../data/mockConditions';
+import { UAE_EMIRATES } from '../../services/locationService';
 import { useTranslation } from '../../i18n';
 import { useUserLocation } from '../../context/LocationContext';
 import { useToast } from '../../context/ToastContext';
 import { CustomDropdown, DropdownOption } from '../../components/common/CustomDropdown';
+import { DoctorCard } from '../../components/common/DoctorCard';
+
+// Flexible fuzzy specialty stem matcher
+function matchesSpecialty(providerSpecialty: string, selectedSpec: string): boolean {
+  if (!selectedSpec || selectedSpec === 'All') return true;
+  const pLower = (providerSpecialty || '').toLowerCase().trim();
+  const sLower = selectedSpec.toLowerCase().trim();
+  if (pLower.includes(sLower) || sLower.includes(pLower)) return true;
+
+  const stemPairs = [
+    ['ortho', 'bone', 'joint', 'spine'],
+    ['cardio', 'heart'],
+    ['derma', 'skin'],
+    ['pediatr', 'child', 'pedia'],
+    ['general', 'family', 'internal'],
+    ['neuro', 'brain', 'headache', 'migraine'],
+    ['ophthal', 'eye', 'vision'],
+    ['gynec', 'obstet', 'women'],
+    ['gastro', 'digestive'],
+    ['physio', 'rehab'],
+    ['ent', 'ear', 'nose', 'throat', 'otolaryng'],
+    ['dent', 'oral'],
+    ['pulmon', 'chest', 'respir', 'lung', 'allerg', 'asthma'],
+    ['endo', 'diabetes', 'thyroid'],
+    ['home'],
+  ];
+
+  for (const group of stemPairs) {
+    const sMatch = group.some((g) => sLower.includes(g));
+    const pMatch = group.some((g) => pLower.includes(g));
+    if (sMatch && pMatch) return true;
+  }
+  return false;
+}
+
+// Flexible matcher for doctors supporting name, hospital, clinic, specialty, condition, and symptoms
+function doctorMatchesQuery(d: Doctor, q: string): boolean {
+  if (!q) return true;
+  const qLower = q.toLowerCase().trim();
+
+  // 1. Direct fields match
+  if (
+    d.name.toLowerCase().includes(qLower) ||
+    d.specialty.toLowerCase().includes(qLower) ||
+    d.location.toLowerCase().includes(qLower) ||
+    (d.hospitalName && d.hospitalName.toLowerCase().includes(qLower)) ||
+    (d.clinicName && d.clinicName.toLowerCase().includes(qLower)) ||
+    (d.specialInterest && d.specialInterest.some((si) => si.toLowerCase().includes(qLower))) ||
+    (d.about && d.about.toLowerCase().includes(qLower))
+  ) {
+    return true;
+  }
+
+  // 2. Specialty stem match (e.g. 'Allergies & Asthma' or 'Asthma' matches 'Pulmonology')
+  if (matchesSpecialty(d.specialty, qLower)) {
+    return true;
+  }
+
+  // 3. Health conditions catalog match (e.g. symptom or condition name)
+  const condMatch = HEALTH_CONDITIONS.find(
+    (c) =>
+      c.name.toLowerCase().includes(qLower) ||
+      qLower.includes(c.name.toLowerCase()) ||
+      (c.symptoms && c.symptoms.some((s) => qLower.includes(s.toLowerCase()) || s.toLowerCase().includes(qLower)))
+  );
+  if (condMatch && matchesSpecialty(d.specialty, condMatch.specialtyQuery)) {
+    return true;
+  }
+
+  // 4. Token-level matching (split by space, &, comma)
+  const tokens = qLower
+    .split(/[\s&,/+]+/)
+    .filter((w) => w.length >= 3 && !['and', 'the', 'for', 'with', 'care'].includes(w));
+  if (tokens.length > 0) {
+    const hasToken = tokens.some(
+      (tok) =>
+        d.name.toLowerCase().includes(tok) ||
+        d.specialty.toLowerCase().includes(tok) ||
+        (d.hospitalName && d.hospitalName.toLowerCase().includes(tok)) ||
+        (d.clinicName && d.clinicName.toLowerCase().includes(tok)) ||
+        (d.about && d.about.toLowerCase().includes(tok)) ||
+        (d.specialInterest && d.specialInterest.some((si) => si.toLowerCase().includes(tok))) ||
+        matchesSpecialty(d.specialty, tok)
+    );
+    if (hasToken) return true;
+  }
+
+  return false;
+}
+
+function hospitalMatchesQuery(h: Hospital, q: string): boolean {
+  if (!q) return true;
+  const qLower = q.toLowerCase().trim();
+
+  // 1. Direct fields match
+  if (
+    h.name.toLowerCase().includes(qLower) ||
+    h.location.toLowerCase().includes(qLower) ||
+    (h.address && h.address.toLowerCase().includes(qLower)) ||
+    h.specialties.some((s) => s.toLowerCase().includes(qLower))
+  ) {
+    return true;
+  }
+
+  // 2. Specialty stem match across hospital's specialties
+  if (h.specialties.some((s) => matchesSpecialty(s, qLower))) {
+    return true;
+  }
+
+  // 3. Health condition catalog match
+  const condMatch = HEALTH_CONDITIONS.find(
+    (c) =>
+      c.name.toLowerCase().includes(qLower) ||
+      qLower.includes(c.name.toLowerCase()) ||
+      (c.symptoms && c.symptoms.some((s) => qLower.includes(s.toLowerCase()) || s.toLowerCase().includes(qLower)))
+  );
+  if (condMatch && h.specialties.some((s) => matchesSpecialty(s, condMatch.specialtyQuery))) {
+    return true;
+  }
+
+  // 4. Token-level match
+  const tokens = qLower
+    .split(/[\s&,/+]+/)
+    .filter((w) => w.length >= 3 && !['and', 'the', 'for', 'with', 'hospital'].includes(w));
+  if (tokens.length > 0) {
+    const hasToken = tokens.some(
+      (tok) =>
+        h.name.toLowerCase().includes(tok) ||
+        h.specialties.some((s) => s.toLowerCase().includes(tok) || matchesSpecialty(s, tok)) ||
+        (h.about && h.about.toLowerCase().includes(tok))
+    );
+    if (hasToken) return true;
+  }
+
+  return false;
+}
+
+function clinicMatchesQuery(c: Clinic, q: string): boolean {
+  if (!q) return true;
+  const qLower = q.toLowerCase().trim();
+
+  if (
+    c.name.toLowerCase().includes(qLower) ||
+    c.location.toLowerCase().includes(qLower) ||
+    (c.address && c.address.toLowerCase().includes(qLower)) ||
+    c.specialty.toLowerCase().includes(qLower) ||
+    matchesSpecialty(c.specialty, qLower)
+  ) {
+    return true;
+  }
+
+  const condMatch = HEALTH_CONDITIONS.find(
+    (cond) =>
+      cond.name.toLowerCase().includes(qLower) ||
+      qLower.includes(cond.name.toLowerCase())
+  );
+  if (condMatch && matchesSpecialty(c.specialty, condMatch.specialtyQuery)) {
+    return true;
+  }
+
+  const tokens = qLower
+    .split(/[\s&,/+]+/)
+    .filter((w) => w.length >= 3 && !['and', 'the', 'for', 'with', 'clinic'].includes(w));
+  if (tokens.length > 0) {
+    return tokens.some(
+      (tok) =>
+        c.name.toLowerCase().includes(tok) ||
+        c.specialty.toLowerCase().includes(tok) ||
+        matchesSpecialty(c.specialty, tok) ||
+        (c.about && c.about.toLowerCase().includes(tok))
+    );
+  }
+
+  return false;
+}
 
 export const SearchPage: React.FC = () => {
   const {
@@ -35,14 +213,56 @@ export const SearchPage: React.FC = () => {
   const { location: detectedLoc, status: locationStatus, detectLocation } = useUserLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const getUrlLocation = () => {
+    const locParam = searchParams.get('location');
+    const emParam = searchParams.get('emirate');
+    const candidate = locParam || emParam;
+    if (!candidate || candidate === 'All') return 'All';
+
+    // 1. Try finding by emirate code or name
+    const found = UAE_EMIRATES.find(
+      (e) => e.code.toLowerCase() === candidate.toLowerCase() || e.name.toLowerCase() === candidate.toLowerCase()
+    );
+    if (found) return found.name;
+
+    // 2. Try finding in LOCATIONS
+    const locMatch = LOCATIONS.find((l) => l.toLowerCase() === candidate.toLowerCase());
+    if (locMatch) return locMatch;
+
+    return candidate;
+  };
+
   const initialQuery = searchParams.get('q') || '';
   const initialSpecialty = searchParams.get('specialty') || 'All';
-  const initialLocation = searchParams.get('location') || 'All';
+  const initialLocation = getUrlLocation();
   const initialType = searchParams.get('type') || 'All';
 
   const [searchTerm, setSearchTerm] = useState(initialQuery);
   const [specialty, setSpecialty] = useState(initialSpecialty);
   const [location, setLocation] = useState(initialLocation);
+  const [providerType, setProviderType] = useState(initialType);
+
+  // Pagination states for each category
+  const PAGE_SIZE = 6;
+  const [doctorPage, setDoctorPage] = useState(1);
+  const [hospitalPage, setHospitalPage] = useState(1);
+  const [clinicPage, setClinicPage] = useState(1);
+
+  // Sync state when URL search params change
+  useEffect(() => {
+    const q = searchParams.get('q') || '';
+    const sp = searchParams.get('specialty') || 'All';
+    const loc = getUrlLocation();
+    const tp = searchParams.get('type') || 'All';
+
+    setSearchTerm(q);
+    setSpecialty(sp);
+    setLocation(loc);
+    setProviderType(tp);
+    setDoctorPage(1);
+    setHospitalPage(1);
+    setClinicPage(1);
+  }, [searchParams]);
 
   const specialtyOptions: DropdownOption[] = useMemo(() => [
     { value: 'All', label: t('doctorList.allSpecialties') },
@@ -65,13 +285,19 @@ export const SearchPage: React.FC = () => {
     },
     { value: 'divider-1', label: '', isDivider: true },
     { value: 'All', label: t('hospitals.allLocations') },
-    ...LOCATIONS.map((loc) => ({
+    { value: 'divider-emirates', label: isArabic ? 'الإمارات' : 'Emirates', isDivider: true },
+    ...EMIRATES.map((loc) => ({
+      value: loc,
+      label: translateLocation(loc),
+      icon: <MapPin className="w-3.5 h-3.5 text-[#2DA7B5]" />,
+    })),
+    { value: 'divider-areas', label: isArabic ? 'المناطق الشهيرة' : 'Popular Areas', isDivider: true },
+    ...AREAS.map((loc) => ({
       value: loc,
       label: translateLocation(loc),
       icon: <MapPin className="w-3.5 h-3.5 text-slate-400" />,
     })),
   ], [locationStatus, detectedLoc, isArabic, t, translateLocation]);
-  const [providerType, setProviderType] = useState(initialType);
 
   const handleAutoDetectLocation = async () => {
     const res = await detectLocation(true);
@@ -121,22 +347,29 @@ export const SearchPage: React.FC = () => {
     if (specialty !== 'All') params.append('specialty', specialty);
     if (location !== 'All') params.append('location', location);
     if (providerType !== 'All') params.append('type', providerType);
+    setDoctorPage(1);
+    setHospitalPage(1);
+    setClinicPage(1);
     setSearchParams(params);
+  };
+
+  const handleResetFilters = () => {
+    setSearchTerm('');
+    setSpecialty('All');
+    setLocation('All');
+    setProviderType('All');
+    setDoctorPage(1);
+    setHospitalPage(1);
+    setClinicPage(1);
+    setSearchParams({});
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Filter Doctors
   const filteredDoctors = doctors.filter((d) => {
     if (providerType !== 'All' && providerType !== 'Doctor') return false;
-    if (searchTerm) {
-      const q = searchTerm.toLowerCase();
-      const match =
-        d.name.toLowerCase().includes(q) ||
-        d.specialty.toLowerCase().includes(q) ||
-        d.location.toLowerCase().includes(q) ||
-        (d.hospitalName && d.hospitalName.toLowerCase().includes(q));
-      if (!match) return false;
-    }
-    if (specialty !== 'All' && d.specialty.toLowerCase() !== specialty.toLowerCase()) return false;
+    if (searchTerm && !doctorMatchesQuery(d, searchTerm)) return false;
+    if (!matchesSpecialty(d.specialty, specialty)) return false;
     if (!matchesLocation(d.location, location)) return false;
     return true;
   });
@@ -144,19 +377,11 @@ export const SearchPage: React.FC = () => {
   // Filter Hospitals
   const filteredHospitals = hospitals.filter((h) => {
     if (providerType !== 'All' && providerType !== 'Hospital') return false;
-    if (searchTerm) {
-      const q = searchTerm.toLowerCase();
-      const match =
-        h.name.toLowerCase().includes(q) ||
-        h.location.toLowerCase().includes(q) ||
-        h.specialties.some((s) => s.toLowerCase().includes(q));
-      if (!match) return false;
+    if (searchTerm && !hospitalMatchesQuery(h, searchTerm)) return false;
+    if (specialty !== 'All') {
+      const hasSpec = h.specialties.some((s) => matchesSpecialty(s, specialty));
+      if (!hasSpec) return false;
     }
-    if (
-      specialty !== 'All' &&
-      !h.specialties.some((s) => s.toLowerCase() === specialty.toLowerCase())
-    )
-      return false;
     if (!matchesLocation(h.location, location)) return false;
     return true;
   });
@@ -164,18 +389,25 @@ export const SearchPage: React.FC = () => {
   // Filter Clinics
   const filteredClinics = clinics.filter((c) => {
     if (providerType !== 'All' && providerType !== 'Clinic') return false;
-    if (searchTerm) {
-      const q = searchTerm.toLowerCase();
-      const match =
-        c.name.toLowerCase().includes(q) ||
-        c.location.toLowerCase().includes(q) ||
-        c.specialty.toLowerCase().includes(q);
-      if (!match) return false;
-    }
-    if (specialty !== 'All' && c.specialty.toLowerCase() !== specialty.toLowerCase()) return false;
+    if (searchTerm && !clinicMatchesQuery(c, searchTerm)) return false;
+    if (!matchesSpecialty(c.specialty, specialty)) return false;
     if (!matchesLocation(c.location, location)) return false;
     return true;
   });
+
+  // Paginated Slices
+  const paginatedDoctors = filteredDoctors.slice(
+    (doctorPage - 1) * PAGE_SIZE,
+    doctorPage * PAGE_SIZE
+  );
+  const paginatedHospitals = filteredHospitals.slice(
+    (hospitalPage - 1) * PAGE_SIZE,
+    hospitalPage * PAGE_SIZE
+  );
+  const paginatedClinics = filteredClinics.slice(
+    (clinicPage - 1) * PAGE_SIZE,
+    clinicPage * PAGE_SIZE
+  );
 
   // Total results
   const totalCount =
@@ -187,6 +419,66 @@ export const SearchPage: React.FC = () => {
     if (type === 'Hospital') return t('search.hospitalOnly');
     if (type === 'Clinic') return t('search.clinicOnly');
     return type;
+  };
+
+  const renderPagination = (
+    currentPage: number,
+    totalItems: number,
+    onPageChange: (p: number) => void
+  ) => {
+    const totalPages = Math.ceil(totalItems / PAGE_SIZE);
+    if (totalPages <= 1) return null;
+
+    return (
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-[#E2EBF0] pt-4 mt-6">
+        <span className="text-xs text-slate-500 font-semibold">
+          Showing {Math.min(totalItems, (currentPage - 1) * PAGE_SIZE + 1)}–{Math.min(totalItems, currentPage * PAGE_SIZE)} of {totalItems}
+        </span>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <button
+            type="button"
+            disabled={currentPage <= 1}
+            onClick={() => {
+              onPageChange(currentPage - 1);
+              window.scrollTo({ top: 220, behavior: 'smooth' });
+            }}
+            className="px-3 py-1.5 rounded-xl border border-[#CBD5E1] text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all flex items-center gap-1"
+          >
+            <ChevronLeft className="w-3.5 h-3.5 rtl:rotate-180" />
+            <span>Previous</span>
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => {
+                onPageChange(p);
+                window.scrollTo({ top: 220, behavior: 'smooth' });
+              }}
+              className={`w-8 h-8 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                p === currentPage
+                  ? 'bg-[#2DA7B5] text-white shadow-xs font-black'
+                  : 'text-slate-700 hover:bg-slate-100 border border-[#E2EBF0]'
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+          <button
+            type="button"
+            disabled={currentPage >= totalPages}
+            onClick={() => {
+              onPageChange(currentPage + 1);
+              window.scrollTo({ top: 220, behavior: 'smooth' });
+            }}
+            className="px-3 py-1.5 rounded-xl border border-[#CBD5E1] text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all flex items-center gap-1"
+          >
+            <span>Next</span>
+            <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
+          </button>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -290,7 +582,12 @@ export const SearchPage: React.FC = () => {
                   <button
                     key={type}
                     type="button"
-                    onClick={() => setProviderType(type)}
+                    onClick={() => {
+                      setProviderType(type);
+                      setDoctorPage(1);
+                      setHospitalPage(1);
+                      setClinicPage(1);
+                    }}
                     className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer shrink-0 ${
                       providerType === type
                         ? 'bg-[#2DA7B5] text-white shadow-xs'
@@ -302,8 +599,19 @@ export const SearchPage: React.FC = () => {
                 ))}
               </div>
 
-              <div className="text-xs text-slate-500 font-semibold shrink-0">
-                {t('search.foundResults', { count: totalCount })}
+              <div className="flex items-center gap-3 shrink-0">
+                {(searchTerm || specialty !== 'All' || location !== 'All' || providerType !== 'All') && (
+                  <button
+                    type="button"
+                    onClick={handleResetFilters}
+                    className="text-xs font-bold text-[#0E7490] hover:underline cursor-pointer"
+                  >
+                    {t('search.resetFilters')}
+                  </button>
+                )}
+                <div className="text-xs text-slate-500 font-semibold">
+                  {t('search.foundResults', { count: totalCount })}
+                </div>
               </div>
             </div>
           </form>
@@ -323,12 +631,7 @@ export const SearchPage: React.FC = () => {
               {t('search.noResultsText')}
             </p>
             <button
-              onClick={() => {
-                setSearchTerm('');
-                setSpecialty('All');
-                setLocation('All');
-                setProviderType('All');
-              }}
+              onClick={handleResetFilters}
               className="px-5 py-2.5 bg-[#2DA7B5] hover:bg-[#23929F] text-white font-bold rounded-xl text-xs shadow-xs cursor-pointer"
             >
               {t('search.resetFilters')}
@@ -343,73 +646,12 @@ export const SearchPage: React.FC = () => {
                   <Stethoscope className="w-5 h-5 text-[#2DA7B5]" />
                   <span>{t('search.specialistDoctors', { count: filteredDoctors.length })}</span>
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                  {filteredDoctors.map((doc) => (
-                    <motion.div
-                      key={doc.id}
-                      whileHover={{ y: -3, transition: { duration: 0.18 } }}
-                      className="bg-white rounded-2xl sm:rounded-3xl border border-[#E2EBF0] hover:border-[#2DA7B5] hover:shadow-md p-4 sm:p-5 transition-all flex flex-col justify-between group shadow-xs"
-                    >
-                      <div className="flex items-start gap-3.5 sm:gap-4">
-                        <Link to={`/doctors/${doc.id}`} className="shrink-0 cursor-pointer">
-                          <img
-                            src={doc.photo}
-                            alt={doc.name}
-                            onError={(e) => {
-                              (e.currentTarget as HTMLImageElement).src =
-                                'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&auto=format&fit=crop&q=80';
-                            }}
-                            className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl object-cover bg-slate-100 border border-[#E2EBF0] group-hover:scale-105 transition-transform"
-                            referrerPolicy="no-referrer"
-                          />
-                        </Link>
-                        <div className="min-w-0 flex-1">
-                          <span className="text-[11px] sm:text-xs font-semibold text-[#0E7490] block mb-0.5 truncate">
-                            {translateSpecialty(doc.specialty)}
-                          </span>
-                          <Link to={`/doctors/${doc.id}`} className="block">
-                            <h4 className="text-sm sm:text-base font-bold text-slate-900 leading-snug truncate group-hover:text-[#2DA7B5] transition-colors">
-                              {isArabic ? doc.nameAr || translateDoctorName(doc.name, doc.id) : doc.name}
-                            </h4>
-                          </Link>
-                          <p className="text-xs text-slate-600 truncate mt-0.5">
-                            {translateHospitalName(doc.hospitalName || doc.clinicName || 'City Care Hospital')}
-                          </p>
-                          <div className="flex items-center gap-1 text-[11px] sm:text-xs text-slate-500 mt-1">
-                            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            <span className="truncate">{translateLocation(doc.location)}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 pt-3 border-t border-[#E2EBF0] flex items-center justify-between text-xs gap-2">
-                        {doc.rating > 0 && (
-                          <div className="flex items-center gap-1 font-bold text-slate-900 shrink-0">
-                            <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                            <span>{doc.rating}</span>
-                            {doc.reviewCount ? (
-                              <span className="text-slate-400 font-normal">({doc.reviewCount})</span>
-                            ) : null}
-                          </div>
-                        )}
-                        <div className="flex items-center gap-1.5 sm:gap-2">
-                          <Link
-                            to={`/doctors/${doc.id}`}
-                            className="px-2.5 sm:px-3 py-1.5 font-bold text-slate-700 hover:text-[#0E7490] hover:bg-[#E8F6F8] hover:border-[#2DA7B5] rounded-xl border border-[#CBD5E1] transition-all cursor-pointer text-xs shadow-2xs"
-                          >
-                            {t('doctors.viewProfile')}
-                          </Link>
-                          <Link
-                            to={`/book/doctor/${doc.id}`}
-                            className="px-3 sm:px-3.5 py-1.5 bg-[#2DA7B5] hover:bg-[#23929F] text-white font-bold rounded-xl shadow-xs transition-all cursor-pointer text-xs"
-                          >
-                            {t('search.bookSlot')}
-                          </Link>
-                        </div>
-                      </div>
-                    </motion.div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {paginatedDoctors.map((doc, idx) => (
+                    <DoctorCard key={doc.id} doctor={doc} delayIndex={idx} />
                   ))}
                 </div>
+                {renderPagination(doctorPage, filteredDoctors.length, setDoctorPage)}
               </div>
             )}
 
@@ -421,7 +663,7 @@ export const SearchPage: React.FC = () => {
                   <span>{t('search.hospitalsCount', { count: filteredHospitals.length })}</span>
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                  {filteredHospitals.map((hosp) => (
+                  {paginatedHospitals.map((hosp) => (
                     <motion.div
                       key={hosp.id}
                       whileHover={{ y: -3, transition: { duration: 0.18 } }}
@@ -486,6 +728,7 @@ export const SearchPage: React.FC = () => {
                     </motion.div>
                   ))}
                 </div>
+                {renderPagination(hospitalPage, filteredHospitals.length, setHospitalPage)}
               </div>
             )}
 
@@ -497,7 +740,7 @@ export const SearchPage: React.FC = () => {
                   <span>{t('search.clinicsCount', { count: filteredClinics.length })}</span>
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                  {filteredClinics.map((clinic) => (
+                  {paginatedClinics.map((clinic) => (
                     <motion.div
                       key={clinic.id}
                       whileHover={{ y: -3, transition: { duration: 0.18 } }}
@@ -541,6 +784,7 @@ export const SearchPage: React.FC = () => {
                     </motion.div>
                   ))}
                 </div>
+                {renderPagination(clinicPage, filteredClinics.length, setClinicPage)}
               </div>
             )}
           </div>
