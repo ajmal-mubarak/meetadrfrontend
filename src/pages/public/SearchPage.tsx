@@ -25,6 +25,7 @@ import { useUserLocation } from '../../context/LocationContext';
 import { useToast } from '../../context/ToastContext';
 import { CustomDropdown, DropdownOption } from '../../components/common/CustomDropdown';
 import { DoctorCard } from '../../components/common/DoctorCard';
+import { InsurancePicker } from '../../components/common/InsurancePicker';
 
 // Flexible fuzzy specialty stem matcher
 function matchesSpecialty(providerSpecialty: string, selectedSpec: string): boolean {
@@ -236,11 +237,13 @@ export const SearchPage: React.FC = () => {
   const initialSpecialty = searchParams.get('specialty') || 'All';
   const initialLocation = getUrlLocation();
   const initialType = searchParams.get('type') || 'All';
+  const initialInsurance = searchParams.get('insurance') || '';
 
   const [searchTerm, setSearchTerm] = useState(initialQuery);
   const [specialty, setSpecialty] = useState(initialSpecialty);
   const [location, setLocation] = useState(initialLocation);
   const [providerType, setProviderType] = useState(initialType);
+  const [insurance, setInsurance] = useState(initialInsurance);
 
   // Pagination states for each category
   const PAGE_SIZE = 6;
@@ -254,11 +257,13 @@ export const SearchPage: React.FC = () => {
     const sp = searchParams.get('specialty') || 'All';
     const loc = getUrlLocation();
     const tp = searchParams.get('type') || 'All';
+    const ins = searchParams.get('insurance') || '';
 
     setSearchTerm(q);
     setSpecialty(sp);
     setLocation(loc);
     setProviderType(tp);
+    setInsurance(ins);
     setDoctorPage(1);
     setHospitalPage(1);
     setClinicPage(1);
@@ -340,6 +345,19 @@ export const SearchPage: React.FC = () => {
     loadData();
   }, []);
 
+  const allHospitalPlans = useMemo(() => {
+    const set = new Set<string>();
+    hospitals.forEach((h) => {
+      if (h.insurancePlans) {
+        h.insurancePlans.split(',').forEach((p) => {
+          const t = p.trim();
+          if (t) set.add(t);
+        });
+      }
+    });
+    return Array.from(set);
+  }, [hospitals]);
+
   const handleApplyFilter = (e: React.FormEvent) => {
     e.preventDefault();
     const params = new URLSearchParams();
@@ -347,6 +365,7 @@ export const SearchPage: React.FC = () => {
     if (specialty !== 'All') params.append('specialty', specialty);
     if (location !== 'All') params.append('location', location);
     if (providerType !== 'All') params.append('type', providerType);
+    if (insurance) params.append('insurance', insurance);
     setDoctorPage(1);
     setHospitalPage(1);
     setClinicPage(1);
@@ -358,6 +377,7 @@ export const SearchPage: React.FC = () => {
     setSpecialty('All');
     setLocation('All');
     setProviderType('All');
+    setInsurance('');
     setDoctorPage(1);
     setHospitalPage(1);
     setClinicPage(1);
@@ -370,7 +390,22 @@ export const SearchPage: React.FC = () => {
     if (providerType !== 'All' && providerType !== 'Doctor') return false;
     if (searchTerm && !doctorMatchesQuery(d, searchTerm)) return false;
     if (!matchesSpecialty(d.specialty, specialty)) return false;
-    if (!matchesLocation(d.location, location)) return false;
+
+    const docHosp = hospitals.find(
+      (h) => h.id === d.hospitalId || (d.hospitalName && h.name.toLowerCase() === d.hospitalName.toLowerCase())
+    );
+    const docClinic = clinics.find(
+      (c) => c.id === d.clinicId || (d.clinicName && c.name.toLowerCase() === d.clinicName.toLowerCase())
+    );
+    const effectiveLoc = d.location || docHosp?.location || docClinic?.location || '';
+    if (!matchesLocation(effectiveLoc, location)) return false;
+
+    if (insurance) {
+      const insLower = insurance.toLowerCase();
+      const hospMatches = docHosp?.insurancePlans && docHosp.insurancePlans.toLowerCase().includes(insLower);
+      const clinicMatches = docClinic?.insurancePlans && docClinic.insurancePlans.toLowerCase().includes(insLower);
+      if (!hospMatches && !clinicMatches) return false;
+    }
     return true;
   });
 
@@ -383,6 +418,9 @@ export const SearchPage: React.FC = () => {
       if (!hasSpec) return false;
     }
     if (!matchesLocation(h.location, location)) return false;
+    if (insurance && (!h.insurancePlans || !h.insurancePlans.toLowerCase().includes(insurance.toLowerCase()))) {
+      return false;
+    }
     return true;
   });
 
@@ -392,6 +430,9 @@ export const SearchPage: React.FC = () => {
     if (searchTerm && !clinicMatchesQuery(c, searchTerm)) return false;
     if (!matchesSpecialty(c.specialty, specialty)) return false;
     if (!matchesLocation(c.location, location)) return false;
+    if (insurance && (!c.insurancePlans || !c.insurancePlans.toLowerCase().includes(insurance.toLowerCase()))) {
+      return false;
+    }
     return true;
   });
 
@@ -492,8 +533,8 @@ export const SearchPage: React.FC = () => {
         {/* Search header / filters */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-[#E2EBF0] shadow-sm mb-6 sm:mb-8">
           <form onSubmit={handleApplyFilter} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-3">
-              <div className="sm:col-span-2 md:col-span-5 relative">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+              <div className="sm:col-span-2 lg:col-span-4 relative">
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   {t('search.searchKeyword')}
                 </label>
@@ -504,12 +545,12 @@ export const SearchPage: React.FC = () => {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder={t('search.keywordPlaceholder')}
-                    className="w-full pl-10 rtl:pl-3 rtl:pr-10 pr-3 py-2.5 border border-[#E2EBF0] rounded-xl text-xs sm:text-sm text-slate-900 focus:border-[#2DA7B5] focus:outline-hidden bg-[#F8FAFC] focus:bg-white placeholder:text-slate-400 transition-all font-medium"
+                    className="w-full pl-10 rtl:pl-3 rtl:pr-10 pr-3 py-2.5 border border-[#E2EBF0] rounded-xl text-xs sm:text-sm text-slate-900 focus:border-[#2DA7B5] focus:outline-hidden bg-[#F8FAFC] focus:bg-white placeholder:text-slate-400 transition-all font-medium h-[42px]"
                   />
                 </div>
               </div>
 
-              <div className="sm:col-span-1 md:col-span-3">
+              <div className="sm:col-span-1 lg:col-span-2">
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   {t('search.specialty')}
                 </label>
@@ -519,11 +560,11 @@ export const SearchPage: React.FC = () => {
                   options={specialtyOptions}
                   placeholder={t('doctorList.allSpecialties')}
                   icon={<Stethoscope className="w-3.5 h-3.5 text-[#2DA7B5]" />}
-                  buttonClassName="rounded-xl border-[#E2EBF0] text-xs sm:text-sm font-medium py-2 px-3"
+                  buttonClassName="rounded-xl border-[#E2EBF0] text-xs sm:text-sm font-medium py-2 px-3 h-[42px]"
                 />
               </div>
 
-              <div className="sm:col-span-1 md:col-span-2">
+              <div className="sm:col-span-1 lg:col-span-2">
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   {t('search.location')}
                 </label>
@@ -541,7 +582,7 @@ export const SearchPage: React.FC = () => {
                       options={locationOptions}
                       placeholder={t('hospitals.allLocations')}
                       icon={<MapPin className="w-3.5 h-3.5 text-[#0D5C54]" />}
-                      buttonClassName="rounded-xl border-[#CBD5E1] text-xs sm:text-sm font-semibold py-2 px-3"
+                      buttonClassName="rounded-xl border-[#CBD5E1] text-xs sm:text-sm font-semibold py-2 px-3 h-[42px]"
                     />
                   </div>
 
@@ -550,7 +591,7 @@ export const SearchPage: React.FC = () => {
                     onClick={handleAutoDetectLocation}
                     disabled={locationStatus === 'detecting'}
                     title={t('location.detectLocationTooltip')}
-                    className="w-9 h-9 rounded-xl bg-[#2DA7B5] hover:bg-[#23929F] active:scale-95 text-white transition-all cursor-pointer shrink-0 disabled:opacity-50 flex items-center justify-center shadow-xs"
+                    className="w-[42px] h-[42px] rounded-xl bg-[#2DA7B5] hover:bg-[#23929F] active:scale-95 text-white transition-all cursor-pointer shrink-0 disabled:opacity-50 flex items-center justify-center shadow-xs"
                   >
                     {locationStatus === 'detecting' ? (
                       <Loader2 className="w-4 h-4 animate-spin text-white" />
@@ -561,10 +602,36 @@ export const SearchPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="sm:col-span-2 md:col-span-2 flex items-end">
+              <div className="sm:col-span-1 lg:col-span-2">
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {isArabic ? 'التأمين الطبي' : 'Insurance'}
+                </label>
+                <InsurancePicker
+                  allHospitalPlans={allHospitalPlans}
+                  selected={insurance}
+                  onSelect={(val) => {
+                    setInsurance(val);
+                    const params = new URLSearchParams(searchParams);
+                    if (val) {
+                      params.set('insurance', val);
+                    } else {
+                      params.delete('insurance');
+                    }
+                    setDoctorPage(1);
+                    setHospitalPage(1);
+                    setClinicPage(1);
+                    setSearchParams(params);
+                  }}
+                  isArabic={isArabic}
+                  buttonClassName="w-full h-[42px] py-2 px-3 justify-between text-xs sm:text-sm font-semibold rounded-xl border-[#CBD5E1] bg-[#F8FAFC] hover:bg-white"
+                  containerClassName="w-full"
+                />
+              </div>
+
+              <div className="sm:col-span-1 lg:col-span-2 flex items-end">
                 <button
                   type="submit"
-                  className="w-full py-2.5 px-4 bg-[#2DA7B5] hover:bg-[#23929F] text-white active:scale-[0.99] text-xs sm:text-sm font-bold rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="w-full h-[42px] px-4 bg-[#2DA7B5] hover:bg-[#23929F] text-white active:scale-[0.99] text-xs sm:text-sm font-bold rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <Filter className="w-3.5 h-3.5" />
                   <span>{t('search.searchBtn')}</span>

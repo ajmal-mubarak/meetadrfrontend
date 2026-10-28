@@ -8,6 +8,7 @@ import { LOCATIONS, EMIRATES, AREAS, matchesLocation } from '../../data/mockSpec
 import { UAE_EMIRATES } from '../../services/locationService';
 import { useTranslation } from '../../i18n';
 import { CustomDropdown, DropdownOption } from '../../components/common/CustomDropdown';
+import { InsurancePicker } from '../../components/common/InsurancePicker';
 
 export const HospitalList: React.FC = () => {
   const { t, translateSpecialty, translateLocation, isArabic, translateHospitalName, translateHospitalAbout } = useTranslation();
@@ -31,13 +32,40 @@ export const HospitalList: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState(searchParams.get('search') || searchParams.get('q') || '');
   const [location, setLocation] = useState(getUrlLocation());
+  const [insurance, setInsurance] = useState(searchParams.get('insurance') || '');
 
   useEffect(() => {
     const qLoc = getUrlLocation();
     const qTerm = searchParams.get('search') || searchParams.get('q') || '';
+    const qIns = searchParams.get('insurance') || '';
     setLocation(qLoc);
     setSearch(qTerm);
+    setInsurance(qIns);
   }, [searchParams]);
+
+  const allHospitalPlans = useMemo(() => {
+    const set = new Set<string>();
+    hospitals.forEach((h) => {
+      if (h.insurancePlans) {
+        h.insurancePlans.split(',').forEach((p) => {
+          const t = p.trim();
+          if (t) set.add(t);
+        });
+      }
+    });
+    return Array.from(set);
+  }, [hospitals]);
+
+  const updateInsurance = (newIns: string) => {
+    setInsurance(newIns);
+    const params = new URLSearchParams(searchParams);
+    if (newIns && newIns.trim()) {
+      params.set('insurance', newIns.trim());
+    } else {
+      params.delete('insurance');
+    }
+    setSearchParams(params);
+  };
 
   const updateLocation = (newLoc: string) => {
     setLocation(newLoc);
@@ -86,6 +114,9 @@ export const HospitalList: React.FC = () => {
 
   const filtered = hospitals.filter((h) => {
     if (!matchesLocation(h.location, location)) return false;
+    if (insurance && (!h.insurancePlans || !h.insurancePlans.toLowerCase().includes(insurance.toLowerCase()))) {
+      return false;
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       const localizedName = isArabic ? (h.nameAr || translateHospitalName(h.name, h.id)).toLowerCase() : '';
@@ -118,8 +149,8 @@ export const HospitalList: React.FC = () => {
         </div>
 
         {/* Filters */}
-        <div className="bg-white p-4 rounded-3xl border border-[#E2EBF0] shadow-sm grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
-          <div className="sm:col-span-8 relative">
+        <div className="bg-white p-4 rounded-3xl border border-[#E2EBF0] shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div className="flex-1 relative min-w-0">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
@@ -130,7 +161,7 @@ export const HospitalList: React.FC = () => {
             />
           </div>
 
-          <div className="sm:col-span-4">
+          <div className="w-full sm:w-60 min-w-0">
             <CustomDropdown
               value={location}
               onChange={(val) => updateLocation(val)}
@@ -138,6 +169,16 @@ export const HospitalList: React.FC = () => {
               placeholder={t('hospitals.allLocations')}
               icon={<MapPin className="w-4 h-4 text-[#0D5C54]" />}
               buttonClassName="rounded-2xl border-[#CBD5E1] py-2.5 sm:py-3 text-xs sm:text-sm font-semibold"
+            />
+          </div>
+
+          <div className="flex items-center shrink-0">
+            <InsurancePicker
+              allHospitalPlans={allHospitalPlans}
+              selected={insurance}
+              onSelect={(val) => updateInsurance(val)}
+              isArabic={isArabic}
+              buttonClassName="rounded-2xl border-[#CBD5E1] py-2.5 sm:py-3 font-semibold text-xs sm:text-sm bg-[#F8FAFC] hover:bg-white"
             />
           </div>
         </div>

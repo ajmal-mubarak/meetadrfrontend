@@ -57,6 +57,8 @@ export interface FrontendDependent {
   gender?: string;
   allergies?: string;
   emergencyContact?: string;
+  insuranceProvider?: string;
+  insuranceNumber?: string;
 }
 
 export interface FrontendPatientProfile {
@@ -82,6 +84,8 @@ function mapDependent(d: BackendDependent): FrontendDependent {
     gender: d.gender || '',
     allergies: d.allergies || '',
     emergencyContact: d.emergency_contact || '',
+    insuranceProvider: d.insurance_provider || '',
+    insuranceNumber: d.insurance_number || '',
   };
 }
 

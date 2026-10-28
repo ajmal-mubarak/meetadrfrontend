@@ -86,6 +86,7 @@ export interface Clinic {
   operatingHours: string;
   about: string;
   googleMapsUrl?: string;
+  insurancePlans?: string;
   status?: 'Active' | 'Deactivated';
 }
 

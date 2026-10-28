@@ -30,6 +30,9 @@ import { useUserLocation } from '../../context/LocationContext';
 import { useToast } from '../../context/ToastContext';
 import { CustomDropdown, DropdownOption } from '../../components/common/CustomDropdown';
 import { DoctorCard } from '../../components/common/DoctorCard';
+import { InsurancePicker } from '../../components/common/InsurancePicker';
+import { realHospitalService, realClinicService } from '../../services/realFacilityService';
+import { Hospital, Clinic } from '../../types';
 
 export const DoctorList: React.FC = () => {
   const {
@@ -63,12 +66,16 @@ export const DoctorList: React.FC = () => {
   const urlSpecialty = searchParams.get('specialty') || 'All';
   const urlLocation = getUrlLocation();
   const urlSearch = searchParams.get('search') || searchParams.get('q') || '';
+  const urlInsurance = searchParams.get('insurance') || '';
 
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [specialty, setSpecialty] = useState(urlSpecialty);
   const [location, setLocation] = useState(urlLocation);
   const [search, setSearch] = useState(urlSearch);
+  const [insurance, setInsurance] = useState(urlInsurance);
+  const [hospitals, setHospitals] = useState<Hospital[]>([]);
+  const [clinics, setClinics] = useState<Clinic[]>([]);
   const [nearMeOnly, setNearMeOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 6;
@@ -78,19 +85,23 @@ export const DoctorList: React.FC = () => {
     const qSpec = searchParams.get('specialty') || 'All';
     const qLoc = getUrlLocation();
     const qTerm = searchParams.get('search') || searchParams.get('q') || '';
+    const qIns = searchParams.get('insurance') || '';
     setSpecialty(qSpec);
     setLocation(qLoc);
     setSearch(qTerm);
+    setInsurance(qIns);
   }, [searchParams]);
 
-  const updateFilters = (newSpec?: string, newLoc?: string, newSearch?: string) => {
+  const updateFilters = (newSpec?: string, newLoc?: string, newSearch?: string, newIns?: string) => {
     const nextSpec = newSpec !== undefined ? newSpec : specialty;
     const nextLoc = newLoc !== undefined ? newLoc : location;
     const nextSearch = newSearch !== undefined ? newSearch : search;
+    const nextIns = newIns !== undefined ? newIns : insurance;
 
     setSpecialty(nextSpec);
     setLocation(nextLoc);
     setSearch(nextSearch);
+    setInsurance(nextIns);
 
     const params = new URLSearchParams();
     if (nextSpec && nextSpec !== 'All') params.set('specialty', nextSpec);
@@ -100,6 +111,7 @@ export const DoctorList: React.FC = () => {
       if (em) params.set('emirate', em.code);
     }
     if (nextSearch && nextSearch.trim()) params.set('search', nextSearch.trim());
+    if (nextIns && nextIns.trim()) params.set('insurance', nextIns.trim());
     setSearchParams(params);
   };
 
@@ -143,15 +155,37 @@ export const DoctorList: React.FC = () => {
       setIsLoading(true);
       try {
         const data = await realDoctorService.getAllDoctors();
-        setDoctors(data || []);
+        const [allDocs, allHosps, allClins] = await Promise.all([
+          realDoctorService.getAllDoctors(),
+          realHospitalService.getAllHospitals(),
+          realClinicService.getAllClinics(),
+        ]);
+        setDoctors(allDocs || []);
+        setHospitals(allHosps || []);
+        setClinics(allClins || []);
       } catch {
         setDoctors([]);
+        setHospitals([]);
+        setClinics([]);
       } finally {
         setIsLoading(false);
       }
     }
     load();
   }, []);
+
+  const allHospitalPlans = useMemo(() => {
+    const set = new Set<string>();
+    hospitals.forEach((h) => {
+      if (h.insurancePlans) {
+        h.insurancePlans.split(',').forEach((p) => {
+          const t = p.trim();
+          if (t) set.add(t);
+        });
+      }
+    });
+    return Array.from(set);
+  }, [hospitals]);
 
   const handleNearMeToggle = async () => {
     if (nearMeOnly) {
@@ -222,8 +256,21 @@ export const DoctorList: React.FC = () => {
           return false;
         }
       }
-      if (!matchesLocation(doc.location, location)) {
+      const docHosp = hospitals.find(
+        (h) => h.id === doc.hospitalId || (doc.hospitalName && h.name.toLowerCase() === doc.hospitalName.toLowerCase())
+      );
+      const docClinic = clinics.find(
+        (c) => c.id === doc.clinicId || (doc.clinicName && c.name.toLowerCase() === doc.clinicName.toLowerCase())
+      );
+      const effectiveLoc = doc.location || docHosp?.location || docClinic?.location || '';
+      if (!matchesLocation(effectiveLoc, location)) {
         return false;
+      }
+      if (insurance) {
+        const insLower = insurance.toLowerCase();
+        const hospMatches = docHosp?.insurancePlans && docHosp.insurancePlans.toLowerCase().includes(insLower);
+        const clinicMatches = docClinic?.insurancePlans && docClinic.insurancePlans.toLowerCase().includes(insLower);
+        if (!hospMatches && !clinicMatches) return false;
       }
       if (search.trim()) {
         const q = search.toLowerCase();
@@ -251,12 +298,12 @@ export const DoctorList: React.FC = () => {
     }
 
     return result;
-  }, [doctors, specialty, location, search, nearMeOnly, detectedLoc]);
+  }, [doctors, specialty, location, search, insurance, nearMeOnly, detectedLoc, hospitals, clinics]);
 
   // Reset to page 1 whenever search or filter criteria change
   useEffect(() => {
     setCurrentPage(1);
-  }, [specialty, location, search, nearMeOnly]);
+  }, [specialty, location, search, insurance, nearMeOnly]);
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
 
@@ -300,14 +347,14 @@ export const DoctorList: React.FC = () => {
         <div className="bg-white p-4 sm:p-5 rounded-3xl border border-[#E2EBF0] shadow-sm space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
             {/* Search Input */}
-            <div className="sm:col-span-6 relative">
+            <div className="sm:col-span-4 relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 rtl:left-auto rtl:right-3.5 top-3.5" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => updateFilters(undefined, undefined, e.target.value)}
                 placeholder={t('doctors.searchPlaceholder')}
-                className="w-full pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-2.5 text-xs font-medium border border-[#E2EBF0] rounded-xl text-slate-900 focus:outline-hidden focus:border-[#2DA7B5] bg-[#F8FAFC] focus:bg-white transition-all placeholder:text-slate-400"
+                className="w-full pl-10 rtl:pl-4 rtl:pr-10 pr-4 py-2.5 text-xs font-medium border border-[#E2EBF0] rounded-xl text-slate-900 focus:outline-hidden focus:border-[#2DA7B5] bg-[#F8FAFC] focus:bg-white transition-all placeholder:text-slate-400 h-[42px]"
               />
               {search && (
                 <button
@@ -328,7 +375,7 @@ export const DoctorList: React.FC = () => {
                 options={specialtyOptions}
                 placeholder={t('doctors.allSpecialties')}
                 icon={<Stethoscope className="w-3.5 h-3.5 text-[#2DA7B5]" />}
-                buttonClassName="rounded-xl border-[#E2EBF0] text-xs font-bold"
+                buttonClassName="rounded-xl border-[#E2EBF0] text-xs font-bold h-[42px]"
               />
             </div>
 
@@ -348,7 +395,7 @@ export const DoctorList: React.FC = () => {
                   options={locationOptions}
                   placeholder={t('doctors.allLocations')}
                   icon={<MapPin className="w-3.5 h-3.5 text-[#0D5C54]" />}
-                  buttonClassName="rounded-xl border-[#CBD5E1] text-xs font-semibold"
+                  buttonClassName="rounded-xl border-[#CBD5E1] text-xs font-semibold h-[42px]"
                 />
               </div>
 
@@ -358,7 +405,7 @@ export const DoctorList: React.FC = () => {
                 onClick={handleNearMeToggle}
                 disabled={locationStatus === 'detecting'}
                 title={t('location.detectLocationTooltip')}
-                className="w-9 h-9 rounded-xl bg-[#2DA7B5] hover:bg-[#23929F] active:scale-95 text-white transition-all cursor-pointer shrink-0 disabled:opacity-50 flex items-center justify-center shadow-xs"
+                className="w-[42px] h-[42px] rounded-xl bg-[#2DA7B5] hover:bg-[#23929F] active:scale-95 text-white transition-all cursor-pointer shrink-0 disabled:opacity-50 flex items-center justify-center shadow-xs"
               >
                 {locationStatus === 'detecting' ? (
                   <Loader2 className="w-4 h-4 animate-spin text-white" />
@@ -366,6 +413,18 @@ export const DoctorList: React.FC = () => {
                   <LocateFixed className="w-4 h-4 text-white stroke-[2.5]" />
                 )}
               </button>
+            </div>
+
+            {/* Insurance Selector */}
+            <div className="sm:col-span-2">
+              <InsurancePicker
+                allHospitalPlans={allHospitalPlans}
+                selected={insurance}
+                onSelect={(val) => updateFilters(undefined, undefined, undefined, val)}
+                isArabic={isArabic}
+                buttonClassName="w-full h-[42px] py-2.5 rounded-xl border-[#CBD5E1] justify-between text-xs font-semibold bg-[#F8FAFC] hover:bg-white"
+                containerClassName="w-full"
+              />
             </div>
           </div>
 

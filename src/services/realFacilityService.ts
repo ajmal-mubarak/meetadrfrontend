@@ -59,6 +59,7 @@ interface BackendClinic {
   doctor_count?: number;
   avg_rating?: number | null;
   total_reviews?: number;
+  insurance_plans?: string;
   google_maps_url?: string;
 }
 

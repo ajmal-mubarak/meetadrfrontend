@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -46,6 +46,7 @@ import { useUserLocation } from '../../context/LocationContext';
 import { UAE_EMIRATES } from '../../services/locationService';
 import { HospitalBrandLogo } from '../../components/common/HospitalLogos';
 import { DoctorCard } from '../../components/common/DoctorCard';
+import { InsurancePicker } from '../../components/common/InsurancePicker';
 
 import { useTranslation } from '../../i18n';
 
@@ -90,6 +91,7 @@ export const Home: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCondition, setSelectedCondition] = useState('');
   const [selectedEmirate, setSelectedEmirate] = useState('auto');
+  const [selectedInsurance, setSelectedInsurance] = useState('');
 
   // Auto-detected location
   const {
@@ -143,6 +145,20 @@ export const Home: React.FC = () => {
       }
     }).catch(() => {});
   }, []);
+
+  // Aggregated insurance plans from all hospitals (for InsurancePicker guest mode)
+  const allHospitalPlans = useMemo(() => {
+    const set = new Set<string>();
+    realHospitals.forEach((h) => {
+      if (h.insurancePlans) {
+        h.insurancePlans.split(',').forEach((p) => {
+          const trimmed = p.trim();
+          if (trimmed) set.add(trimmed);
+        });
+      }
+    });
+    return Array.from(set);
+  }, [realHospitals]);
 
   // Compute real doctor count per specialty from backend data
   const getSpecialtyDoctorCount = (specialtyQuery: string): number => {
@@ -289,6 +305,10 @@ export const Home: React.FC = () => {
       if (emObj) {
         params.append('location', emObj.name);
       }
+    }
+
+    if (selectedInsurance.trim()) {
+      params.append('insurance', selectedInsurance.trim());
     }
 
     setShowSearchDropdown(false);
@@ -599,9 +619,11 @@ export const Home: React.FC = () => {
           >
             <form
               onSubmit={handleSearchSubmit}
-              className="bg-white rounded-2xl sm:rounded-full border border-[#E2EBF0] hover:border-[#CBD5E1] p-2 sm:p-2.5 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 transition-all relative w-full shadow-xs"
+              className="bg-white rounded-3xl border border-[#E2EBF0] hover:border-[#CBD5E1] p-2.5 sm:p-3.5 flex flex-col gap-2.5 transition-all relative w-full shadow-md"
             >
-              {/* Field 1: Doctor / Specialty / Hospital Search (Suggests only when user types letters) */}
+              {/* Line 1: Main Search Inputs + Search CTA Button */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full">
+                {/* Field 1: Doctor / Specialty / Hospital Search (Suggests only when user types letters) */}
               <div className="flex-[1.25] relative min-w-0" ref={searchRef}>
                 <div className="flex items-center px-4 py-3 sm:py-2.5 bg-[#F8FAFC] sm:bg-transparent rounded-xl sm:rounded-none">
                   <Search className="w-4 h-4 text-slate-400 mr-2.5 rtl:mr-0 rtl:ml-2.5 shrink-0" />
@@ -787,7 +809,9 @@ export const Home: React.FC = () => {
 
               <div className="hidden sm:block w-px h-8 bg-[#E2EBF0]" />
 
-              {/* Field 2: Health Condition with Autocomplete (Like Old) */}
+                <div className="hidden sm:block w-px h-8 bg-[#E2EBF0]" />
+
+                {/* Field 2: Health Condition with Autocomplete (Like Old) */}
               <div className="flex-1 relative min-w-0" ref={conditionRef}>
                 <div className="flex items-center px-4 py-3 sm:py-2.5 bg-[#F8FAFC] sm:bg-transparent rounded-xl sm:rounded-none">
                   <Activity className="w-4 h-4 text-[#2DA7B5] mr-3 rtl:mr-0 rtl:ml-3 shrink-0" />
@@ -861,11 +885,21 @@ export const Home: React.FC = () => {
                 </AnimatePresence>
               </div>
 
-              <div className="hidden sm:block w-px h-8 bg-[#E2EBF0]" />
+                {/* Action CTA Button */}
+              <button
+                type="submit"
+                className="w-full sm:w-auto px-8 py-3.5 sm:py-3 bg-[#2DA7B5] hover:bg-[#23929F] text-white rounded-xl sm:rounded-full font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 active:scale-95 shadow-xs"
+              >
+                <span>{t('home.searchButton')}</span>
+                <ArrowRight className="w-4 h-4 rtl:rotate-180" />
+              </button>
+              </div>
 
-              {/* Field 3: Emirate - Modern Custom Dropdown with Auto-Detect */}
-              <div className="relative min-w-0 sm:w-48 w-full" ref={locationRef}>
-                <div className="flex items-center px-2.5 py-2.5 sm:py-2 bg-[#F8FAFC] sm:bg-transparent rounded-xl sm:rounded-none gap-2">
+              {/* Line 2: Location and Insurance Selector (No center dividing line) */}
+              <div className="flex flex-wrap items-center gap-2.5 w-full">
+                {/* Field 3: Emirate - Modern Custom Dropdown with Auto-Detect */}
+              <div className="relative min-w-0 sm:w-56 w-full sm:w-auto" ref={locationRef}>
+                <div className="flex items-center px-3 py-2 bg-[#F8FAFC] rounded-xl border border-[#E2EBF0] hover:border-[#2DA7B5] transition-colors gap-2">
                   {/* Quick GPS auto-detect button */}
                   <button
                     type="button"
@@ -1025,15 +1059,16 @@ export const Home: React.FC = () => {
                 </AnimatePresence>
               </div>
 
-              {/* Action CTA Button */}
-              <button
-                type="submit"
-                className="w-full sm:w-auto px-8 py-3.5 sm:py-3 bg-[#2DA7B5] hover:bg-[#23929F] text-white rounded-xl sm:rounded-full font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 active:scale-95 shadow-xs"
-              >
-                <span>{t('home.searchButton')}</span>
-                <ArrowRight className="w-4 h-4 rtl:rotate-180" />
-              </button>
+                <InsurancePicker
+                  allHospitalPlans={allHospitalPlans}
+                  selected={selectedInsurance}
+                  onSelect={setSelectedInsurance}
+                  isArabic={isArabic}
+                />
+              </div>
             </form>
+
+
 
             {/* Step-Sliding Specialties: 5 visible, smooth 3-shift, dots under (RTL & LTR aware) */}
             <div
