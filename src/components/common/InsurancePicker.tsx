@@ -304,7 +304,7 @@ export const InsurancePicker: React.FC<InsurancePickerProps> = ({
           aria-expanded={open}
         >
           <ShieldCheck className="w-4 h-4 text-slate-700 shrink-0" />
-          <span className="truncate underline decoration-slate-400 decoration-1 underline-offset-2">
+          <span className="truncate">
             {buttonLabel}
           </span>
           {selected ? (

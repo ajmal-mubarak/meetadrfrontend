@@ -196,18 +196,18 @@ export const DoctorDetails: React.FC = () => {
                 </p>
               </div>
 
-              {/* Consultation Fee in AED */}
+              {/* Instant Appointment Notice (No AED / fees mentioned) */}
               <div className="flex items-center justify-between p-3.5 rounded-2xl bg-[#E8F6F8] border border-[#CDEBF0]">
                 <div>
                   <span className="text-[11px] font-bold uppercase tracking-wider text-[#0E7490] block">
-                    {isArabic ? 'رسوم الاستشارة' : 'Consultation Fee'}
+                    {isArabic ? 'تأكيد فوري للموعد' : 'Instant Confirmation'}
                   </span>
                   <span className="text-[10px] text-slate-500">
-                    {isArabic ? 'الدفع في العيادة' : 'Payable at reception'}
+                    {isArabic ? 'حجز مباشر لدى العيادة' : 'Direct Clinic Booking'}
                   </span>
                 </div>
-                <span className="text-lg font-black text-[#0E7490]">
-                  AED {doctor.consultationFee || 500}
+                <span className="text-xs font-bold text-[#0E7490] bg-white px-2.5 py-1 rounded-full border border-[#CDEBF0]">
+                  {isArabic ? 'حجز مجاني' : 'Free Booking'}
                 </span>
               </div>
 

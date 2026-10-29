@@ -2961,15 +2961,7 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
 
-                          <div className="text-teal-700 font-bold">
-
-
-
-                            AED {doc.consultationFee || 200}
-
-
-
-                          </div>
+                          
 
 
 
@@ -3425,11 +3417,8 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
 
-                <span className="text-slate-400 font-medium">Consultation Fee</span>
-
-
-
-                <div className="font-bold text-teal-700 mt-1">AED {viewDoctor.consultationFee || 200}</div>
+                <span className="text-slate-400 font-medium">Consultation Type</span>
+                <div className="font-bold text-teal-700 mt-1">In-Person Clinic Visit</div>
 
 
 
@@ -4673,47 +4662,7 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
 
-                <div>
-
-
-
-                  <label className="block font-bold text-slate-700 mb-1">Consultation Fee (AED)</label>
-
-
-
-                  <input
-
-
-
-                    type="number"
-
-
-
-                    min="50"
-
-
-
-                    placeholder="e.g. 200"
-
-
-
-                    value={addForm.consultation_fee}
-
-
-
-                    onChange={(e) => setAddForm({ ...addForm, consultation_fee: e.target.value === '' ? '' : Number(e.target.value) })}
-
-
-
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
-
-
-
-                  />
-
-
-
-                </div>
+                
 
 
 
@@ -5849,43 +5798,7 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
 
-                <div>
-
-
-
-                  <label className="block font-bold text-slate-700 mb-1">Consultation Fee (AED)</label>
-
-
-
-                  <input
-
-
-
-                    type="number"
-
-
-
-                    min="50"
-
-
-
-                    value={editForm.consultation_fee}
-
-
-
-                    onChange={(e) => setEditForm({ ...editForm, consultation_fee: Number(e.target.value) })}
-
-
-
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
-
-
-
-                  />
-
-
-
-                </div>
+                
 
 
 

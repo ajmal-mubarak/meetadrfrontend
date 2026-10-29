@@ -389,7 +389,7 @@ export const FaqPage: React.FC = () => {
     : [
         {
           q: 'Do I have to pay any fee to book an appointment through MeetAdr?',
-          a: 'No. MeetAdr is 100% free for patients. There are zero booking fees, platform charges, or cancellation penalties. Any medical consultation fees are paid directly at the hospital or clinic during your visit.',
+          a: 'No. MeetAdr is 100% free for patients. There are zero booking fees, platform charges, or cancellation penalties. Appointments are reserved directly without any online payment.',
         },
         {
           q: 'How do I know my appointment is confirmed?',

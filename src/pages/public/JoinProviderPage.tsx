@@ -187,7 +187,7 @@ export const JoinProviderPage: React.FC = () => {
   const howItWorksSteps = [
     { number: '01', title: 'Register', desc: 'Select Hospital / Clinic or Individual Doctor and fill in your details.' },
     { number: '02', title: 'Verification', desc: 'Our team reviews your credentials and licensing information.' },
-    { number: '03', title: 'Set Up Your Practice', desc: 'Configure consultation slots, fees, and schedule availability.' },
+    { number: '03', title: 'Set Up Your Practice', desc: 'Configure consultation slots, specialties, and schedule availability.' },
     { number: '04', title: 'Start Connecting', desc: 'Patients discover your profile and book consultations directly.' },
   ];
 
@@ -214,7 +214,7 @@ export const JoinProviderPage: React.FC = () => {
     features: [
       'Verified doctor directory profile with patient reviews',
       'Direct patient consultation bookings & appointment management',
-      'Personalized schedule, consultation fees & slot duration',
+      'Personalized schedule & appointment slot management',
       'Dedicated independent doctor dashboard portal',
     ],
   };

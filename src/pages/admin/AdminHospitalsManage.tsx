@@ -839,7 +839,7 @@ export const AdminHospitalsManage: React.FC = () => {
 
                         <td className="py-3 px-4 text-xs">
                           <div className="font-semibold text-slate-800">{doc.experienceYears || 1} yrs exp</div>
-                          <div className="text-teal-700 font-bold">AED {doc.consultationFee || 200}</div>
+                          
                         </td>
 
                         <td className="py-3 px-4 text-xs">
@@ -1945,17 +1945,7 @@ export const AdminHospitalsManage: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Fee (AED)</label>
-                  <input
-                    type="number"
-                    min="50"
-                    placeholder="e.g. 200"
-                    value={doctorForm.consultation_fee}
-                    onChange={(e) => setDoctorForm({ ...doctorForm, consultation_fee: e.target.value === '' ? '' : Number(e.target.value) })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
-                  />
-                </div>
+                
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Experience (Years)</label>
                   <input

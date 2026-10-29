@@ -714,12 +714,7 @@ export const AdminProviders: React.FC = () => {
                 </div>
               )}
 
-              {viewItem.consultationFee && (
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <span className="text-slate-400 font-medium">Consultation Fee</span>
-                  <div className="font-bold text-teal-700 mt-1">AED {viewItem.consultationFee}</div>
-                </div>
-              )}
+              
 
               {viewItem.experienceYears && (
                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">

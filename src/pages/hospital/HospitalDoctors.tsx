@@ -630,7 +630,6 @@ export const HospitalDoctors: React.FC = () => {
                   <th className="py-3 px-4">Specialty (Department)</th>
                   <th className="py-3 px-4">Special Interest (Health Conditions)</th>
                   <th className="py-3 px-4">Experience</th>
-                  <th className="py-3 px-4">Fee (AED)</th>
                   <th className="py-3 px-4">Status</th>
                   <th className="py-3 px-4 text-right rtl:text-left">Actions</th>
                 </tr>
@@ -638,14 +637,14 @@ export const HospitalDoctors: React.FC = () => {
               <tbody className="divide-y divide-slate-100 text-xs">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-400">
+                    <td colSpan={6} className="py-12 text-center text-slate-400">
                       <div className="w-6 h-6 border-2 border-[#2DA7B5] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                       Loading medical staff roster...
                     </td>
                   </tr>
                 ) : filteredDocs.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-500">
+                    <td colSpan={6} className="py-12 text-center text-slate-500">
                       No doctors found matching your criteria.
                     </td>
                   </tr>
@@ -717,13 +716,6 @@ export const HospitalDoctors: React.FC = () => {
                             <Award className="w-3.5 h-3.5 text-[#2DA7B5]" />
                             <span>{doc.experience}</span>
                           </div>
-                        </td>
-
-                        {/* Column: Consultation Fee */}
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span className="font-extrabold text-[#0E7490] bg-[#E8F6F8] px-2.5 py-1 rounded-md border border-[#CDEBF0]">
-                            AED {doc.consultationFee || 500}
-                          </span>
                         </td>
 
                         {/* Status */}
@@ -822,9 +814,6 @@ export const HospitalDoctors: React.FC = () => {
                           <Award className="w-3.5 h-3.5 text-[#2DA7B5]" />
                           <span>{doc.experience}</span>
                         </div>
-                        <span className="font-extrabold text-[#0E7490] text-xs">
-                          AED {doc.consultationFee || 500}
-                        </span>
                       </div>
                       {doc.reviewCount > 0 ? (
                         <div className="flex items-center gap-1 text-xs font-bold text-slate-800 mt-1">
@@ -984,8 +973,8 @@ export const HospitalDoctors: React.FC = () => {
                   </span>
                 </div>
                 <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2EBF0]">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Consultation Fee</span>
-                  <span className="font-bold text-[#0E7490] mt-0.5 block">AED {selectedDoctor.consultationFee || 500}</span>
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Consultation Type</span>
+                  <span className="font-bold text-[#0E7490] mt-0.5 block">In-Person Clinic Visit</span>
                 </div>
                 <div className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2EBF0]">
                   <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block">Location</span>
@@ -1192,26 +1181,6 @@ export const HospitalDoctors: React.FC = () => {
                     placeholder="e.g. 10 years"
                     className="w-full p-2.5 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl text-sm focus:border-[#2DA7B5] focus:bg-white focus:outline-none transition-all"
                   />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Consultation Fee (AED) <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-2.5 rtl:left-auto rtl:right-3 text-xs font-bold text-slate-400">AED</span>
-                    <input
-                      type="number"
-                      min="50"
-                      max="5000"
-                      step="10"
-                      required
-                      value={editFee}
-                      onChange={(e) => setEditFee(e.target.value)}
-                      placeholder="e.g. 500"
-                      className="w-full pl-12 pr-3 rtl:pl-3 rtl:pr-12 p-2.5 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl text-sm font-bold text-slate-900 focus:border-[#2DA7B5] focus:bg-white focus:outline-none transition-all"
-                    />
-                  </div>
                 </div>
 
                 <div>
@@ -1470,26 +1439,6 @@ export const HospitalDoctors: React.FC = () => {
                     placeholder="e.g. 10 years"
                     className="w-full p-2.5 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl text-sm focus:border-[#2DA7B5] focus:bg-white focus:outline-none transition-all"
                   />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Consultation Fee (AED) <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-2.5 rtl:left-auto rtl:right-3 text-xs font-bold text-slate-400">AED</span>
-                    <input
-                      type="number"
-                      min="50"
-                      max="5000"
-                      step="10"
-                      required
-                      value={consultationFee}
-                      onChange={(e) => setConsultationFee(e.target.value)}
-                      placeholder="e.g. 500"
-                      className="w-full pl-12 pr-3 rtl:pl-3 rtl:pr-12 p-2.5 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl text-sm font-bold text-slate-900 focus:border-[#2DA7B5] focus:bg-white focus:outline-none transition-all"
-                    />
-                  </div>
                 </div>
 
                 <div className="sm:col-span-2">

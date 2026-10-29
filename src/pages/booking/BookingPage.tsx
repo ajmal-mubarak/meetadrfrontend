@@ -984,11 +984,11 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
                 </div>
 
                 <div className="space-y-1">
-                  <span className="text-slate-500 block">{t('booking.feeNote')}:</span>
+                  <span className="text-slate-500 block">{isArabic ? 'حالة الحجز والدفع:' : 'Booking & Payment Status:'}</span>
                   <p className="font-extrabold text-[#0E7490]">
-                    AED {doctor.consultationFee || 500}{' '}
+                    {isArabic ? 'حجز موعد مؤكد' : 'Confirmed Reservation'}{' '}
                     <span className="font-normal text-xs text-slate-500">
-                      ({t('booking.payAtReception')} • {t('booking.zeroUpfrontPayment')})
+                      ({isArabic ? 'بدون دفع مسبق • تأكيد فوري' : 'Zero upfront payment • Instant confirmation'})
                     </span>
                   </p>
                 </div>
@@ -1282,9 +1282,9 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
                           <span>{doctor.hospitalName || 'American Hospital Dubai'}</span>
                         </p>
                         <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-[#E2EBF0] text-xs">
-                          <span className="text-slate-500 font-medium">{isArabic ? 'رسوم الاستشارة الطبية:' : 'Consultation Fee:'}</span>
-                          <span className="font-extrabold text-[#0E7490] bg-[#E8F6F8] px-2.5 py-0.5 rounded-lg border border-[#CDEBF0]">
-                            AED {doctor.consultationFee || 500}
+                          <span className="text-slate-500 font-medium">{isArabic ? 'نوع الخدمة:' : 'Booking Service:'}</span>
+                          <span className="font-bold text-[#0E7490] bg-[#E8F6F8] px-2.5 py-0.5 rounded-lg border border-[#CDEBF0]">
+                            {isArabic ? 'حجز مباشر فوري' : 'Direct Instant Reservation'}
                           </span>
                         </div>
                       </div>
@@ -1683,36 +1683,21 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
                     </div>
                   </div>
 
-                  {/* Consultation Pricing Breakdown Card */}
-                  <div className="bg-[#F8FAFC] rounded-2xl border border-[#E2EBF0] p-4 space-y-2.5 shadow-2xs">
+                  {/* Appointment Reservation Notice (No fees / AED mentioned) */}
+                  <div className="bg-[#F8FAFC] rounded-2xl border border-[#E2EBF0] p-4 space-y-2 shadow-2xs">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-600 font-medium">
-                        {isArabic ? 'رسوم الاستشارة الطبية التخصصية' : 'Specialist Consultation Fee'}
+                      <span className="text-slate-700 font-bold flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>{isArabic ? 'تأكيد حجز الموعد عبر المنصة' : 'Platform Appointment Reservation'}</span>
                       </span>
-                      <span className="font-bold text-slate-900">
-                        AED {doctor.consultationFee || 500}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-600 font-medium">
-                        {isArabic ? 'رسوم خدمة حجز الموعد عبر المنصة' : 'Platform Booking Fee'}
-                      </span>
-                      <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                        {isArabic ? 'مجاناً (0 درهم)' : 'FREE (AED 0)'}
+                      <span className="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200">
+                        {isArabic ? 'مجاناً' : 'FREE'}
                       </span>
                     </div>
-                    <div className="border-t border-[#E2EBF0] pt-2 flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-900">
-                        {isArabic ? 'المبلغ الإجمالي عند الزيارة' : 'Total Amount Due at Clinic'}
-                      </span>
-                      <span className="text-base font-black text-[#0E7490]">
-                        AED {doctor.consultationFee || 500}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 bg-white p-2.5 rounded-xl border border-[#E2EBF0] text-center leading-relaxed">
+                    <p className="text-[11px] text-slate-500 bg-white p-3 rounded-xl border border-[#E2EBF0] text-center leading-relaxed">
                       {isArabic
-                        ? '💳 لا يلزم الدفع الآن. يتم سداد المبلغ مباشرة لدى موظفي الاستقبال في المستشفى عند وصولك.'
-                        : '💳 Zero upfront payment required. Pay in person at the hospital / clinic reception desk upon arrival.'}
+                        ? '💳 لا يلزم أي دفع إلكتروني عبر الموقع. يتم تأكيد موعدك مباشرة لدى المستشفى.'
+                        : '💳 Zero online payment required. Your appointment reservation is confirmed directly with the clinic.'}
                     </p>
                   </div>
 
@@ -1770,7 +1755,7 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
                         <div>
                           <p className="text-xs font-bold">{isArabic ? 'الدفع الذاتي في المستشفى' : 'Self-Pay at Hospital'}</p>
                           <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
-                            {isArabic ? 'سداد الرسوم نقداً أو بالبطاقة لدى الوصول' : 'Pay consultation fee at reception desk'}
+                            {isArabic ? 'مراجعة قسم الاستقبال مباشرة لدى الوصول' : 'Direct consultation on arrival'}
                           </p>
                         </div>
                       </button>
@@ -1839,8 +1824,8 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
                                 </p>
                                 <p className="text-[11px] text-amber-800 leading-relaxed">
                                   {isArabic
-                                    ? `لا يوفر المستشفى فوترة مباشرة مع ${insuranceProvider}. يمكنك سداد الرسوم (AED ${doctor?.consultationFee || 500}) لدى الاستقبال والحصول على فاتورة وتقرير طبي معتمد لطلب استرداد المبلغ من شركة تأمينك.`
-                                    : `${doctor?.hospitalName || 'This hospital'} does not offer direct billing for ${insuranceProvider}. You can pay the consultation fee at reception and request an itemized medical invoice & claim form for insurer reimbursement.`}
+                                    ? `لا يوفر المستشفى فوترة مباشرة مع ${insuranceProvider}. يمكنك مراجعة الاستقبال والحصول على فاتورة وتقرير طبي معتمد لطلب استرداد المبلغ من شركة تأمينك.`
+                                    : `${doctor?.hospitalName || 'This hospital'} does not offer direct billing for ${insuranceProvider}. You can request an itemized medical invoice & claim form at reception for insurer reimbursement.`}
                                 </p>
                               </div>
                             </div>
@@ -1853,12 +1838,12 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
                     {billingType === 'self_pay' && (
                       <div className="pt-2 border-t border-[#E2EBF0] text-xs text-slate-600 space-y-1">
                         <p className="font-semibold text-slate-800">
-                          {isArabic ? 'الدفع في مكتب الاستقبال:' : 'Payment at Hospital Reception:'}
+                          {isArabic ? 'إجراءات مكتب الاستقبال:' : 'Hospital Reception Check-in:'}
                         </p>
                         <p className="text-[11px] text-slate-500 leading-relaxed">
                           {isArabic
-                            ? `سيتم سداد رسوم الاستشارة البالغة AED ${doctor?.consultationFee || 500} نقداً أو ببطاقة الائتمان لدى وصولك إلى المستشفى.`
-                            : `The full specialist consultation fee of AED ${doctor?.consultationFee || 500} is payable in cash or card directly at the hospital reception upon arrival.`}
+                            ? 'يرجى مراجعة موظفي الاستقبال في المستشفى عند وصولك لإتمام إجراءات الدخول والموعد.'
+                            : 'Please check in at the hospital reception desk upon arrival to complete your appointment registration.'}
                         </p>
                       </div>
                     )}

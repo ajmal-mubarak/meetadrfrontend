@@ -447,7 +447,7 @@ export const AdminDoctors: React.FC = () => {
                       </td>
 
                       <td className="py-3.5 px-4 text-xs">
-                        <div className="font-semibold text-slate-800">AED {doc.consultationFee || 200}</div>
+                        <div className="font-semibold text-slate-800">{doc.specialty}</div>
                         <div className="text-slate-400 flex items-center gap-1 mt-0.5">
                           <MapPin className="w-3 h-3" />
                           {doc.location || 'Dubai'}
@@ -584,8 +584,8 @@ export const AdminDoctors: React.FC = () => {
                 <div className="font-bold text-slate-800 mt-1">{viewDoctor.experienceYears || 1} Years</div>
               </div>
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="text-slate-400 font-medium">Consultation Fee</span>
-                <div className="font-bold text-teal-700 mt-1">AED {viewDoctor.consultationFee || 200}</div>
+                <span className="text-slate-400 font-medium">Consultation Type</span>
+                <div className="font-bold text-teal-700 mt-1">In-Person Clinic Visit</div>
               </div>
             </div>
 
