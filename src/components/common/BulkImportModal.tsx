@@ -179,7 +179,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
             <div>
               <h3 className="text-lg font-black text-slate-900">{title}</h3>
               <p className="text-xs text-slate-500">
-                Upload official {isDoctors ? 'Doctor (18 fields)' : 'Hospital (19 fields)'} template
+                Upload official {isDoctors ? 'Doctor (18 fields)' : 'Hospital (20 fields)'} template
               </p>
             </div>
           </div>

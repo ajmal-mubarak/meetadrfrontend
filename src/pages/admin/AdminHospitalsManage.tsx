@@ -30,11 +30,13 @@ import { ImageUpload } from '../../components/common/ImageUpload';
 import { DEFAULT_DOCTOR_AVATAR } from '../../utils/avatar';
 import { BulkImportModal } from '../../components/common/BulkImportModal';
 import { SearchableSelect } from '../../components/common/SearchableSelect';
+import { SearchableMultiSelect } from '../../components/common/SearchableMultiSelect';
 import {
   SUPPORTING_COUNTRIES,
   SUPPORTING_EMIRATES,
   SUPPORTING_DIAL_CODES,
   FACILITY_CATEGORIES,
+  SUPPORTING_INSURANCES,
 } from '../../data/supportingKeys';
 
 
@@ -94,6 +96,7 @@ export const AdminHospitalsManage: React.FC = () => {
     about: '',
     photo: '',
     logo: '',
+    insurance_plans: [] as string[],
     manager_name: '',
     manager_phone: '',
     manager_email: '',
@@ -123,6 +126,7 @@ export const AdminHospitalsManage: React.FC = () => {
     about: '',
     photo: '',
     logo: '',
+    insurance_plans: [] as string[],
     manager_name: '',
     manager_phone: '',
     manager_email: '',
@@ -294,6 +298,7 @@ export const AdminHospitalsManage: React.FC = () => {
       about: '',
       photo: '',
       logo: '',
+    insurance_plans: [] as string[],
       manager_name: '',
       manager_phone: '',
       manager_email: '',
@@ -331,6 +336,7 @@ export const AdminHospitalsManage: React.FC = () => {
         about: addForm.about.trim() || undefined,
         photo: addForm.photo.trim() || undefined,
         logo: addForm.logo.trim() || undefined,
+        insurance_plans: addForm.insurance_plans.join(', ') || undefined,
         manager_name: addForm.manager_name.trim() || undefined,
         manager_phone: addForm.manager_phone.trim() || undefined,
         manager_email: addForm.manager_email.trim() || undefined,
@@ -354,6 +360,10 @@ export const AdminHospitalsManage: React.FC = () => {
     const pType = ((provider as any).type || (provider.providerCategory === 'Clinic' ? 'clinic' : 'hospital')) as 'hospital' | 'clinic';
     const cat = ((provider as any).facility_category || (provider as any).providerCategory || (pType === 'clinic' ? 'Clinic' : 'Hospital')) as 'Hospital' | 'Clinic' | 'Wellness';
     const em = (provider as any).emirate || provider.location || 'Dubai';
+    const rawIns = (provider as any).insurance_plans || (provider as any).insurancePlans || '';
+    const parsedInsurances = typeof rawIns === 'string'
+      ? rawIns.split(',').map((s: string) => s.trim()).filter(Boolean)
+      : (Array.isArray(rawIns) ? rawIns : []);
     setEditForm({
       name: provider.name || '',
       name_ar: (provider as any).name_ar || '',
@@ -373,6 +383,7 @@ export const AdminHospitalsManage: React.FC = () => {
       about: (provider as any).about || '',
       photo: (provider as any).photo || '',
       logo: (provider as any).logo || '',
+      insurance_plans: parsedInsurances,
       manager_name: (provider as any).manager_name || '',
       manager_phone: (provider as any).manager_phone || '',
       manager_email: (provider as any).manager_email || '',
@@ -410,6 +421,7 @@ export const AdminHospitalsManage: React.FC = () => {
         about: editForm.about.trim() || undefined,
         photo: editForm.photo.trim() || undefined,
         logo: editForm.logo.trim() || undefined,
+        insurance_plans: editForm.insurance_plans.join(', '),
         manager_name: editForm.manager_name.trim() || undefined,
         manager_phone: editForm.manager_phone.trim() || undefined,
         manager_email: editForm.manager_email.trim() || undefined,
@@ -1421,6 +1433,19 @@ export const AdminHospitalsManage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Accepted Insurances */}
+              <div>
+                <SearchableMultiSelect
+                  label="Accepted Insurances"
+                  sublabel="Select health insurance networks accepted by this facility"
+                  placeholder="Search and select insurance providers (e.g. Daman, AXA, MetLife)..."
+                  options={SUPPORTING_INSURANCES}
+                  selected={addForm.insurance_plans}
+                  onChange={(vals) => setAddForm({ ...addForm, insurance_plans: vals })}
+                  allowCustom
+                />
+              </div>
+
               {/* Manager Details */}
               <div className="pt-2 border-t border-slate-100">
                 <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
@@ -1688,6 +1713,19 @@ export const AdminHospitalsManage: React.FC = () => {
                     placeholder="Upload organization logo"
                   />
                 </div>
+              </div>
+
+              {/* Accepted Insurances */}
+              <div>
+                <SearchableMultiSelect
+                  label="Accepted Insurances"
+                  sublabel="Select health insurance networks accepted by this facility"
+                  placeholder="Search and select insurance providers (e.g. Daman, AXA, MetLife)..."
+                  options={SUPPORTING_INSURANCES}
+                  selected={editForm.insurance_plans}
+                  onChange={(vals) => setEditForm({ ...editForm, insurance_plans: vals })}
+                  allowCustom
+                />
               </div>
 
               {/* Manager Details */}

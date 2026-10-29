@@ -26,6 +26,7 @@ interface InsurancePickerProps {
   isArabic?: boolean;
   buttonClassName?: string;
   containerClassName?: string;
+  variant?: 'default' | 'hero';
 }
 
 interface PatientInsuranceEntry {
@@ -85,6 +86,7 @@ const STANDARD_CARRIERS = [
   'Union Insurance',
   'UnitedHealthcare Global',
   'Wateen TPA',
+  'Other / Custom Insurance',
 ];
 
 /** Popular carriers displayed as cards at the top of the modal */
@@ -122,6 +124,7 @@ export const InsurancePicker: React.FC<InsurancePickerProps> = ({
   isArabic = false,
   buttonClassName,
   containerClassName,
+  variant = 'default',
 }) => {
   const { isAuthenticated } = useAuth();
   const [open, setOpen] = useState(false);
@@ -158,7 +161,7 @@ export const InsurancePicker: React.FC<InsurancePickerProps> = ({
         });
         setPatientInsurances(entries);
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setProfileLoading(false));
   }, [isAuthenticated, open, isArabic]);
 
@@ -241,42 +244,85 @@ export const InsurancePicker: React.FC<InsurancePickerProps> = ({
   const buttonLabel = selected
     ? selected
     : isArabic
-    ? 'التأمين'
-    : 'Insurance';
+      ? 'التأمين'
+      : 'Insurance';
 
   return (
-    <div className={`relative inline-flex items-center ${containerClassName || ''}`}>
-      {/* Trigger Button Matching Reference (Bordered Pill with Shield and Down Arrow) */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={`inline-flex items-center gap-2 px-3.5 py-2 sm:py-2.5 rounded-xl border text-xs sm:text-sm font-semibold transition-all cursor-pointer select-none ${
-          selected
-            ? 'bg-[#E8F6F8] border-[#2DA7B5] text-[#0E7490] shadow-2xs font-bold'
-            : 'bg-[#F8FAFC] border-[#E2EBF0] text-slate-700 hover:border-[#2DA7B5] hover:text-[#0E7490] hover:bg-white'
-        } ${buttonClassName || ''}`}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-      >
-        <ShieldCheck className="w-4 h-4 text-slate-700 shrink-0" />
-        <span className="truncate underline decoration-slate-400 decoration-1 underline-offset-2">
-          {buttonLabel}
-        </span>
-        {selected ? (
-          <button
-            type="button"
-            onClick={handleClear}
-            className="ml-auto text-[#0E7490] hover:text-rose-500 transition-colors p-0.5 cursor-pointer"
-            aria-label="Clear insurance filter"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        ) : (
-          <ChevronDown
-            className={`w-3.5 h-3.5 text-slate-500 shrink-0 ml-auto transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
-          />
-        )}
-      </button>
+    <div className={`relative ${variant === 'hero' ? 'flex items-center w-full sm:w-56' : 'inline-flex items-center'} ${containerClassName || ''}`}>
+      {/* Trigger Button */}
+      {variant === 'hero' ? (
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className={`w-full sm:w-56 h-[48px] flex items-center justify-between px-3 py-2 bg-[#F8FAFC] rounded-xl border transition-colors cursor-pointer select-none text-left rtl:text-right group ${
+            selected
+              ? 'border-[#2DA7B5] bg-[#E8F6F8] ring-1 ring-[#2DA7B5]/20 shadow-2xs'
+              : 'border-[#E2EBF0] hover:border-[#2DA7B5]'
+          } ${buttonClassName || ''}`}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+        >
+          <div className="flex items-center gap-2 min-w-0 flex-1 pr-1 rtl:pr-0 rtl:pl-1">
+            <div className="w-8 h-8 rounded-xl bg-[#2DA7B5] text-white flex items-center justify-center shrink-0 shadow-2xs">
+              <ShieldCheck className="w-4 h-4 text-white stroke-[2.5]" />
+            </div>
+            <span
+              className={`text-xs font-bold truncate ${
+                selected ? 'text-[#0E7490]' : 'text-slate-800 group-hover:text-[#0E7490]'
+              }`}
+            >
+              {buttonLabel}
+            </span>
+          </div>
+          {selected ? (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="text-[#0E7490] hover:text-rose-500 transition-colors p-1 cursor-pointer shrink-0"
+              aria-label="Clear insurance filter"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <ChevronDown
+              className={`w-4 h-4 text-slate-400 group-hover:text-slate-600 shrink-0 transition-transform duration-200 ${
+                open ? 'rotate-180 text-[#0E7490]' : ''
+              }`}
+            />
+          )}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className={`inline-flex items-center gap-2 px-3.5 py-2 sm:py-2.5 rounded-xl border text-xs sm:text-sm font-semibold transition-all cursor-pointer select-none ${
+            selected
+              ? 'bg-[#E8F6F8] border-[#2DA7B5] text-[#0E7490] shadow-2xs font-bold'
+              : 'bg-[#F8FAFC] border-[#E2EBF0] text-slate-700 hover:border-[#2DA7B5] hover:text-[#0E7490] hover:bg-white'
+          } ${buttonClassName || ''}`}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+        >
+          <ShieldCheck className="w-4 h-4 text-slate-700 shrink-0" />
+          <span className="truncate underline decoration-slate-400 decoration-1 underline-offset-2">
+            {buttonLabel}
+          </span>
+          {selected ? (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="ml-auto text-[#0E7490] hover:text-rose-500 transition-colors p-0.5 cursor-pointer"
+              aria-label="Clear insurance filter"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <ChevronDown
+              className={`w-3.5 h-3.5 text-slate-500 shrink-0 ml-auto transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+            />
+          )}
+        </button>
+      )}
 
       {/* Modal Dialog */}
       {open && (
@@ -300,8 +346,8 @@ export const InsurancePicker: React.FC<InsurancePickerProps> = ({
                       ? 'تأميناتك المعتمدة وقائمة كبرى شركات التأمين'
                       : 'Your saved coverage & accredited network carriers'
                     : isArabic
-                    ? 'اختر مزود التأمين الصحي لعرض المستشفيات المعتمدة'
-                    : 'Choose your provider to view in-network medical centers'}
+                      ? 'اختر مزود التأمين الصحي لعرض المستشفيات المعتمدة'
+                      : 'Choose your provider to view in-network medical centers'}
                 </p>
               </div>
               <button
@@ -365,11 +411,10 @@ export const InsurancePicker: React.FC<InsurancePickerProps> = ({
                             key={entry.label + entry.provider}
                             type="button"
                             onClick={() => handlePick(entry.provider)}
-                            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl border text-left rtl:text-right transition-all cursor-pointer ${
-                              isMatch
+                            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl border text-left rtl:text-right transition-all cursor-pointer ${isMatch
                                 ? 'bg-[#E8F6F8] border-[#2DA7B5] text-[#0E7490]'
                                 : 'border-[#E2EBF0] hover:bg-slate-50 text-slate-800'
-                            }`}
+                              }`}
                           >
                             <div className="flex items-center gap-3">
                               <div className="w-8 h-8 rounded-xl bg-[#E8F6F8] text-[#0E7490] flex items-center justify-center shrink-0 border border-[#CDEBF0]">
@@ -409,11 +454,10 @@ export const InsurancePicker: React.FC<InsurancePickerProps> = ({
                           key={carrier.name}
                           type="button"
                           onClick={() => handlePick(carrier.name)}
-                          className={`flex items-center gap-2.5 p-2.5 rounded-2xl border text-left rtl:text-right transition-all cursor-pointer group ${
-                            isMatch
+                          className={`flex items-center gap-2.5 p-2.5 rounded-2xl border text-left rtl:text-right transition-all cursor-pointer group ${isMatch
                               ? 'bg-[#E8F6F8] border-[#2DA7B5] text-[#0E7490] font-bold shadow-2xs'
                               : 'bg-white border-[#E2EBF0] hover:border-[#2DA7B5] hover:bg-slate-50 text-slate-800'
-                          }`}
+                            }`}
                         >
                           <div
                             className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 font-black text-[10px] tracking-tight ${carrier.badgeBg}`}
@@ -449,11 +493,10 @@ export const InsurancePicker: React.FC<InsurancePickerProps> = ({
                                 key={name}
                                 type="button"
                                 onClick={() => handlePick(name)}
-                                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left rtl:text-right text-xs transition-colors cursor-pointer ${
-                                  isMatch
+                                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left rtl:text-right text-xs transition-colors cursor-pointer ${isMatch
                                     ? 'bg-[#E8F6F8] text-[#0E7490] font-bold'
                                     : 'hover:bg-slate-50 text-slate-700 font-medium'
-                                }`}
+                                  }`}
                               >
                                 <span className="truncate">{name}</span>
                                 {isMatch && <Check className="w-4 h-4 text-[#0E7490] shrink-0 ml-2" />}
@@ -469,23 +512,33 @@ export const InsurancePicker: React.FC<InsurancePickerProps> = ({
 
               {/* Empty Search State */}
               {!hasResults && (
-                <div className="text-center py-8">
+                <div className="text-center py-6">
                   <ShieldCheck className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                   <p className="text-xs font-bold text-slate-700">
                     {isArabic
                       ? `لا توجد نتائج لـ "${query}"`
-                      : `No results for "${query}"`}
+                      : `No standard carrier matches "${query}"`}
                   </p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
+                  <p className="text-[11px] text-slate-400 mt-0.5 mb-3">
                     {isArabic
-                      ? 'تأكد من كتابة اسم شركة التأمين بشكل صحيح'
-                      : 'Check the spelling or try searching for another provider'}
+                      ? 'يمكنك استخدام هذا التأمين المخصص مباشرة'
+                      : 'You can select this custom insurance directly'}
                   </p>
+                  {query.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => handlePick(query.trim())}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#2DA7B5] hover:bg-[#258e9b] text-white text-xs font-bold rounded-xl cursor-pointer transition-colors shadow-2xs"
+                    >
+                      <span>{isArabic ? `اختيار "${query.trim()}"` : `Select "${query.trim()}" (Custom)`}</span>
+                    </button>
+                  )}
                 </div>
               )}
 
             </div>
           </div>
+
         </div>
       )}
     </div>

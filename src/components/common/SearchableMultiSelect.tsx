@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Search, X, Check, ChevronDown } from 'lucide-react';
+import { Search, X, Check, ChevronDown, Plus } from 'lucide-react';
 
 interface SearchableMultiSelectProps {
   label?: string;
@@ -34,6 +34,8 @@ export const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
 
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [isAddingCustom, setIsAddingCustom] = useState(false);
+  const [customInputValue, setCustomInputValue] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -41,6 +43,8 @@ export const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false);
+        setIsAddingCustom(false);
+        setCustomInputValue('');
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -182,10 +186,13 @@ export const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
                   toggleOption(search.trim());
                   setSearch('');
                 }}
-                className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-semibold text-[#0E7490] bg-[#EBF7F9] hover:bg-[#DCF3F6] flex items-center justify-between cursor-pointer transition-colors mb-1"
+                className="w-full text-left px-2.5 py-2 rounded-xl text-xs font-bold text-[#0E7490] bg-[#EBF7F9] hover:bg-[#DCF3F6] border border-[#2DA7B5]/30 flex items-center justify-between cursor-pointer transition-colors mb-1.5 shadow-2xs"
               >
-                <span>Add &quot;{search.trim()}&quot; (custom)</span>
-                <span className="text-[10px] bg-white px-1.5 py-0.5 rounded-md border border-[#CDEBF0]">Enter</span>
+                <div className="flex items-center gap-1.5">
+                  <Plus className="w-3.5 h-3.5 text-[#2DA7B5]" />
+                  <span>Add &quot;{search.trim()}&quot; (custom)</span>
+                </div>
+                <span className="text-[10px] bg-white px-2 py-0.5 rounded-md border border-[#CDEBF0] font-semibold">Enter ↵</span>
               </button>
             )}
 
@@ -213,6 +220,74 @@ export const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
               })
             )}
           </div>
+
+          {/* Custom Option Footer */}
+          {allowCustom && (
+            <div className="p-2 border-t border-slate-100 bg-[#F8FAFC]">
+              {isAddingCustom ? (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={customInputValue}
+                      onChange={(e) => setCustomInputValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (customInputValue.trim()) {
+                            toggleOption(customInputValue.trim());
+                            setCustomInputValue('');
+                            setIsAddingCustom(false);
+                          }
+                        } else if (e.key === 'Escape') {
+                          setIsAddingCustom(false);
+                          setCustomInputValue('');
+                        }
+                      }}
+                      placeholder="Enter custom insurance name..."
+                      className="flex-1 px-2.5 py-1.5 text-xs bg-white border border-[#CBD5E1] rounded-lg focus:outline-hidden focus:border-[#2DA7B5] font-medium"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (customInputValue.trim()) {
+                          toggleOption(customInputValue.trim());
+                          setCustomInputValue('');
+                          setIsAddingCustom(false);
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-[#2DA7B5] hover:bg-[#258e9b] text-white text-xs font-bold rounded-lg cursor-pointer transition-colors shadow-2xs shrink-0"
+                    >
+                      Add
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingCustom(false);
+                        setCustomInputValue('');
+                      }}
+                      className="px-2 py-1.5 text-slate-500 hover:text-slate-700 text-xs font-medium cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <span className="text-[10px] text-slate-400 block px-1">
+                    Press Enter to add custom insurance
+                  </span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsAddingCustom(true)}
+                  className="w-full py-1.5 px-3 text-xs font-bold text-[#0E7490] hover:text-[#0b5c73] bg-white hover:bg-[#EBF7F9] border border-dashed border-[#2DA7B5]/40 hover:border-[#2DA7B5] rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-2xs"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Add Custom Insurance</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
