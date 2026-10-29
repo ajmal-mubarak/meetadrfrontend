@@ -236,7 +236,8 @@ export const SearchPage: React.FC = () => {
   const initialQuery = searchParams.get('q') || '';
   const initialSpecialty = searchParams.get('specialty') || 'All';
   const initialLocation = getUrlLocation();
-  const initialType = searchParams.get('type') || 'All';
+  const rawType = searchParams.get('type');
+  const initialType = rawType === 'Hospital' ? 'Hospital' : 'Doctor';
   const initialInsurance = searchParams.get('insurance') || '';
 
   const [searchTerm, setSearchTerm] = useState(initialQuery);
@@ -256,7 +257,8 @@ export const SearchPage: React.FC = () => {
     const q = searchParams.get('q') || '';
     const sp = searchParams.get('specialty') || 'All';
     const loc = getUrlLocation();
-    const tp = searchParams.get('type') || 'All';
+    const rawTp = searchParams.get('type');
+    const tp = rawTp === 'Hospital' ? 'Hospital' : 'Doctor';
     const ins = searchParams.get('insurance') || '';
 
     setSearchTerm(q);
@@ -364,7 +366,7 @@ export const SearchPage: React.FC = () => {
     if (searchTerm) params.append('q', searchTerm);
     if (specialty !== 'All') params.append('specialty', specialty);
     if (location !== 'All') params.append('location', location);
-    if (providerType !== 'All') params.append('type', providerType);
+    if (providerType && providerType !== 'Doctor') params.append('type', providerType);
     if (insurance) params.append('insurance', insurance);
     setDoctorPage(1);
     setHospitalPage(1);
@@ -376,7 +378,7 @@ export const SearchPage: React.FC = () => {
     setSearchTerm('');
     setSpecialty('All');
     setLocation('All');
-    setProviderType('All');
+    setProviderType('Doctor');
     setInsurance('');
     setDoctorPage(1);
     setHospitalPage(1);
@@ -387,7 +389,7 @@ export const SearchPage: React.FC = () => {
 
   // Filter Doctors
   const filteredDoctors = doctors.filter((d) => {
-    if (providerType !== 'All' && providerType !== 'Doctor') return false;
+    if (providerType !== 'Doctor') return false;
     if (searchTerm && !doctorMatchesQuery(d, searchTerm)) return false;
     if (!matchesSpecialty(d.specialty, specialty)) return false;
 
@@ -411,7 +413,7 @@ export const SearchPage: React.FC = () => {
 
   // Filter Hospitals
   const filteredHospitals = hospitals.filter((h) => {
-    if (providerType !== 'All' && providerType !== 'Hospital') return false;
+    if (providerType !== 'Hospital') return false;
     if (searchTerm && !hospitalMatchesQuery(h, searchTerm)) return false;
     if (specialty !== 'All') {
       const hasSpec = h.specialties.some((s) => matchesSpecialty(s, specialty));
@@ -426,7 +428,7 @@ export const SearchPage: React.FC = () => {
 
   // Filter Clinics
   const filteredClinics = clinics.filter((c) => {
-    if (providerType !== 'All' && providerType !== 'Clinic') return false;
+    if (providerType !== 'Hospital') return false;
     if (searchTerm && !clinicMatchesQuery(c, searchTerm)) return false;
     if (!matchesSpecialty(c.specialty, specialty)) return false;
     if (!matchesLocation(c.location, location)) return false;
@@ -455,10 +457,8 @@ export const SearchPage: React.FC = () => {
     filteredDoctors.length + filteredHospitals.length + filteredClinics.length;
 
   const getProviderTypeLabel = (type: string) => {
-    if (type === 'All') return t('search.allProviders');
     if (type === 'Doctor') return t('search.doctorOnly');
     if (type === 'Hospital') return t('search.hospitalOnly');
-    if (type === 'Clinic') return t('search.clinicOnly');
     return type;
   };
 
@@ -643,9 +643,9 @@ export const SearchPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-[#E2EBF0]">
               <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 -mx-1 px-1">
                 <span className="text-xs font-semibold text-slate-500 mr-1 rtl:mr-0 rtl:ml-1 shrink-0">
-                  {t('search.category')}:
+                  {t('search.category')}
                 </span>
-                {['All', 'Doctor', 'Hospital', 'Clinic'].map((type) => (
+                {['Doctor', 'Hospital'].map((type) => (
                   <button
                     key={type}
                     type="button"
@@ -654,6 +654,9 @@ export const SearchPage: React.FC = () => {
                       setDoctorPage(1);
                       setHospitalPage(1);
                       setClinicPage(1);
+                      const params = new URLSearchParams(searchParams);
+                      params.set('type', type);
+                      setSearchParams(params);
                     }}
                     className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer shrink-0 ${
                       providerType === type
@@ -667,7 +670,7 @@ export const SearchPage: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-3 shrink-0">
-                {(searchTerm || specialty !== 'All' || location !== 'All' || providerType !== 'All') && (
+                {(searchTerm || specialty !== 'All' || location !== 'All' || providerType !== 'Doctor') && (
                   <button
                     type="button"
                     onClick={handleResetFilters}
