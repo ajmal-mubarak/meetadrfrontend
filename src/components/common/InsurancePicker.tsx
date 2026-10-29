@@ -241,8 +241,8 @@ export const InsurancePicker: React.FC<InsurancePickerProps> = ({
   const buttonLabel = selected
     ? selected
     : isArabic
-    ? 'إضافة تأمين'
-    : 'Add insurance';
+    ? 'التأمين'
+    : 'Insurance';
 
   return (
     <div className={`relative inline-flex items-center ${containerClassName || ''}`}>
