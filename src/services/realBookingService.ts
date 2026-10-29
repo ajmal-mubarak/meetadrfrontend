@@ -90,6 +90,14 @@ interface BackendAppointment {
   createdAt?: string;
   googleMapsUrl?: string;
   google_maps_url?: string;
+  billing_type?: string;
+  billingType?: string;
+  insurance_provider_snapshot?: string;
+  insuranceProvider?: string;
+  insurance_number_snapshot?: string;
+  insuranceNumber?: string;
+  insurance_network_status?: string;
+  insuranceNetworkStatus?: string;
 }
 
 export interface BookingInput {
@@ -99,6 +107,9 @@ export interface BookingInput {
   dependent_id?: string | null;
   notes?: string;
   patient_phone?: string;
+  billing_type?: 'insurance' | 'self_pay';
+  insurance_provider?: string;
+  insurance_number?: string;
 }
 
 export interface CancelInput {
@@ -137,6 +148,10 @@ function mapAppointment(b: BackendAppointment): Appointment {
     timeSlot: b.timeSlot || b.time || b.time_slot || '',
     status,
     notes: b.notes || undefined,
+    billingType: (b.billingType || b.billing_type || 'self_pay') as 'insurance' | 'self_pay',
+    insuranceProvider: b.insuranceProvider || b.insurance_provider_snapshot || '',
+    insuranceNumber: b.insuranceNumber || b.insurance_number_snapshot || '',
+    insuranceNetworkStatus: (b.insuranceNetworkStatus || b.insurance_network_status || 'self_pay') as 'in_network' | 'out_of_network' | 'self_pay',
     cancelReason: b.cancelReason || b.cancel_reason || undefined,
     cancelledBy: b.cancelledBy || b.cancelled_by_role || undefined,
     cancelledByName: b.cancelledByName || undefined,
@@ -207,6 +222,9 @@ export const realBookingService = {
       time_slot: input.time_slot,
       notes: input.notes || '',
       patient_phone: input.patient_phone || '',
+      billing_type: input.billing_type || 'self_pay',
+      insurance_provider: input.insurance_provider || '',
+      insurance_number: input.insurance_number || '',
     };
 
     if (input.dependent_id) {

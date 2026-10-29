@@ -186,6 +186,16 @@ function mapDoctor(d: BackendDoctor): Doctor {
     availableDays: d.available_days || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Saturday'],
     availableSlots: d.standard_slots || ['09:00 - 09:30', '10:00 - 10:30', '11:00 - 11:30'],
     status: (d.status as 'Active' | 'Deactivated') || 'Active',
+    firstName: (d as any).first_name || '',
+    lastName: (d as any).last_name || '',
+    gender: (d as any).gender || '',
+    department: (d as any).department || '',
+    qualifications: (d as any).qualifications || [],
+    countryOfOrigin: (d as any).country_of_origin || '',
+    languages: (d as any).languages || [],
+    phoneDialCode: (d as any).phone_dial_code || '+971',
+    contactNumber: (d as any).contact_number || '',
+    email: (d as any).email || '',
   };
 }
 
@@ -288,6 +298,16 @@ export const realFacilityAdminService = {
     if (doctorData.username) payload.username = doctorData.username;
     if (doctorData.email) payload.email = doctorData.email;
     if (doctorData.password) payload.password = doctorData.password;
+    const dAny = doctorData as any;
+    if (dAny.first_name || dAny.firstName) payload.first_name = dAny.first_name || dAny.firstName;
+    if (dAny.last_name || dAny.lastName) payload.last_name = dAny.last_name || dAny.lastName;
+    if (dAny.gender) payload.gender = dAny.gender;
+    if (dAny.department) payload.department = dAny.department;
+    if (dAny.qualifications) payload.qualifications = dAny.qualifications;
+    if (dAny.country_of_origin || dAny.countryOfOrigin) payload.country_of_origin = dAny.country_of_origin || dAny.countryOfOrigin;
+    if (dAny.languages) payload.languages = dAny.languages;
+    if (dAny.phone_dial_code || dAny.phoneDialCode) payload.phone_dial_code = dAny.phone_dial_code || dAny.phoneDialCode;
+    if (dAny.contact_number || dAny.contactNumber) payload.contact_number = dAny.contact_number || dAny.contactNumber;
     const created = await apiClient.post<BackendDoctor>(
       API_ENDPOINTS.FACILITIES.DOCTORS,
       payload

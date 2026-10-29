@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
+  ShieldCheck,
   Building2,
   Stethoscope,
   Calendar,
@@ -643,9 +644,19 @@ export const HospitalDashboard: React.FC = () => {
                           </span>
                         </td>
 
-                        {/* Patient Name */}
+                        {/* Patient Name & Coverage */}
                         <td className="py-3.5 px-4 font-bold text-slate-900">
-                          {appt.patientName}
+                          <div>{appt.patientName}</div>
+                          {appt.billingType === 'insurance' && appt.insuranceProvider ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 mt-1 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              <ShieldCheck className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                              <span>{appt.insuranceProvider} {appt.insuranceNumber ? `#${appt.insuranceNumber}` : ''}</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 mt-1 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                              <span>Pay at Reception</span>
+                            </span>
+                          )}
                         </td>
 
                         {/* Doctor & Specialty */}

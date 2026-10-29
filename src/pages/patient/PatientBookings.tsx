@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
+  ShieldCheck,
   Calendar,
   Clock,
   MapPin,
@@ -348,6 +349,21 @@ export const PatientBookings: React.FC = () => {
                           <Building2 className="w-3.5 h-3.5 text-slate-400" />
                           <span>{appt.facilityName || appt.hospitalName || 'American Hospital Dubai'}</span>
                         </p>
+
+                        {/* Billing / Insurance Snapshot */}
+                        <div className="flex items-center gap-1.5 pt-1 text-xs">
+                          {appt.billingType === 'insurance' && appt.insuranceProvider ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                              <ShieldCheck className="w-3 h-3 text-emerald-600 shrink-0" />
+                              <span>{appt.insuranceProvider} {appt.insuranceNumber ? `#${appt.insuranceNumber}` : ''} • {appt.insuranceNetworkStatus === 'in_network' ? (isArabic ? 'معتمد' : 'In-Network') : (isArabic ? 'خارج الشبكة' : 'Out-of-Network')}</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                              <Building2 className="w-3 h-3 text-slate-500 shrink-0" />
+                              <span>{isArabic ? 'الدفع في الاستقبال' : 'Pay at Hospital Reception'}</span>
+                            </span>
+                          )}
+                        </div>
 
                         {isCancelled && appt.cancelReason && (
                           <div className="flex items-center gap-1.5 text-xs text-rose-600 bg-rose-50 border border-rose-200/60 px-3 py-1 rounded-xl mt-1.5">

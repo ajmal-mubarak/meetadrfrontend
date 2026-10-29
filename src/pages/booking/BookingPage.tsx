@@ -35,6 +35,10 @@ import { Doctor, Appointment } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { useTranslation } from '../../i18n';
 import { patientService, FrontendDependent } from '../../services/patientService';
+import { realHospitalService } from '../../services/realFacilityService';
+import { InsurancePicker } from '../../components/common/InsurancePicker';
+import { Hospital } from '../../types';
+import { AlertCircle } from 'lucide-react';
 
 // ─── Guest Login Modal (intercepts booking when not authenticated) ────────────
 interface GuestLoginModalProps {
@@ -490,6 +494,42 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
   const [patientEmail, setPatientEmail] = useState(user ? user.email : '');
   const [termsAccepted, setTermsAccepted] = useState(true);
 
+  // Billing & Health Insurance state (zero online payment — settled in person at reception)
+  const [billingType, setBillingType] = useState<'insurance' | 'self_pay'>('insurance');
+  const [insuranceProvider, setInsuranceProvider] = useState<string>('');
+  const [insuranceNumber, setInsuranceNumber] = useState<string>('');
+  const [patientProfileData, setPatientProfileData] = useState<{ insuranceProvider?: string; insuranceNumber?: string } | null>(null);
+  const [hospitalsList, setHospitalsList] = useState<Hospital[]>([]);
+
+  // Fetch hospital data to obtain accepted insurance plans
+  React.useEffect(() => {
+    realHospitalService.getAllHospitals()
+      .then((hosps) => setHospitalsList(hosps || []))
+      .catch(() => setHospitalsList([]));
+  }, []);
+
+  // Fetch patient profile to pre-populate insurance
+  React.useEffect(() => {
+    if (user && user.role === 'patient') {
+      patientService.getProfile()
+        .then((prof) => {
+          if (prof) {
+            setPatientProfileData({
+              insuranceProvider: prof.insuranceProvider || '',
+              insuranceNumber: prof.insuranceNumber || '',
+            });
+            if (prof.insuranceProvider) {
+              setInsuranceProvider(prof.insuranceProvider);
+            }
+            if (prof.insuranceNumber) {
+              setInsuranceNumber(prof.insuranceNumber);
+            }
+          }
+        })
+        .catch(() => {});
+    }
+  }, [user]);
+
   // Beneficiary selector: 'self' | 'dependent' | 'other'
   const [beneficiaryType, setBeneficiaryType] = useState<'self' | 'dependent' | 'other'>('self');
   const [dependents, setDependents] = useState<FrontendDependent[]>([]);
@@ -528,6 +568,41 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
       if (!patientEmail && user.email) setPatientEmail(user.email);
     }
   }, [user, beneficiaryType]);
+
+  // When beneficiary type or selected dependent changes, auto-populate insurance
+  React.useEffect(() => {
+    if (beneficiaryType === 'dependent' && selectedDependentId) {
+      const dep = dependents.find((d) => d.id === selectedDependentId);
+      if (dep) {
+        setInsuranceProvider(dep.insuranceProvider || '');
+        setInsuranceNumber(dep.insuranceNumber || '');
+      }
+    } else if (beneficiaryType === 'self' && patientProfileData) {
+      setInsuranceProvider(patientProfileData.insuranceProvider || '');
+      setInsuranceNumber(patientProfileData.insuranceNumber || '');
+    }
+  }, [beneficiaryType, selectedDependentId, dependents, patientProfileData]);
+
+  // Calculate doctor's affiliated hospital and its accepted insurance plans
+  const doctorHospital = useMemo(() => {
+    if (!doctor) return null;
+    return hospitalsList.find((h) => h.id === doctor.hospitalId || (doctor.hospitalName && h.name.toLowerCase() === doctor.hospitalName.toLowerCase())) || null;
+  }, [doctor, hospitalsList]);
+
+  const acceptedInsurancePlans = useMemo(() => {
+    if (!doctorHospital?.insurancePlans) return [];
+    return doctorHospital.insurancePlans.split(',').map((p) => p.trim()).filter(Boolean);
+  }, [doctorHospital]);
+
+  // In-network validation against the hospital's accepted networks
+  const isInNetwork = useMemo(() => {
+    if (billingType !== 'insurance' || !insuranceProvider.trim()) return false;
+    const pLower = insuranceProvider.trim().toLowerCase();
+    return acceptedInsurancePlans.some((plan) => {
+      const planLower = plan.toLowerCase();
+      return planLower.includes(pLower) || pLower.includes(planLower);
+    });
+  }, [billingType, insuranceProvider, acceptedInsurancePlans]);
 
   // Generate date options (today + next 7 days) with practicing day calculation
   const nextDates = useMemo(() => {
@@ -680,6 +755,9 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
           dependent_id: beneficiaryType === 'dependent' ? selectedDependentId : undefined,
           notes: '',
           patient_phone: fullPhone,
+          billing_type: billingType,
+          insurance_provider: billingType === 'insurance' ? insuranceProvider.trim() : '',
+          insurance_number: billingType === 'insurance' ? insuranceNumber.trim() : '',
         });
         setBookedAppointment(newAppt);
         setBookedSlotsForDate((prev) => [...prev, selectedSlot]);
@@ -914,6 +992,28 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
                     </span>
                   </p>
                 </div>
+              </div>
+
+              {/* Insurance & Billing Details on Receipt */}
+              <div className="pt-3 border-t border-[#E2EBF0] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#2DA7B5] shrink-0" />
+                  <span className="text-slate-600 font-medium">{isArabic ? 'طريقة السداد والتغطية:' : 'Coverage & Billing:'}</span>
+                  {bookedAppointment?.billingType === 'insurance' && (bookedAppointment.insuranceProvider || insuranceProvider) ? (
+                    <span className="font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                      {bookedAppointment.insuranceProvider || insuranceProvider} ({bookedAppointment.insuranceNetworkStatus === 'in_network' || isInNetwork ? (isArabic ? 'معتمد مباشرة' : 'In-Network Direct Billing') : (isArabic ? 'استرداد' : 'Out-of-Network Claim')})
+                    </span>
+                  ) : (
+                    <span className="font-bold text-slate-700 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                      {isArabic ? 'سداد مباشر في الاستقبال' : 'Pay at Hospital Reception (Self-Pay)'}
+                    </span>
+                  )}
+                </div>
+                {bookedAppointment?.billingType === 'insurance' && (bookedAppointment.insuranceNumber || insuranceNumber) && (
+                  <span className="text-slate-500 text-[11px] font-mono">
+                    ID: {bookedAppointment.insuranceNumber || insuranceNumber}
+                  </span>
+                )}
               </div>
 
               <div className="pt-3 border-t border-[#E2EBF0] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs">
@@ -1614,6 +1714,154 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
                         ? '💳 لا يلزم الدفع الآن. يتم سداد المبلغ مباشرة لدى موظفي الاستقبال في المستشفى عند وصولك.'
                         : '💳 Zero upfront payment required. Pay in person at the hospital / clinic reception desk upon arrival.'}
                     </p>
+                  </div>
+
+                  {/* Billing & Health Insurance Coverage Choice */}
+                  <div className="bg-white rounded-2xl border border-[#E2EBF0] p-4 sm:p-5 space-y-4 shadow-sm">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                          <ShieldCheck className="w-4 h-4 text-[#2DA7B5]" />
+                          <span>{isArabic ? 'طريقة السداد والتأمين الصحي' : 'Billing & Insurance Coverage'}</span>
+                        </h3>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          {isArabic
+                            ? 'لا يلزم أي دفع إلكتروني الآن — جميع التسويات تتم مباشرة في استقبال المستشفى'
+                            : 'No online payment required • All settlements handled at hospital reception'}
+                        </p>
+                      </div>
+                      <span className="text-[10px] font-bold text-[#0E7490] bg-[#E8F6F8] px-2.5 py-1 rounded-full border border-[#CDEBF0]">
+                        {isArabic ? 'الدفع في المستشفى' : 'Pay at Hospital'}
+                      </span>
+                    </div>
+
+                    {/* Toggle between Health Insurance and Self-Pay */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {/* Option 1: Health Insurance */}
+                      <button
+                        type="button"
+                        onClick={() => setBillingType('insurance')}
+                        className={`p-3 rounded-xl border text-left rtl:text-right transition-all cursor-pointer flex items-start gap-2.5 ${
+                          billingType === 'insurance'
+                            ? 'bg-[#E8F6F8] border-[#2DA7B5] text-[#0E7490] shadow-xs'
+                            : 'bg-[#F8FAFC] border-[#E2EBF0] text-slate-700 hover:bg-white hover:border-[#CBD5E1]'
+                        }`}
+                      >
+                        <ShieldCheck className={`w-4 h-4 mt-0.5 shrink-0 ${billingType === 'insurance' ? 'text-[#0E7490]' : 'text-slate-400'}`} />
+                        <div>
+                          <p className="text-xs font-bold">{isArabic ? 'تغطية التأمين الصحي' : 'Use Health Insurance'}</p>
+                          <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                            {isArabic ? 'إبراز بطاقة التأمين لدى الاستقبال' : 'Direct billing with in-network card'}
+                          </p>
+                        </div>
+                      </button>
+
+                      {/* Option 2: Self-Pay */}
+                      <button
+                        type="button"
+                        onClick={() => setBillingType('self_pay')}
+                        className={`p-3 rounded-xl border text-left rtl:text-right transition-all cursor-pointer flex items-start gap-2.5 ${
+                          billingType === 'self_pay'
+                            ? 'bg-[#E8F6F8] border-[#2DA7B5] text-[#0E7490] shadow-xs'
+                            : 'bg-[#F8FAFC] border-[#E2EBF0] text-slate-700 hover:bg-white hover:border-[#CBD5E1]'
+                        }`}
+                      >
+                        <Building2 className={`w-4 h-4 mt-0.5 shrink-0 ${billingType === 'self_pay' ? 'text-[#0E7490]' : 'text-slate-400'}`} />
+                        <div>
+                          <p className="text-xs font-bold">{isArabic ? 'الدفع الذاتي في المستشفى' : 'Self-Pay at Hospital'}</p>
+                          <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                            {isArabic ? 'سداد الرسوم نقداً أو بالبطاقة لدى الوصول' : 'Pay consultation fee at reception desk'}
+                          </p>
+                        </div>
+                      </button>
+                    </div>
+
+                    {/* If Health Insurance Selected */}
+                    {billingType === 'insurance' && (
+                      <div className="pt-2 border-t border-[#E2EBF0] space-y-3 animate-in fade-in duration-200">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {/* Insurer Picker */}
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                              {isArabic ? 'شركة التأمين الطبي' : 'Insurance Provider'} *
+                            </label>
+                            <InsurancePicker
+                              allHospitalPlans={acceptedInsurancePlans}
+                              selected={insuranceProvider}
+                              onSelect={(val) => setInsuranceProvider(val)}
+                              isArabic={isArabic}
+                              buttonClassName="w-full h-[40px] py-2 px-3 text-xs justify-between rounded-xl border-[#CBD5E1] bg-[#F8FAFC] hover:bg-white font-medium"
+                              containerClassName="w-full"
+                            />
+                          </div>
+
+                          {/* Policy / Member Number */}
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                              {isArabic ? 'رقم بطاقة التأمين / العضوية' : 'Insurance Member / Policy ID'} *
+                            </label>
+                            <input
+                              type="text"
+                              value={insuranceNumber}
+                              onChange={(e) => setInsuranceNumber(e.target.value)}
+                              placeholder={isArabic ? 'مثال: DAM-892341' : 'e.g. DAM-892341'}
+                              className="w-full h-[40px] px-3 border border-[#CBD5E1] rounded-xl text-xs font-medium text-slate-900 bg-[#F8FAFC] focus:bg-white focus:border-[#2DA7B5] focus:outline-hidden transition-all"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Network Status Badge & Advisory */}
+                        {insuranceProvider.trim() && (
+                          isInNetwork ? (
+                            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-start gap-2.5 text-xs">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                              <div className="space-y-0.5">
+                                <p className="font-bold">
+                                  {isArabic
+                                    ? `معتمد ضمن شبكة المستشفى (In-Network مع ${doctor?.hospitalName || 'المستشفى'})`
+                                    : `In-Network at ${doctor?.hospitalName || 'Facility'}`}
+                                </p>
+                                <p className="text-[11px] text-emerald-800 leading-relaxed">
+                                  {isArabic
+                                    ? `يقبل المستشفى الفوترة المباشرة لـ ${insuranceProvider}. يرجى إبراز بطاقة التأمين الأصلية والهوية الإماراتية عند الاستقبال للاستفادة من التغطية.`
+                                    : `${doctor?.hospitalName || 'This hospital'} accepts direct billing for ${insuranceProvider}. Present your Emirates ID and insurance card at reception to apply your coverage.`}
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-2.5 text-xs">
+                              <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                              <div className="space-y-0.5">
+                                <p className="font-bold">
+                                  {isArabic
+                                    ? `خارج شبكة الفوترة المباشرة للمستشفى (Out-of-Network)`
+                                    : `Out-of-Network at ${doctor?.hospitalName || 'Facility'}`}
+                                </p>
+                                <p className="text-[11px] text-amber-800 leading-relaxed">
+                                  {isArabic
+                                    ? `لا يوفر المستشفى فوترة مباشرة مع ${insuranceProvider}. يمكنك سداد الرسوم (AED ${doctor?.consultationFee || 500}) لدى الاستقبال والحصول على فاتورة وتقرير طبي معتمد لطلب استرداد المبلغ من شركة تأمينك.`
+                                    : `${doctor?.hospitalName || 'This hospital'} does not offer direct billing for ${insuranceProvider}. You can pay the consultation fee at reception and request an itemized medical invoice & claim form for insurer reimbursement.`}
+                                </p>
+                              </div>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    )}
+
+                    {/* If Self-Pay Selected */}
+                    {billingType === 'self_pay' && (
+                      <div className="pt-2 border-t border-[#E2EBF0] text-xs text-slate-600 space-y-1">
+                        <p className="font-semibold text-slate-800">
+                          {isArabic ? 'الدفع في مكتب الاستقبال:' : 'Payment at Hospital Reception:'}
+                        </p>
+                        <p className="text-[11px] text-slate-500 leading-relaxed">
+                          {isArabic
+                            ? `سيتم سداد رسوم الاستشارة البالغة AED ${doctor?.consultationFee || 500} نقداً أو ببطاقة الائتمان لدى وصولك إلى المستشفى.`
+                            : `The full specialist consultation fee of AED ${doctor?.consultationFee || 500} is payable in cash or card directly at the hospital reception upon arrival.`}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Patient Info Fields */}

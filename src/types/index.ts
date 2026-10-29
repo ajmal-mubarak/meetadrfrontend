@@ -43,6 +43,16 @@ export interface Doctor {
   status?: 'Active' | 'Deactivated';
   isVerified?: boolean;
   isActive?: boolean;
+  firstName?: string;
+  lastName?: string;
+  gender?: string;
+  department?: string;
+  qualifications?: string[];
+  countryOfOrigin?: string;
+  languages?: string[];
+  phoneDialCode?: string;
+  contactNumber?: string;
+  email?: string;
 }
 
 export interface Hospital {
@@ -66,6 +76,18 @@ export interface Hospital {
   aboutAr?: string;
   insurancePlans?: string;  // comma-separated list from backend
   googleMapsUrl?: string;
+  country?: string;
+  emirate?: string;
+  area?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  phoneDialCode?: string;
+  website?: string;
+  logo?: string;
+  facilityCategory?: 'Hospital' | 'Clinic' | 'Wellness';
+  managerName?: string;
+  managerPhone?: string;
+  managerEmail?: string;
   status?: 'Active' | 'Deactivated';
 }
 
@@ -134,6 +156,10 @@ export interface Appointment {
   time: string; // e.g. "10:00 AM"
   timeSlot?: string;
   status: AppointmentStatus;
+  billingType?: 'insurance' | 'self_pay';
+  insuranceProvider?: string;
+  insuranceNumber?: string;
+  insuranceNetworkStatus?: 'in_network' | 'out_of_network' | 'self_pay';
   notes?: string;
   cancelReason?: string;
   cancelNote?: string;

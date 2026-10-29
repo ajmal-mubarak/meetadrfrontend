@@ -21,12 +21,22 @@ import {
   ArrowLeft,
   Calendar,
   Sparkles,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { realAdminService, ProviderItem } from '../../services/realAdminService';
 import { Doctor } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { ImageUpload } from '../../components/common/ImageUpload';
 import { DEFAULT_DOCTOR_AVATAR } from '../../utils/avatar';
+import { BulkImportModal } from '../../components/common/BulkImportModal';
+import { SearchableSelect } from '../../components/common/SearchableSelect';
+import {
+  SUPPORTING_COUNTRIES,
+  SUPPORTING_EMIRATES,
+  SUPPORTING_DIAL_CODES,
+  FACILITY_CATEGORIES,
+} from '../../data/supportingKeys';
+
 
 import {
   WEEK_DAYS,
@@ -63,17 +73,32 @@ export const AdminHospitalsManage: React.FC = () => {
 
   // Add Hospital Modal
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isSubmittingAdd, setIsSubmittingAdd] = useState(false);
   const [addForm, setAddForm] = useState({
     name: '',
     name_ar: '',
     type: 'hospital' as 'hospital' | 'clinic',
+    facility_category: 'Hospital' as 'Hospital' | 'Clinic' | 'Wellness',
+    country: 'United Arab Emirates',
+    emirate: 'Dubai',
     location: 'Dubai',
+    area: '',
     address: '',
+    latitude: '',
+    longitude: '',
+    phone_dial_code: '+971',
     phone: '',
+    website: '',
     operating_hours: 'Open 24/7',
     about: '',
     photo: '',
+    logo: '',
+    manager_name: '',
+    manager_phone: '',
+    manager_email: '',
+    username: '',
+    password: '',
   });
 
   // Edit Hospital Modal
@@ -83,12 +108,26 @@ export const AdminHospitalsManage: React.FC = () => {
     name: '',
     name_ar: '',
     type: 'hospital' as 'hospital' | 'clinic',
+    facility_category: 'Hospital' as 'Hospital' | 'Clinic' | 'Wellness',
+    country: 'United Arab Emirates',
+    emirate: 'Dubai',
     location: 'Dubai',
+    area: '',
     address: '',
+    latitude: '',
+    longitude: '',
+    phone_dial_code: '+971',
     phone: '',
+    website: '',
     operating_hours: 'Open 24/7',
     about: '',
     photo: '',
+    logo: '',
+    manager_name: '',
+    manager_phone: '',
+    manager_email: '',
+    username: '',
+    password: '',
   });
 
   // Delete Hospital Confirmation
@@ -240,20 +279,34 @@ export const AdminHospitalsManage: React.FC = () => {
       name: '',
       name_ar: '',
       type: 'hospital',
+      facility_category: 'Hospital',
+      country: 'United Arab Emirates',
+      emirate: 'Dubai',
       location: 'Dubai',
+      area: '',
       address: '',
+      latitude: '',
+      longitude: '',
+      phone_dial_code: '+971',
       phone: '',
+      website: '',
       operating_hours: 'Open 24/7',
       about: '',
       photo: '',
+      logo: '',
+      manager_name: '',
+      manager_phone: '',
+      manager_email: '',
+      username: '',
+      password: '',
     });
     setIsAddModalOpen(true);
   };
 
   const handleCreateHospital = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!addForm.name.trim() || !addForm.location.trim()) {
-      showToast('Facility name and location are required.', 'error');
+    if (!addForm.name.trim()) {
+      showToast('Hospital / Facility Name is required.', 'error');
       return;
     }
 
@@ -262,13 +315,27 @@ export const AdminHospitalsManage: React.FC = () => {
       const created = await realAdminService.createProvider({
         name: addForm.name.trim(),
         name_ar: addForm.name_ar.trim() || undefined,
-        type: addForm.type,
-        location: addForm.location.trim(),
+        type: addForm.facility_category === 'Clinic' ? 'clinic' : 'hospital',
+        facility_category: addForm.facility_category,
+        country: addForm.country.trim() || 'United Arab Emirates',
+        emirate: addForm.emirate.trim() || 'Dubai',
+        location: addForm.emirate.trim() || 'Dubai',
+        area: addForm.area.trim() || undefined,
         address: addForm.address.trim() || undefined,
+        latitude: addForm.latitude ? parseFloat(addForm.latitude) : undefined,
+        longitude: addForm.longitude ? parseFloat(addForm.longitude) : undefined,
+        phone_dial_code: addForm.phone_dial_code.trim() || '+971',
         phone: addForm.phone.trim() || undefined,
+        website: addForm.website.trim() || undefined,
         operating_hours: addForm.operating_hours.trim() || 'Open 24/7',
         about: addForm.about.trim() || undefined,
         photo: addForm.photo.trim() || undefined,
+        logo: addForm.logo.trim() || undefined,
+        manager_name: addForm.manager_name.trim() || undefined,
+        manager_phone: addForm.manager_phone.trim() || undefined,
+        manager_email: addForm.manager_email.trim() || undefined,
+        username: addForm.username.trim() || undefined,
+        password: addForm.password.trim() || undefined,
       });
 
       setProviders((prev) => [created, ...prev]);
@@ -285,16 +352,32 @@ export const AdminHospitalsManage: React.FC = () => {
   const handleOpenEditModal = (provider: ProviderItem) => {
     setHospitalToEdit(provider);
     const pType = ((provider as any).type || (provider.providerCategory === 'Clinic' ? 'clinic' : 'hospital')) as 'hospital' | 'clinic';
+    const cat = ((provider as any).facility_category || (provider as any).providerCategory || (pType === 'clinic' ? 'Clinic' : 'Hospital')) as 'Hospital' | 'Clinic' | 'Wellness';
+    const em = (provider as any).emirate || provider.location || 'Dubai';
     setEditForm({
       name: provider.name || '',
       name_ar: (provider as any).name_ar || '',
       type: pType,
-      location: provider.location || 'Dubai',
+      facility_category: cat,
+      country: (provider as any).country || 'United Arab Emirates',
+      emirate: em,
+      location: em,
+      area: (provider as any).area || '',
       address: provider.address || '',
+      latitude: (provider as any).latitude ? String((provider as any).latitude) : '',
+      longitude: (provider as any).longitude ? String((provider as any).longitude) : '',
+      phone_dial_code: (provider as any).phone_dial_code || '+971',
       phone: provider.phone || '',
+      website: (provider as any).website || '',
       operating_hours: (provider as any).operating_hours || (provider as any).operatingHours || 'Open 24/7',
       about: (provider as any).about || '',
       photo: (provider as any).photo || '',
+      logo: (provider as any).logo || '',
+      manager_name: (provider as any).manager_name || '',
+      manager_phone: (provider as any).manager_phone || '',
+      manager_email: (provider as any).manager_email || '',
+      username: '',
+      password: '',
     });
   };
 
@@ -302,7 +385,7 @@ export const AdminHospitalsManage: React.FC = () => {
     e.preventDefault();
     if (!hospitalToEdit) return;
     if (!editForm.name.trim()) {
-      showToast('Facility name is required.', 'error');
+      showToast('Hospital / Facility Name is required.', 'error');
       return;
     }
 
@@ -311,13 +394,27 @@ export const AdminHospitalsManage: React.FC = () => {
       const updated = await realAdminService.updateProvider(hospitalToEdit.id, {
         name: editForm.name.trim(),
         name_ar: editForm.name_ar.trim() || undefined,
-        type: editForm.type,
-        location: editForm.location.trim(),
+        type: editForm.facility_category === 'Clinic' ? 'clinic' : 'hospital',
+        facility_category: editForm.facility_category,
+        country: editForm.country.trim() || 'United Arab Emirates',
+        emirate: editForm.emirate.trim() || 'Dubai',
+        location: editForm.emirate.trim() || 'Dubai',
+        area: editForm.area.trim() || undefined,
         address: editForm.address.trim() || undefined,
+        latitude: editForm.latitude ? parseFloat(editForm.latitude) : undefined,
+        longitude: editForm.longitude ? parseFloat(editForm.longitude) : undefined,
+        phone_dial_code: editForm.phone_dial_code.trim() || '+971',
         phone: editForm.phone.trim() || undefined,
+        website: editForm.website.trim() || undefined,
         operating_hours: editForm.operating_hours.trim() || undefined,
         about: editForm.about.trim() || undefined,
         photo: editForm.photo.trim() || undefined,
+        logo: editForm.logo.trim() || undefined,
+        manager_name: editForm.manager_name.trim() || undefined,
+        manager_phone: editForm.manager_phone.trim() || undefined,
+        manager_email: editForm.manager_email.trim() || undefined,
+        username: editForm.username.trim() || undefined,
+        password: editForm.password.trim() || undefined,
       });
 
       setProviders((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
@@ -573,14 +670,24 @@ export const AdminHospitalsManage: React.FC = () => {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handleOpenAddModal}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold text-sm transition-all shadow-sm shadow-teal-600/20"
-        >
-          <Plus className="w-4 h-4" />
-          Add Hospital / Clinic
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setIsImportModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl font-bold text-sm transition-all shadow-xs cursor-pointer"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+            Bulk Import Hospitals
+          </button>
+          <button
+            type="button"
+            onClick={handleOpenAddModal}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold text-sm transition-all shadow-sm shadow-teal-600/20 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Add Hospital / Clinic
+          </button>
+        </div>
       </div>
 
       {/* If Viewing Specific Hospital Doctors Drilldown Banner */}
@@ -1119,141 +1226,280 @@ export const AdminHospitalsManage: React.FC = () => {
         </>
       )}
 
+      {/* BULK IMPORT HOSPITALS MODAL */}
+      <BulkImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onSuccess={() => {
+          setIsImportModalOpen(false);
+          loadInitialData();
+        }}
+        target="hospitals"
+        scope="admin"
+      />
+
       {/* ADD HOSPITAL MODAL */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-100 p-6 space-y-6">
-            <div className="flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-100 p-6 space-y-6 my-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold">
                   <Plus className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-slate-900">Add Hospital / Clinic</h3>
-                  <p className="text-xs text-slate-500">Register a new healthcare facility in the platform directory</p>
+                  <h3 className="text-lg font-black text-slate-900">Add Healthcare Facility</h3>
+                  <p className="text-xs text-slate-500">Master template specification: 19 standardized registration fields</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <form onSubmit={handleCreateHospital} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Facility Photo / Logo</label>
-                <ImageUpload
-                  value={addForm.photo}
-                  onChange={(url) => setAddForm({ ...addForm, photo: url })}
-                  placeholder="Upload facility photo or logo"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Facility Name (English) *</label>
+              {/* Category & Facility Name */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-1">
+                  <SearchableSelect
+                    label="Hospital / Clinic / Wellness *"
+                    value={addForm.facility_category}
+                    onChange={(val) => setAddForm({ ...addForm, facility_category: val as any, type: val === 'Clinic' ? 'clinic' : 'hospital' })}
+                    options={FACILITY_CATEGORIES.map((c) => ({ value: c, label: c }))}
+                    placeholder="Select category"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block font-bold text-slate-700 mb-1">Hospital / Facility Name (English) *</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. King's College Hospital"
+                    placeholder="e.g. ABC Hospital / Emirates Speciality Hospital"
                     value={addForm.name}
                     onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
                   />
                 </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Facility Name (Arabic)</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. مستشفى كينغز كوليدج"
-                    value={addForm.name_ar}
-                    onChange={(e) => setAddForm({ ...addForm, name_ar: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
-                    dir="rtl"
-                  />
-                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Location & Address */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Facility Type *</label>
-                  <select
-                    value={addForm.type}
-                    onChange={(e) => setAddForm({ ...addForm, type: e.target.value as any })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
-                  >
-                    <option value="hospital">Hospital</option>
-                    <option value="clinic">Clinic / Medical Center</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Emirate / City *</label>
-                  <select
-                    value={addForm.location}
-                    onChange={(e) => setAddForm({ ...addForm, location: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
-                  >
-                    <option value="Dubai">Dubai</option>
-                    <option value="Abu Dhabi">Abu Dhabi</option>
-                    <option value="Sharjah">Sharjah</option>
-                    <option value="Ajman">Ajman</option>
-                    <option value="Ras Al Khaimah">Ras Al Khaimah</option>
-                    <option value="Fujairah">Fujairah</option>
-                    <option value="Umm Al Quwain">Umm Al Quwain</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Address / District</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Dubai Hills, Al Khail Road"
-                    value={addForm.address}
-                    onChange={(e) => setAddForm({ ...addForm, address: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  <SearchableSelect
+                    label="Country *"
+                    value={addForm.country}
+                    onChange={(val) => setAddForm({ ...addForm, country: val })}
+                    options={SUPPORTING_COUNTRIES.map((c) => ({ value: c, label: c }))}
+                    placeholder="Select country"
+                    allowCustom
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Phone Number</label>
+                  <SearchableSelect
+                    label="Emirates / Province *"
+                    value={addForm.emirate}
+                    onChange={(val) => setAddForm({ ...addForm, emirate: val, location: val })}
+                    options={SUPPORTING_EMIRATES.map((e) => ({ value: e, label: e }))}
+                    placeholder="Select emirate"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Area / Sub-district</label>
                   <input
                     type="text"
-                    placeholder="e.g. +971 4 123 4567"
-                    value={addForm.phone}
-                    onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    dir="ltr"
+                    placeholder="e.g. Barsha / Al Faseel"
+                    value={addForm.area}
+                    onChange={(e) => setAddForm({ ...addForm, area: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">About Facility</label>
+                <label className="block font-bold text-slate-700 mb-1">Address Of Organization</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Barsha Heights, Street 1, Building A"
+                  value={addForm.address}
+                  onChange={(e) => setAddForm({ ...addForm, address: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
+                />
+              </div>
+
+              {/* Coordinates */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Latitude</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 25.2048"
+                    value={addForm.latitude}
+                    onChange={(e) => setAddForm({ ...addForm, latitude: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Longitude</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 55.2708"
+                    value={addForm.longitude}
+                    onChange={(e) => setAddForm({ ...addForm, longitude: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
+                  />
+                </div>
+              </div>
+
+              {/* Dial Code, Main Number, Website */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-1">
+                  <SearchableSelect
+                    label="Country Code (+971 - UAE)"
+                    value={addForm.phone_dial_code}
+                    onChange={(val) => setAddForm({ ...addForm, phone_dial_code: val })}
+                    options={SUPPORTING_DIAL_CODES.map((d) => ({ value: d.code, label: d.label }))}
+                    placeholder="Select dial code"
+                    allowCustom
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Hospital Main Number</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 800 4222 / 04 123 4567"
+                    value={addForm.phone}
+                    onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
+                    dir="ltr"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Website</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. https://www.hospital.ae"
+                    value={addForm.website}
+                    onChange={(e) => setAddForm({ ...addForm, website: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
+                  />
+                </div>
+              </div>
+
+              {/* Hospital Profile */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Hospital Profile</label>
                 <textarea
                   rows={3}
-                  placeholder="Facility overview, clinical specialties, and services..."
+                  placeholder="Overview of hospital facilities, departments, specialized services, and clinical center description..."
                   value={addForm.about}
                   onChange={(e) => setAddForm({ ...addForm, about: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-normal resize-none"
                 />
+              </div>
+
+              {/* Hospital Image & Logo */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Hospital Image (Photo)</label>
+                  <ImageUpload
+                    value={addForm.photo}
+                    onChange={(url) => setAddForm({ ...addForm, photo: url })}
+                    placeholder="Upload facility photo"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Hospital Logo</label>
+                  <ImageUpload
+                    value={addForm.logo}
+                    onChange={(url) => setAddForm({ ...addForm, logo: url })}
+                    placeholder="Upload organization logo"
+                  />
+                </div>
+              </div>
+
+              {/* Manager Details */}
+              <div className="pt-2 border-t border-slate-100">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                  Hospital Manager Information
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Manager Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Dr. John Smith"
+                      value={addForm.manager_name}
+                      onChange={(e) => setAddForm({ ...addForm, manager_name: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Manager Phone</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. +971 50 123 4567"
+                      value={addForm.manager_phone}
+                      onChange={(e) => setAddForm({ ...addForm, manager_phone: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
+                      dir="ltr"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Manager Email</label>
+                    <input
+                      type="email"
+                      placeholder="e.g. manager@hospital.ae"
+                      value={addForm.manager_email}
+                      onChange={(e) => setAddForm({ ...addForm, manager_email: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* User Name & Password */}
+              <div className="pt-2 border-t border-slate-100">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                  Facility Admin Credentials (User Name & Password)
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">User Name (Login email/ID) <span className="text-rose-500">*</span></label>
+<input type="text" required
+                      placeholder="e.g. hospital_admin or admin@hospital.ae"
+                      value={addForm.username}
+                      onChange={(e) => setAddForm({ ...addForm, username: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Password <span className="text-rose-500">*</span></label>
+<input type="password" required
+                      placeholder="e.g. Hospital@12345"
+                      value={addForm.password}
+                      onChange={(e) => setAddForm({ ...addForm, password: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingAdd}
-                  className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50"
+                  className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
                 >
                   {isSubmittingAdd ? 'Saving...' : 'Add Facility'}
                 </button>
@@ -1265,40 +1511,41 @@ export const AdminHospitalsManage: React.FC = () => {
 
       {/* EDIT HOSPITAL MODAL */}
       {hospitalToEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-100 p-6 space-y-6">
-            <div className="flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-100 p-6 space-y-6 my-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
                   <Edit className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-slate-900">Edit Facility: {hospitalToEdit.name}</h3>
-                  <p className="text-xs text-slate-500">Update facility credentials, type, and location</p>
+                  <h3 className="text-lg font-black text-slate-900">Edit Healthcare Facility</h3>
+                  <p className="text-xs text-slate-500">Update facility profile, location, credentials and manager details</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setHospitalToEdit(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <form onSubmit={handleUpdateHospital} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Facility Photo / Logo</label>
-                <ImageUpload
-                  value={editForm.photo}
-                  onChange={(url) => setEditForm({ ...editForm, photo: url })}
-                  placeholder="Update facility photo"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Facility Name (English) *</label>
+              {/* Category & Facility Name */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-1">
+                  <SearchableSelect
+                    label="Hospital / Clinic / Wellness *"
+                    value={editForm.facility_category}
+                    onChange={(val) => setEditForm({ ...editForm, facility_category: val as any, type: val === 'Clinic' ? 'clinic' : 'hospital' })}
+                    options={FACILITY_CATEGORIES.map((c) => ({ value: c, label: c }))}
+                    placeholder="Select category"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block font-bold text-slate-700 mb-1">Hospital / Facility Name (English) *</label>
                   <input
                     type="text"
                     required
@@ -1307,92 +1554,223 @@ export const AdminHospitalsManage: React.FC = () => {
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
                   />
                 </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Facility Name (Arabic)</label>
-                  <input
-                    type="text"
-                    value={editForm.name_ar}
-                    onChange={(e) => setEditForm({ ...editForm, name_ar: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
-                    dir="rtl"
-                  />
-                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Location & Address */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Facility Type *</label>
-                  <select
-                    value={editForm.type}
-                    onChange={(e) => setEditForm({ ...editForm, type: e.target.value as any })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
-                  >
-                    <option value="hospital">Hospital</option>
-                    <option value="clinic">Clinic / Medical Center</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Emirate / City *</label>
-                  <select
-                    value={editForm.location}
-                    onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
-                  >
-                    <option value="Dubai">Dubai</option>
-                    <option value="Abu Dhabi">Abu Dhabi</option>
-                    <option value="Sharjah">Sharjah</option>
-                    <option value="Ajman">Ajman</option>
-                    <option value="Ras Al Khaimah">Ras Al Khaimah</option>
-                    <option value="Fujairah">Fujairah</option>
-                    <option value="Umm Al Quwain">Umm Al Quwain</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Address / District</label>
-                  <input
-                    type="text"
-                    value={editForm.address}
-                    onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  <SearchableSelect
+                    label="Country *"
+                    value={editForm.country}
+                    onChange={(val) => setEditForm({ ...editForm, country: val })}
+                    options={SUPPORTING_COUNTRIES.map((c) => ({ value: c, label: c }))}
+                    placeholder="Select country"
+                    allowCustom
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Phone Number</label>
+                  <SearchableSelect
+                    label="Emirates / Province *"
+                    value={editForm.emirate}
+                    onChange={(val) => setEditForm({ ...editForm, emirate: val, location: val })}
+                    options={SUPPORTING_EMIRATES.map((e) => ({ value: e, label: e }))}
+                    placeholder="Select emirate"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Area / Sub-district</label>
                   <input
                     type="text"
-                    value={editForm.phone}
-                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    dir="ltr"
+                    placeholder="e.g. Barsha / Al Faseel"
+                    value={editForm.area}
+                    onChange={(e) => setEditForm({ ...editForm, area: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">About Facility</label>
+                <label className="block font-bold text-slate-700 mb-1">Address Of Organization</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Barsha Heights, Street 1, Building A"
+                  value={editForm.address}
+                  onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
+                />
+              </div>
+
+              {/* Coordinates */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Latitude</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 25.2048"
+                    value={editForm.latitude}
+                    onChange={(e) => setEditForm({ ...editForm, latitude: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Longitude</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 55.2708"
+                    value={editForm.longitude}
+                    onChange={(e) => setEditForm({ ...editForm, longitude: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
+                  />
+                </div>
+              </div>
+
+              {/* Dial Code, Main Number, Website */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-1">
+                  <SearchableSelect
+                    label="Country Code (+971 - UAE)"
+                    value={editForm.phone_dial_code}
+                    onChange={(val) => setEditForm({ ...editForm, phone_dial_code: val })}
+                    options={SUPPORTING_DIAL_CODES.map((d) => ({ value: d.code, label: d.label }))}
+                    placeholder="Select dial code"
+                    allowCustom
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Hospital Main Number</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 800 4222 / 04 123 4567"
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
+                    dir="ltr"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Website</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. https://www.hospital.ae"
+                    value={editForm.website}
+                    onChange={(e) => setEditForm({ ...editForm, website: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
+                  />
+                </div>
+              </div>
+
+              {/* Hospital Profile */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Hospital Profile</label>
                 <textarea
                   rows={3}
                   value={editForm.about}
                   onChange={(e) => setEditForm({ ...editForm, about: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-normal resize-none"
                 />
+              </div>
+
+              {/* Hospital Image & Logo */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Hospital Image (Photo)</label>
+                  <ImageUpload
+                    value={editForm.photo}
+                    onChange={(url) => setEditForm({ ...editForm, photo: url })}
+                    placeholder="Upload facility photo"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Hospital Logo</label>
+                  <ImageUpload
+                    value={editForm.logo}
+                    onChange={(url) => setEditForm({ ...editForm, logo: url })}
+                    placeholder="Upload organization logo"
+                  />
+                </div>
+              </div>
+
+              {/* Manager Details */}
+              <div className="pt-2 border-t border-slate-100">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                  Hospital Manager Information
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Manager Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Dr. John Smith"
+                      value={editForm.manager_name}
+                      onChange={(e) => setEditForm({ ...editForm, manager_name: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Manager Phone</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. +971 50 123 4567"
+                      value={editForm.manager_phone}
+                      onChange={(e) => setEditForm({ ...editForm, manager_phone: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
+                      dir="ltr"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Manager Email</label>
+                    <input
+                      type="email"
+                      placeholder="e.g. manager@hospital.ae"
+                      value={editForm.manager_email}
+                      onChange={(e) => setEditForm({ ...editForm, manager_email: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* User Name & Password */}
+              <div className="pt-2 border-t border-slate-100">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
+                  Facility Admin Credentials (Leave blank to keep existing password)
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">User Name (Login email/ID)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. hospital_admin or admin@hospital.ae"
+                      value={editForm.username}
+                      onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">New Password (Optional)</label>
+                    <input
+                      type="password"
+                      placeholder="Enter new password"
+                      value={editForm.password}
+                      onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setHospitalToEdit(null)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingEdit}
-                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50"
+                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
                 >
                   {isSubmittingEdit ? 'Saving...' : 'Save Changes'}
                 </button>
@@ -1574,132 +1952,12 @@ export const AdminHospitalsManage: React.FC = () => {
               </div>
 
               {/* DOCTOR WEEKLY SCHEDULE */}
-              <div className="pt-2 border-t border-slate-100">
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-teal-600" />
-                      Doctor Weekly Availability & Consultation Slots
-                    </span>
-                    <p className="text-[11px] text-slate-400">
-                      {editingDoctorInHospital
-                        ? 'Customize regular consulting days and times for this doctor.'
-                        : `Defaulted from ${doctorModalFacility.name}'s schedule. You can customize it.`}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const defDays = doctorModalFacility.defaultAvailableDays || doctorModalFacility.default_available_days || WEEK_DAYS.slice(0, 5);
-                      const defSlots = doctorModalFacility.defaultStandardSlots || doctorModalFacility.default_standard_slots || DEFAULT_PRESET_SLOTS;
-                      setDoctorForm({ ...doctorForm, available_days: [...defDays], standard_slots: [...defSlots] });
-                    }}
-                    className="text-[11px] font-bold text-teal-600 hover:text-teal-700 bg-teal-50 hover:bg-teal-100 px-2 py-1 rounded-lg transition-colors"
-                  >
-                    Reset to Facility Default
-                  </button>
-                </div>
-
-                {/* Days selection */}
-                <div className="mb-3">
-                  <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                    Available Days
-                  </label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {WEEK_DAYS.map((day) => {
-                      const selected = (doctorForm.available_days || []).includes(day);
-                      return (
-                        <button
-                          key={day}
-                          type="button"
-                          onClick={() => {
-                            const cur = doctorForm.available_days || [];
-                            const next = selected ? cur.filter((d: string) => d !== day) : [...cur, day];
-                            setDoctorForm({ ...doctorForm, available_days: next });
-                          }}
-                          className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all ${
-                            selected
-                              ? 'bg-teal-600 border-teal-600 text-white shadow-xs'
-                              : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                          }`}
-                        >
-                          {day.slice(0, 3)}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Time slots */}
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                      Consultation Slots ({(doctorForm.standard_slots || []).length} active)
-                    </label>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setDoctorForm({ ...doctorForm, standard_slots: [...DEFAULT_PRESET_SLOTS] })}
-                        className="text-[10px] text-teal-700 hover:underline font-semibold"
-                      >
-                        All (8 AM - 6 PM)
-                      </button>
-                      <span className="text-slate-300">|</span>
-                      <button
-                        type="button"
-                        onClick={() => setDoctorForm({ ...doctorForm, standard_slots: [...STANDARD_BUSINESS_SLOTS] })}
-                        className="text-[10px] text-teal-700 hover:underline font-semibold"
-                      >
-                        Standard (9 AM - 5 PM)
-                      </button>
-                      <span className="text-slate-300">|</span>
-                      <button
-                        type="button"
-                        onClick={() => setDoctorForm({ ...doctorForm, standard_slots: [...MORNING_SLOTS] })}
-                        className="text-[10px] text-teal-700 hover:underline font-semibold"
-                      >
-                        Morning (8 AM - 12 PM)
-                      </button>
-                      <span className="text-slate-300">|</span>
-                      <button
-                        type="button"
-                        onClick={() => setDoctorForm({ ...doctorForm, standard_slots: [] })}
-                        className="text-[10px] text-rose-600 hover:underline font-semibold"
-                      >
-                        Clear
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-2 bg-slate-50 rounded-xl border border-slate-200">
-                    {DEFAULT_PRESET_SLOTS.map((slot) => {
-                      const active = (doctorForm.standard_slots || []).includes(slot);
-                      return (
-                        <button
-                          key={slot}
-                          type="button"
-                          onClick={() => {
-                            const cur = doctorForm.standard_slots || [];
-                            const next = active ? cur.filter((s: string) => s !== slot) : [...cur, slot];
-                            setDoctorForm({ ...doctorForm, standard_slots: next });
-                          }}
-                          className={`px-2 py-0.5 text-[11px] font-medium rounded-md border transition-colors ${
-                            active
-                              ? 'bg-teal-100 border-teal-300 text-teal-800 font-bold'
-                              : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
-                          }`}
-                        >
-                          {slot}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
+              
 
               {!editingDoctorInHospital && (
                 <div className="pt-2 border-t border-slate-100">
                   <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
-                    Doctor Account Credentials (Optional login setup)
+                    Doctor Account Credentials (Required Login Setup) *
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>

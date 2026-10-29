@@ -14,6 +14,7 @@ import { LanguageProvider, useTranslation } from './i18n';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { LocationProvider } from './context/LocationContext';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { Header } from './components/layouts/Header';
 import { Footer } from './components/layouts/Footer';
 import { ProtectedRoute } from './components/layouts/ProtectedRoute';
@@ -135,7 +136,8 @@ const PublicLayout: React.FC = () => {
 
 export default function App() {
   return (
-    <LanguageProvider>
+    <ErrorBoundary>
+      <LanguageProvider>
       <ToastProvider>
         <AuthProvider>
           <LocationProvider>
@@ -264,5 +266,6 @@ export default function App() {
         </AuthProvider>
       </ToastProvider>
     </LanguageProvider>
+    </ErrorBoundary>
   );
 }

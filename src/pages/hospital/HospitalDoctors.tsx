@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { realFacilityAdminService, FacilitySettingsData } from '../../services/realFacilityAdminService';
 import { Doctor } from '../../types';
+import { BulkImportModal } from '../../components/common/BulkImportModal';
 import { SPECIALTIES } from '../../data/mockSpecialties';
 import { useToast } from '../../context/ToastContext';
 
@@ -44,6 +45,7 @@ export const HospitalDoctors: React.FC = () => {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [searchFilter, setSearchFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'Active' | 'Deactivated'>('all');
@@ -592,6 +594,17 @@ export const HospitalDoctors: React.FC = () => {
           >
             <Clock className="w-3.5 h-3.5 text-teal-700" />
             <span>Facility Schedule</span>
+          </button>
+
+          {/* Bulk Import Button */}
+          <button
+            type="button"
+            onClick={() => setShowImportModal(true)}
+            className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            title="Bulk import doctors from Excel or CSV"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Import Excel / CSV</span>
           </button>
 
           {/* Add Doctor Button */}
@@ -1300,125 +1313,7 @@ export const HospitalDoctors: React.FC = () => {
                   />
                 </div>
 
-                {/* Doctor Consultation Weekly Schedule */}
-                <div className="sm:col-span-2 pt-2 border-t border-[#E2EBF0]">
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-teal-600" />
-                        Weekly Availability & Consultation Slots
-                      </span>
-                      <p className="text-[11px] text-slate-400">
-                        Customize consulting days and patient booking intervals for Dr. {editName || 'this doctor'}.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const days = facilitySettings?.defaultAvailableDays || facilitySettings?.default_available_days || facilityDays;
-                        const slots = facilitySettings?.defaultStandardSlots || facilitySettings?.default_standard_slots || facilitySlots;
-                        setEditDays([...days]);
-                        setEditSlots([...slots]);
-                      }}
-                      className="text-[11px] font-bold text-teal-700 hover:text-teal-800 bg-teal-50 hover:bg-teal-100 px-2 py-0.5 rounded-lg transition-colors cursor-pointer"
-                    >
-                      Reset to Hospital Default
-                    </button>
-                  </div>
-
-                  {/* Days */}
-                  <div className="mb-3">
-                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                      Available Days
-                    </label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {WEEK_DAYS.map((day) => {
-                        const selected = editDays.includes(day);
-                        return (
-                          <button
-                            key={day}
-                            type="button"
-                            onClick={() => {
-                              const next = selected ? editDays.filter((d) => d !== day) : [...editDays, day];
-                              setEditDays(next);
-                            }}
-                            className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
-                              selected
-                                ? 'bg-teal-600 border-teal-600 text-white shadow-2xs'
-                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                            }`}
-                          >
-                            {day.slice(0, 3)}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Consultation Slots */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                        Consultation Slots ({editSlots.length} active)
-                      </label>
-                      <div className="flex items-center gap-1 text-[11px]">
-                        <button
-                          type="button"
-                          onClick={() => setEditSlots([...DEFAULT_PRESET_SLOTS])}
-                          className="text-teal-700 hover:underline font-semibold cursor-pointer"
-                        >
-                          All (8 AM - 6 PM)
-                        </button>
-                        <span className="text-slate-300">|</span>
-                        <button
-                          type="button"
-                          onClick={() => setEditSlots([...STANDARD_BUSINESS_SLOTS])}
-                          className="text-teal-700 hover:underline font-semibold cursor-pointer"
-                        >
-                          Standard (9 AM - 5 PM)
-                        </button>
-                        <span className="text-slate-300">|</span>
-                        <button
-                          type="button"
-                          onClick={() => setEditSlots([...MORNING_SLOTS])}
-                          className="text-teal-700 hover:underline font-semibold cursor-pointer"
-                        >
-                          Morning (8 AM - 12 PM)
-                        </button>
-                        <span className="text-slate-300">|</span>
-                        <button
-                          type="button"
-                          onClick={() => setEditSlots([])}
-                          className="text-rose-600 hover:underline font-semibold cursor-pointer"
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-2 bg-slate-50 rounded-xl border border-slate-200">
-                      {DEFAULT_PRESET_SLOTS.map((slot) => {
-                        const active = editSlots.includes(slot);
-                        return (
-                          <button
-                            key={slot}
-                            type="button"
-                            onClick={() => {
-                              const next = active ? editSlots.filter((s) => s !== slot) : [...editSlots, slot];
-                              setEditSlots(next);
-                            }}
-                            className={`px-2 py-0.5 text-[11px] font-medium rounded-md border transition-colors cursor-pointer ${
-                              active
-                                ? 'bg-teal-100 border-teal-300 text-teal-800 font-bold'
-                                : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
-                            }`}
-                          >
-                            {slot}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
+                
               </div>
 
               <div className="pt-4 border-t border-[#E2EBF0] flex items-center justify-end gap-2.5">
@@ -1502,6 +1397,15 @@ export const HospitalDoctors: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
+      {/* BULK IMPORT MODAL */}
+      <BulkImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        target="doctors"
+        scope="facility"
+        onSuccess={fetchDoctors}
+      />
+
       {/* 4. ADD DOCTOR MODAL                                                       */}
       {/* ========================================================================= */}
       {showAddModal && (
@@ -1713,125 +1617,7 @@ export const HospitalDoctors: React.FC = () => {
                   />
                 </div>
 
-                {/* Doctor Consultation Weekly Schedule */}
-                <div className="sm:col-span-2 pt-2 border-t border-[#E2EBF0]">
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-teal-600" />
-                        Doctor Weekly Availability & Consultation Slots
-                      </span>
-                      <p className="text-[11px] text-slate-400">
-                        Defaulted from hospital schedule. You can customize days & times for this doctor.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const days = facilitySettings?.defaultAvailableDays || facilitySettings?.default_available_days || facilityDays;
-                        const slots = facilitySettings?.defaultStandardSlots || facilitySettings?.default_standard_slots || facilitySlots;
-                        setAddDays([...days]);
-                        setAddSlots([...slots]);
-                      }}
-                      className="text-[11px] font-bold text-teal-700 hover:text-teal-800 bg-teal-50 hover:bg-teal-100 px-2 py-0.5 rounded-lg transition-colors cursor-pointer"
-                    >
-                      Reset to Hospital Default
-                    </button>
-                  </div>
-
-                  {/* Days */}
-                  <div className="mb-3">
-                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">
-                      Available Days
-                    </label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {WEEK_DAYS.map((day) => {
-                        const selected = addDays.includes(day);
-                        return (
-                          <button
-                            key={day}
-                            type="button"
-                            onClick={() => {
-                              const next = selected ? addDays.filter((d) => d !== day) : [...addDays, day];
-                              setAddDays(next);
-                            }}
-                            className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
-                              selected
-                                ? 'bg-teal-600 border-teal-600 text-white shadow-2xs'
-                                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                            }`}
-                          >
-                            {day.slice(0, 3)}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Consultation Slots */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                        Consultation Slots ({addSlots.length} active)
-                      </label>
-                      <div className="flex items-center gap-1 text-[11px]">
-                        <button
-                          type="button"
-                          onClick={() => setAddSlots([...DEFAULT_PRESET_SLOTS])}
-                          className="text-teal-700 hover:underline font-semibold cursor-pointer"
-                        >
-                          All (8 AM - 6 PM)
-                        </button>
-                        <span className="text-slate-300">|</span>
-                        <button
-                          type="button"
-                          onClick={() => setAddSlots([...STANDARD_BUSINESS_SLOTS])}
-                          className="text-teal-700 hover:underline font-semibold cursor-pointer"
-                        >
-                          Standard (9 AM - 5 PM)
-                        </button>
-                        <span className="text-slate-300">|</span>
-                        <button
-                          type="button"
-                          onClick={() => setAddSlots([...MORNING_SLOTS])}
-                          className="text-teal-700 hover:underline font-semibold cursor-pointer"
-                        >
-                          Morning (8 AM - 12 PM)
-                        </button>
-                        <span className="text-slate-300">|</span>
-                        <button
-                          type="button"
-                          onClick={() => setAddSlots([])}
-                          className="text-rose-600 hover:underline font-semibold cursor-pointer"
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-2 bg-slate-50 rounded-xl border border-slate-200">
-                      {DEFAULT_PRESET_SLOTS.map((slot) => {
-                        const active = addSlots.includes(slot);
-                        return (
-                          <button
-                            key={slot}
-                            type="button"
-                            onClick={() => {
-                              const next = active ? addSlots.filter((s) => s !== slot) : [...addSlots, slot];
-                              setAddSlots(next);
-                            }}
-                            className={`px-2 py-0.5 text-[11px] font-medium rounded-md border transition-colors cursor-pointer ${
-                              active
-                                ? 'bg-teal-100 border-teal-300 text-teal-800 font-bold'
-                                : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
-                            }`}
-                          >
-                            {slot}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
+                
               </div>
 
               <div className="pt-3 border-t border-[#E2EBF0] flex items-center justify-end gap-2">

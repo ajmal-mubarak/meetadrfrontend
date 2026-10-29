@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  ShieldCheck,
   X,
   Copy,
   Check,
@@ -42,12 +43,16 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
   const patientContact =
     appointment.patientPhone || appointment.patientMobile || 'Not provided';
   const patientEmail = appointment.patientEmail || '';
+  const coverageText = appointment.billingType === 'insurance' && appointment.insuranceProvider
+    ? `Insurance: ${appointment.insuranceProvider} ${appointment.insuranceNumber ? `#${appointment.insuranceNumber}` : ''} (${appointment.insuranceNetworkStatus === 'in_network' ? 'In-Network Direct Billing' : 'Out-of-Network'})`
+    : 'Pay at Hospital Reception (Self-Pay)';
 
   const plainTextSummary = `New Booking:
 Hospital: ${facilityName}
 Location: ${locationText}
 Date & Time: ${dateTimeText}
 Patient Name: ${appointment.patientName}
+Coverage & Billing: ${coverageText}
 Patient Contact #: ${patientContact}
 Patient Email (Optional): ${patientEmail || 'Not provided'}${
     appointment.googleMapsUrl ? `\nLocation in Maps: ${appointment.googleMapsUrl}` : ''
@@ -178,6 +183,25 @@ Team MeetAdr.com`;
                 </div>
                 <div className="col-span-7 sm:col-span-8 p-3 text-slate-700 font-medium">
                   {patientEmail || <span className="text-slate-400 italic">Not provided</span>}
+                </div>
+              </div>
+
+              {/* Row 7: Coverage & Billing */}
+              <div className="grid grid-cols-12">
+                <div className="col-span-5 sm:col-span-4 p-3 font-bold text-slate-900 bg-slate-50 border-r border-slate-300 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#2DA7B5] shrink-0" />
+                  <span>Billing & Coverage</span>
+                </div>
+                <div className="col-span-7 sm:col-span-8 p-3 text-slate-700 font-medium">
+                  {appointment.billingType === 'insurance' && appointment.insuranceProvider ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold">
+                      {appointment.insuranceProvider} {appointment.insuranceNumber ? `#${appointment.insuranceNumber}` : ''} ({appointment.insuranceNetworkStatus === 'in_network' ? 'In-Network Direct Billing' : 'Out-of-Network'})
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold">
+                      Pay at Hospital Reception (Self-Pay)
+                    </span>
+                  )}
                 </div>
               </div>
 
