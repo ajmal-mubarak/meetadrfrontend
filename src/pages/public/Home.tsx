@@ -624,7 +624,7 @@ export const Home: React.FC = () => {
               {/* Line 1: Main Search Inputs + Search CTA Button */}
               <div className="contents sm:flex sm:flex-row items-stretch sm:items-center gap-2 w-full">
                 {/* Field 1: Doctor / Specialty / Hospital Search (Suggests only when user types letters) */}
-                <div className="order-1 flex-[1.25] relative min-w-0" ref={searchRef}>
+                <div className="order-1 sm:order-1 flex-[1.25] relative min-w-0" ref={searchRef}>
                 <div className="flex items-center px-4 py-3 sm:py-2.5 bg-[#F8FAFC] sm:bg-transparent rounded-xl sm:rounded-none">
                   <Search className="w-4 h-4 text-slate-400 mr-2.5 rtl:mr-0 rtl:ml-2.5 shrink-0" />
                   <input
@@ -807,12 +807,10 @@ export const Home: React.FC = () => {
                 </AnimatePresence>
               </div>
 
-              <div className="hidden sm:block w-px h-8 bg-[#E2EBF0]" />
-
-                <div className="hidden sm:block w-px h-8 bg-[#E2EBF0]" />
+                <div className="hidden sm:block sm:order-2 w-px h-8 bg-[#E2EBF0]" />
 
                 {/* Field 2: Health Condition with Autocomplete (Like Old) */}
-                <div className="order-2 flex-1 relative min-w-0" ref={conditionRef}>
+                <div className="order-2 sm:order-3 flex-1 relative min-w-0" ref={conditionRef}>
                 <div className="flex items-center px-4 py-3 sm:py-2.5 bg-[#F8FAFC] sm:bg-transparent rounded-xl sm:rounded-none">
                   <Activity className="w-4 h-4 text-[#2DA7B5] mr-3 rtl:mr-0 rtl:ml-3 shrink-0" />
                   <input
@@ -885,10 +883,10 @@ export const Home: React.FC = () => {
                 </AnimatePresence>
               </div>
 
-                {/* Action CTA Button */}
+                {/* Action CTA Button - Last in first line on laptop */}
                 <button
                   type="submit"
-                  className="order-4 sm:order-none w-full sm:w-auto px-8 py-3.5 sm:py-3 bg-[#2DA7B5] hover:bg-[#23929F] text-white rounded-xl sm:rounded-full font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 active:scale-95 shadow-xs"
+                  className="order-4 sm:order-4 w-full sm:w-auto px-8 py-3.5 sm:py-3 bg-[#2DA7B5] hover:bg-[#23929F] text-white rounded-xl sm:rounded-full font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0 active:scale-95 shadow-xs"
                 >
                 <span>{t('home.searchButton')}</span>
                 <ArrowRight className="w-4 h-4 rtl:rotate-180" />
@@ -897,8 +895,8 @@ export const Home: React.FC = () => {
 
               {/* Line 2: Insurance and Location Selector (Insurance FIRST, Location SECOND; on mobile: Insurance is order-3, Location is order-5) */}
               <div className="contents sm:flex sm:flex-wrap items-center gap-2.5 w-full">
-                {/* Insurance Selector - SHOW INSURANCE FIRST (order-3 on mobile: before Search Button) */}
-                <div className="order-3 sm:order-none w-full sm:w-56">
+                {/* Insurance Selector - SHOW INSURANCE FIRST (order-3 on mobile: before Search Button; sm:order-1 on laptop) */}
+                <div className="order-3 sm:order-1 w-full sm:w-56">
                   <InsurancePicker
                     allHospitalPlans={allHospitalPlans}
                     selected={selectedInsurance}
@@ -909,8 +907,8 @@ export const Home: React.FC = () => {
                   />
                 </div>
 
-                {/* Field 3: Emirate - Modern Custom Dropdown with Auto-Detect (order-5 on mobile: after Search Button) */}
-                <div className="order-5 sm:order-none relative min-w-0 sm:w-56 w-full" ref={locationRef}>
+                {/* Field 3: Emirate - Modern Custom Dropdown with Auto-Detect (order-5 on mobile: after Search Button; sm:order-2 on laptop) */}
+                <div className="order-5 sm:order-2 relative min-w-0 sm:w-56 w-full" ref={locationRef}>
                   <div className="flex items-center px-3 py-2 bg-[#F8FAFC] rounded-xl border border-[#E2EBF0] hover:border-[#2DA7B5] transition-colors gap-2 h-[48px]">
                   {/* Quick GPS auto-detect button */}
                   <button
