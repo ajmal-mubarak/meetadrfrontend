@@ -281,34 +281,52 @@ function mapProvider(p: BackendProviderFacility): ProviderItem {
 }
 
 interface BackendProviderRequest {
-  id: string;
-  facility_name: string;
-  facility_type: string;
-  contact_person: string;
+  id: string | number;
+  name?: string;
+  name_ar?: string;
+  facility_name?: string;
+  facility_type?: string;
+  provider_type?: string;
+  contact_person?: string;
   email: string;
-  phone: string;
-  city: string;
+  phone?: string;
+  contact_number?: string;
+  city?: string;
+  location?: string;
+  country?: string;
+  address?: string;
+  specialty?: string;
   status: string;
-  created_at: string;
+  created_at?: string;
+  submitted_at?: string;
   admin_notes?: string;
   google_maps_url?: string;
 }
 
 function mapRequest(r: BackendProviderRequest): ProviderRequest {
-  const pType = (r.facility_type?.toLowerCase() === 'clinic' ? 'clinic' : 'hospital') as ProviderRequest['providerType'];
+  const rawType = (r.provider_type || r.facility_type || 'hospital').toLowerCase();
+  const pType: ProviderRequest['providerType'] =
+    rawType === 'doctor' ? 'doctor' : rawType === 'clinic' ? 'clinic' : 'hospital';
   const pStatus = (r.status?.toLowerCase() === 'approved' ? 'approved' : r.status?.toLowerCase() === 'rejected' ? 'rejected' : 'pending') as ProviderRequest['status'];
+  const dateStr = r.submitted_at || r.created_at || (r as any).submittedAt || new Date().toISOString();
+
   return {
     id: String(r.id),
-    name: r.contact_person || r.facility_name,
+    name: r.name || r.facility_name || r.contact_person || 'Applicant',
+    nameAr: r.name_ar,
+    contactPerson: r.contact_person,
     providerType: pType,
-    contactNumber: r.phone || '',
-    email: r.email,
-    country: 'United Arab Emirates',
-    location: r.city || 'Dubai',
+    contactNumber: r.contact_number || r.phone || '',
+    email: r.email || '',
+    country: r.country || 'United Arab Emirates',
+    location: r.location || r.city || 'Dubai',
+    address: r.address || '',
+    specialty: r.specialty,
     googleMapsUrl: r.google_maps_url || '',
     status: pStatus,
-    submittedAt: r.created_at,
-    createdAt: r.created_at,
+    submittedAt: dateStr,
+    createdAt: dateStr,
+    adminNotes: r.admin_notes,
   };
 }
 
@@ -539,10 +557,23 @@ export const realAdminService = {
    * Review provider application (approve / reject).
    * PATCH /api/v1/admin/requests/{id}/status/
    */
-  async updateRequestStatus(id: string, statusVal: 'approved' | 'rejected' | 'Approved' | 'Rejected', adminNotes?: string): Promise<void> {
-    await apiClient.patch(
+  async updateRequestStatus(
+    id: string,
+    statusVal: 'approved' | 'rejected' | 'Approved' | 'Rejected',
+    adminNotes?: string,
+    facilityData?: Record<string, any>,
+    doctorData?: Record<string, any>
+  ): Promise<any> {
+    const payload: Record<string, any> = {
+      status: statusVal.toLowerCase(),
+      admin_notes: adminNotes || '',
+    };
+    if (facilityData) payload.facility_data = facilityData;
+    if (doctorData) payload.doctor_data = doctorData;
+
+    return await apiClient.patch(
       API_ENDPOINTS.ADMIN.REQUEST_STATUS(id),
-      { status: statusVal.toLowerCase(), admin_notes: adminNotes || '' }
+      payload
     );
   },
 
@@ -671,8 +702,6 @@ export const realAdminService = {
     manager_name?: string;
     manager_phone?: string;
     manager_email?: string;
-  insurance_plans?: string;
-  insurancePlans?: string;
   }): Promise<ProviderItem> {
     const response = await apiClient.patch<BackendProviderFacility>(
       API_ENDPOINTS.ADMIN.PROVIDER_DETAIL(id),

@@ -21,10 +21,20 @@ import {
   ClipboardList,
   Send,
   ExternalLink,
+  AlertCircle,
 } from 'lucide-react';
 import { providerService } from '../../services/providerService';
 import { useToast } from '../../context/ToastContext';
 import { useTranslation } from '../../i18n';
+import { SearchableSelect } from '../../components/common/SearchableSelect';
+import { SUPPORTING_COUNTRIES, SUPPORTING_DIAL_CODES } from '../../data/supportingKeys';
+import {
+  sanitizePhoneNumber,
+  validatePhoneNumber,
+  getPhoneRule,
+  COUNTRY_TO_DIAL_CODE,
+  DIAL_CODE_TO_COUNTRY,
+} from '../../utils/phoneValidation';
 
 type ProviderType = 'hospital' | 'doctor';
 
@@ -71,6 +81,7 @@ export const JoinProviderPage: React.FC = () => {
   // Wizard state
   const [currentStep, setCurrentStep] = useState(1);
   const [wizardData, setWizardData] = useState<WizardData>(INITIAL_DATA);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -99,32 +110,92 @@ export const JoinProviderPage: React.FC = () => {
 
   const update = (field: keyof WizardData, value: string) => {
     setWizardData((d) => ({ ...d, [field]: value }));
+    if (fieldErrors[field]) {
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
   };
 
   const validateStep2 = (): boolean => {
     const isDoc = wizardData.providerType === 'doctor';
-    if (!wizardData.facilityName.trim()) {
-      showToast(isDoc ? 'Please enter the doctor name.' : 'Please enter your facility name.', 'error');
-      return false;
+    const errors: Record<string, string> = {};
+
+    // 1. Facility / Doctor Name
+    const name = wizardData.facilityName.trim();
+    if (!name) {
+      errors.facilityName = isDoc ? 'Please enter the doctor name.' : 'Please enter your facility name.';
+    } else if (name.length < 2) {
+      errors.facilityName = 'Name must be at least 2 characters long.';
     }
-    if (isDoc && !wizardData.specialty.trim()) {
-      showToast('Please enter your medical specialty.', 'error');
-      return false;
+
+    // 2. Specialty (Doctor)
+    if (isDoc) {
+      const specialty = wizardData.specialty.trim();
+      if (!specialty) {
+        errors.specialty = 'Please enter your medical specialty.';
+      } else if (specialty.length < 2) {
+        errors.specialty = 'Specialty must be at least 2 characters long.';
+      }
     }
-    if (!isDoc && !wizardData.contactPerson.trim()) {
-      showToast('Please enter the contact person name.', 'error');
-      return false;
+
+    // 3. Contact Person (Facility)
+    if (!isDoc) {
+      const contactPerson = wizardData.contactPerson.trim();
+      if (!contactPerson) {
+        errors.contactPerson = 'Please enter the contact person name.';
+      } else if (contactPerson.length < 2) {
+        errors.contactPerson = 'Contact person name must be at least 2 characters long.';
+      }
     }
-    if (!wizardData.email.trim() || !wizardData.email.includes('@')) {
-      showToast('Please provide a valid email address.', 'error');
-      return false;
+
+    // 4. Contact Phone Number
+    const phoneErr = validatePhoneNumber(wizardData.contactNumber, wizardData.countryCode);
+    if (phoneErr) {
+      errors.contactNumber = phoneErr;
     }
-    if (!wizardData.contactNumber.trim()) {
-      showToast('Please enter a valid contact phone number.', 'error');
-      return false;
+
+    // 5. Country
+    if (!wizardData.country.trim()) {
+      errors.country = 'Please select your country.';
     }
-    if (!wizardData.location.trim()) {
-      showToast('Please specify your city or emirate.', 'error');
+
+    // 6. Email
+    const email = wizardData.email.trim();
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!email) {
+      errors.email = 'Please provide an official email address.';
+    } else if (!emailRegex.test(email)) {
+      errors.email = 'Please enter a valid email address (e.g. info@hospital.com).';
+    }
+
+    // 7. City / Location
+    const loc = wizardData.location.trim();
+    if (!loc) {
+      errors.location = 'Please specify your city or emirate.';
+    } else if (loc.length < 2) {
+      errors.location = 'City / Emirate must be at least 2 characters long.';
+    }
+
+    // 7. Google Maps URL (Optional)
+    const maps = wizardData.googleMapsUrl.trim();
+    if (maps && !/^https?:\/\/.+/i.test(maps)) {
+      errors.googleMapsUrl = 'Google Maps link must start with http:// or https://';
+    }
+
+    // 8. Website (Optional)
+    const site = wizardData.website.trim();
+    if (site && !/^https?:\/\/.+/i.test(site) && !/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i.test(site)) {
+      errors.website = 'Please enter a valid website address (e.g. https://yourhospital.com).';
+    }
+
+    setFieldErrors(errors);
+
+    const firstErrorMessage = Object.values(errors)[0];
+    if (firstErrorMessage) {
+      showToast(firstErrorMessage, 'error');
       return false;
     }
     return true;
@@ -171,6 +242,7 @@ export const JoinProviderPage: React.FC = () => {
 
   const resetWizard = () => {
     setWizardData(INITIAL_DATA);
+    setFieldErrors({});
     setCurrentStep(1);
     setIsSuccess(false);
     setSubmittedReference('');
@@ -722,8 +794,18 @@ export const JoinProviderPage: React.FC = () => {
                             value={wizardData.facilityName}
                             onChange={(e) => update('facilityName', e.target.value)}
                             placeholder="e.g. Dr. Ahmed Hassan or Dr. Sarah Chen"
-                            className="w-full bg-white border border-[#E2EBF0] rounded-xl px-4 py-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#2DA7B5] font-medium shadow-xs"
+                            className={`w-full bg-white border rounded-xl px-4 py-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none font-medium shadow-xs transition-colors ${
+                              fieldErrors.facilityName
+                                ? 'border-red-400 bg-red-50/20 ring-1 ring-red-400'
+                                : 'border-[#E2EBF0] focus:border-[#2DA7B5]'
+                            }`}
                           />
+                          {fieldErrors.facilityName && (
+                            <p className="text-[11px] text-red-500 font-medium mt-1.5 flex items-center gap-1">
+                              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                              <span>{fieldErrors.facilityName}</span>
+                            </p>
+                          )}
                         </div>
 
                         {/* Medical Specialty */}
@@ -737,8 +819,18 @@ export const JoinProviderPage: React.FC = () => {
                             value={wizardData.specialty}
                             onChange={(e) => update('specialty', e.target.value)}
                             placeholder="e.g. Cardiology, Dermatology, Pediatrics, General Medicine"
-                            className="w-full bg-white border border-[#E2EBF0] rounded-xl px-4 py-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#2DA7B5] font-medium shadow-xs"
+                            className={`w-full bg-white border rounded-xl px-4 py-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none font-medium shadow-xs transition-colors ${
+                              fieldErrors.specialty
+                                ? 'border-red-400 bg-red-50/20 ring-1 ring-red-400'
+                                : 'border-[#E2EBF0] focus:border-[#2DA7B5]'
+                            }`}
                           />
+                          {fieldErrors.specialty && (
+                            <p className="text-[11px] text-red-500 font-medium mt-1.5 flex items-center gap-1">
+                              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                              <span>{fieldErrors.specialty}</span>
+                            </p>
+                          )}
                         </div>
 
                         {/* Clinic / Practice Affiliation (Optional) */}
@@ -768,8 +860,18 @@ export const JoinProviderPage: React.FC = () => {
                             value={wizardData.facilityName}
                             onChange={(e) => update('facilityName', e.target.value)}
                             placeholder="e.g. City Care Hospital or Green Valley Clinic"
-                            className="w-full bg-white border border-[#E2EBF0] rounded-xl px-4 py-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#2DA7B5] font-medium shadow-xs"
+                            className={`w-full bg-white border rounded-xl px-4 py-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none font-medium shadow-xs transition-colors ${
+                              fieldErrors.facilityName
+                                ? 'border-red-400 bg-red-50/20 ring-1 ring-red-400'
+                                : 'border-[#E2EBF0] focus:border-[#2DA7B5]'
+                            }`}
                           />
+                          {fieldErrors.facilityName && (
+                            <p className="text-[11px] text-red-500 font-medium mt-1.5 flex items-center gap-1">
+                              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                              <span>{fieldErrors.facilityName}</span>
+                            </p>
+                          )}
                         </div>
 
                         {/* Contact Person */}
@@ -783,91 +885,170 @@ export const JoinProviderPage: React.FC = () => {
                             value={wizardData.contactPerson}
                             onChange={(e) => update('contactPerson', e.target.value)}
                             placeholder="e.g. Mohammed Al Rashid or Dr. Sarah Chen"
-                            className="w-full bg-white border border-[#E2EBF0] rounded-xl px-4 py-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#2DA7B5] font-medium shadow-xs"
+                            className={`w-full bg-white border rounded-xl px-4 py-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none font-medium shadow-xs transition-colors ${
+                              fieldErrors.contactPerson
+                                ? 'border-red-400 bg-red-50/20 ring-1 ring-red-400'
+                                : 'border-[#E2EBF0] focus:border-[#2DA7B5]'
+                            }`}
                           />
+                          {fieldErrors.contactPerson && (
+                            <p className="text-[11px] text-red-500 font-medium mt-1.5 flex items-center gap-1">
+                              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                              <span>{fieldErrors.contactPerson}</span>
+                            </p>
+                          )}
                         </div>
                       </>
                     )}
 
-                    {/* Phone & Email */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                          Contact Phone *
-                        </label>
-                        <div className="flex gap-2">
-                          <select
-                            value={wizardData.countryCode}
-                            onChange={(e) => update('countryCode', e.target.value)}
-                            className="w-28 bg-white border border-[#E2EBF0] rounded-xl px-2.5 py-3 text-xs font-bold text-slate-800 focus:outline-none focus:border-[#2DA7B5] cursor-pointer shadow-xs"
-                          >
-                            <option value="+971">+971 (UAE)</option>
-                            <option value="+965">+965 (KWT)</option>
-                            <option value="+966">+966 (KSA)</option>
-                            <option value="+974">+974 (QAT)</option>
-                            <option value="+44">+44 (UK)</option>
-                            <option value="+1">+1 (US)</option>
-                          </select>
-                          <div className="flex-1 bg-white rounded-xl border border-[#E2EBF0] px-3.5 py-3 flex items-center shadow-xs">
-                            <Phone className="w-3.5 h-3.5 text-slate-400 mr-2 rtl:mr-0 rtl:ml-2 shrink-0" />
-                            <input
-                              type="tel"
-                              required
-                              value={wizardData.contactNumber}
-                              onChange={(e) => update('contactNumber', e.target.value)}
-                              placeholder="50 123 4567"
-                              className="w-full bg-transparent text-xs text-slate-900 focus:outline-none font-medium placeholder-slate-400"
-                            />
-                          </div>
-                        </div>
+                    {/* Country Code & Contact Phone */}
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-start">
+                      <div className="sm:col-span-5">
+                        <SearchableSelect
+                          label={`Country Code (${wizardData.countryCode})`}
+                          value={wizardData.countryCode}
+                          onChange={(val) => {
+                            update('countryCode', val);
+                            if (DIAL_CODE_TO_COUNTRY[val]) {
+                              update('country', DIAL_CODE_TO_COUNTRY[val]);
+                            }
+                            if (wizardData.contactNumber) {
+                              update('contactNumber', sanitizePhoneNumber(wizardData.contactNumber, val));
+                            }
+                          }}
+                          options={SUPPORTING_DIAL_CODES.map((d) => ({ value: d.code, label: d.label }))}
+                          placeholder="Select dial code"
+                          allowCustom
+                        />
                       </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                          Official Email *
-                        </label>
-                        <div className="bg-white rounded-xl border border-[#E2EBF0] px-3.5 py-3 flex items-center shadow-xs">
-                          <Mail className="w-3.5 h-3.5 text-slate-400 mr-2 rtl:mr-0 rtl:ml-2 shrink-0" />
+                      <div className="sm:col-span-7">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="block text-xs font-bold text-slate-700">
+                            Contact Phone *
+                          </label>
+                          <span className="text-[10px] font-semibold text-slate-400">
+                            Max {getPhoneRule(wizardData.countryCode).maxLength} digits ({wizardData.contactNumber.length}/{getPhoneRule(wizardData.countryCode).maxLength})
+                          </span>
+                        </div>
+                        <div
+                          className={`bg-white rounded-xl border px-3.5 py-2.5 flex items-center shadow-xs transition-colors ${
+                            fieldErrors.contactNumber
+                              ? 'border-red-400 bg-red-50/20 ring-1 ring-red-400'
+                              : 'border-[#E2EBF0] focus-within:border-[#2DA7B5]'
+                          }`}
+                        >
+                          <Phone className="w-3.5 h-3.5 text-slate-400 mr-2 rtl:mr-0 rtl:ml-2 shrink-0" />
+                          <span className="text-xs font-bold text-slate-500 mr-2 shrink-0 select-none">
+                            {wizardData.countryCode}
+                          </span>
                           <input
-                            type="email"
+                            type="tel"
                             required
-                            value={wizardData.email}
-                            onChange={(e) => update('email', e.target.value)}
-                            placeholder="info@hospital.com"
+                            value={wizardData.contactNumber}
+                            onChange={(e) => {
+                              const sanitized = sanitizePhoneNumber(e.target.value, wizardData.countryCode);
+                              update('contactNumber', sanitized);
+                            }}
+                            maxLength={getPhoneRule(wizardData.countryCode).maxLength + (wizardData.countryCode === '+971' && wizardData.contactNumber.startsWith('0') ? 1 : 0)}
+                            placeholder={`e.g. ${getPhoneRule(wizardData.countryCode).example}`}
                             className="w-full bg-transparent text-xs text-slate-900 focus:outline-none font-medium placeholder-slate-400"
                           />
                         </div>
+                        {fieldErrors.contactNumber && (
+                          <p className="text-[11px] text-red-500 font-medium mt-1.5 flex items-center gap-1">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                            <span>{fieldErrors.contactNumber}</span>
+                          </p>
+                        )}
                       </div>
                     </div>
 
-                    {/* City & Country */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Official Email */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                        Official Email *
+                      </label>
+                      <div
+                        className={`bg-white rounded-xl border px-3.5 py-3 flex items-center shadow-xs transition-colors ${
+                          fieldErrors.email
+                            ? 'border-red-400 bg-red-50/20 ring-1 ring-red-400'
+                            : 'border-[#E2EBF0] focus-within:border-[#2DA7B5]'
+                        }`}
+                      >
+                        <Mail className="w-3.5 h-3.5 text-slate-400 mr-2 rtl:mr-0 rtl:ml-2 shrink-0" />
+                        <input
+                          type="email"
+                          required
+                          value={wizardData.email}
+                          onChange={(e) => update('email', e.target.value)}
+                          placeholder="info@hospital.com"
+                          className="w-full bg-transparent text-xs text-slate-900 focus:outline-none font-medium placeholder-slate-400"
+                        />
+                      </div>
+                      {fieldErrors.email && (
+                        <p className="text-[11px] text-red-500 font-medium mt-1.5 flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>{fieldErrors.email}</span>
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Country & City */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                      <div>
+                        <SearchableSelect
+                          label="Country *"
+                          required
+                          value={wizardData.country}
+                          onChange={(val) => {
+                            update('country', val);
+                            if (COUNTRY_TO_DIAL_CODE[val]) {
+                              const newDial = COUNTRY_TO_DIAL_CODE[val];
+                              update('countryCode', newDial);
+                              if (wizardData.contactNumber) {
+                                update('contactNumber', sanitizePhoneNumber(wizardData.contactNumber, newDial));
+                              }
+                            }
+                          }}
+                          options={SUPPORTING_COUNTRIES.map((c) => ({ value: c, label: c }))}
+                          placeholder="Select country"
+                          allowCustom
+                        />
+                        {fieldErrors.country && (
+                          <p className="text-[11px] text-red-500 font-medium mt-1.5 flex items-center gap-1">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                            <span>{fieldErrors.country}</span>
+                          </p>
+                        )}
+                      </div>
+
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1.5">
                           City / Emirate *
                         </label>
-                        <div className="bg-white rounded-xl border border-[#E2EBF0] px-3.5 py-3 flex items-center shadow-xs">
+                        <div
+                          className={`bg-white rounded-xl border px-3.5 py-3 flex items-center shadow-xs transition-colors ${
+                            fieldErrors.location
+                              ? 'border-red-400 bg-red-50/20 ring-1 ring-red-400'
+                              : 'border-[#E2EBF0] focus-within:border-[#2DA7B5]'
+                          }`}
+                        >
                           <MapPin className="w-3.5 h-3.5 text-slate-400 mr-2 rtl:mr-0 rtl:ml-2 shrink-0" />
                           <input
                             type="text"
                             required
                             value={wizardData.location}
                             onChange={(e) => update('location', e.target.value)}
-                            placeholder="e.g. Dubai, Abu Dhabi, Sharjah"
+                            placeholder="e.g. Dubai, Abu Dhabi, Sharjah, Mumbai"
                             className="w-full bg-transparent text-xs text-slate-900 focus:outline-none font-medium placeholder-slate-400"
                           />
                         </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                          Country
-                        </label>
-                        <input
-                          type="text"
-                          readOnly
-                          value={wizardData.country}
-                          className="w-full bg-slate-100 border border-[#E2EBF0] rounded-xl px-4 py-3 text-xs text-slate-500 cursor-not-allowed font-medium"
-                        />
+                        {fieldErrors.location && (
+                          <p className="text-[11px] text-red-500 font-medium mt-1.5 flex items-center gap-1">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                            <span>{fieldErrors.location}</span>
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -876,7 +1057,13 @@ export const JoinProviderPage: React.FC = () => {
                       <label className="block text-xs font-bold text-slate-700 mb-1.5">
                         Location in Maps (Google Maps link) <span className="font-normal text-slate-400">(Optional)</span>
                       </label>
-                      <div className="bg-white rounded-xl border border-[#E2EBF0] px-3.5 py-3 flex items-center shadow-xs">
+                      <div
+                        className={`bg-white rounded-xl border px-3.5 py-3 flex items-center shadow-xs transition-colors ${
+                          fieldErrors.googleMapsUrl
+                            ? 'border-red-400 bg-red-50/20 ring-1 ring-red-400'
+                            : 'border-[#E2EBF0] focus-within:border-[#2DA7B5]'
+                        }`}
+                      >
                         <MapPin className="w-3.5 h-3.5 text-[#2DA7B5] mr-2 rtl:mr-0 rtl:ml-2 shrink-0" />
                         <input
                           type="url"
@@ -886,9 +1073,16 @@ export const JoinProviderPage: React.FC = () => {
                           className="w-full bg-transparent text-xs text-slate-900 focus:outline-none font-medium placeholder-slate-400"
                         />
                       </div>
-                      <p className="text-[11px] text-slate-400 mt-1">
-                        Provide a Google Maps pin or location link to help patients find your facility accurately.
-                      </p>
+                      {fieldErrors.googleMapsUrl ? (
+                        <p className="text-[11px] text-red-500 font-medium mt-1.5 flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>{fieldErrors.googleMapsUrl}</span>
+                        </p>
+                      ) : (
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          Provide a Google Maps pin or location link to help patients find your facility accurately.
+                        </p>
+                      )}
                     </div>
 
                     {/* Website */}
@@ -901,8 +1095,18 @@ export const JoinProviderPage: React.FC = () => {
                         value={wizardData.website}
                         onChange={(e) => update('website', e.target.value)}
                         placeholder="https://yourhospital.com"
-                        className="w-full bg-white border border-[#E2EBF0] rounded-xl px-4 py-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#2DA7B5] font-medium shadow-xs"
+                        className={`w-full bg-white border rounded-xl px-4 py-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none font-medium shadow-xs transition-colors ${
+                          fieldErrors.website
+                            ? 'border-red-400 bg-red-50/20 ring-1 ring-red-400'
+                            : 'border-[#E2EBF0] focus:border-[#2DA7B5]'
+                        }`}
                       />
+                      {fieldErrors.website && (
+                        <p className="text-[11px] text-red-500 font-medium mt-1.5 flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>{fieldErrors.website}</span>
+                        </p>
+                      )}
                     </div>
 
                     {/* Notes */}

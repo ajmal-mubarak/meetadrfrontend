@@ -36,9 +36,14 @@ import { useToast } from '../../context/ToastContext';
 import { useTranslation } from '../../i18n';
 import { patientService, FrontendDependent } from '../../services/patientService';
 import { realHospitalService } from '../../services/realFacilityService';
-import { InsurancePicker } from '../../components/common/InsurancePicker';
 import { Hospital } from '../../types';
 import { AlertCircle } from 'lucide-react';
+import {
+  COUNTRY_PHONE_RULES,
+  getPhoneRule,
+  sanitizePhoneNumber,
+  splitPhoneNumber,
+} from '../../utils/phoneValidation';
 
 // ─── Guest Login Modal (intercepts booking when not authenticated) ────────────
 interface GuestLoginModalProps {
@@ -557,14 +562,22 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
   React.useEffect(() => {
     if (rescheduleApptData) {
       if (rescheduleApptData.patientName) setPatientName(rescheduleApptData.patientName);
-      if (rescheduleApptData.patientPhone) setMobileNumber(rescheduleApptData.patientPhone);
+      if (rescheduleApptData.patientPhone) {
+        const { dialCode, localNumber } = splitPhoneNumber(rescheduleApptData.patientPhone);
+        setCountryCode(dialCode);
+        setMobileNumber(localNumber);
+      }
     }
   }, [rescheduleApptData]);
 
   React.useEffect(() => {
     if (user && beneficiaryType === 'self') {
       if (!patientName && user.name) setPatientName(user.name);
-      if (!mobileNumber && user.phone) setMobileNumber(user.phone);
+      if (!mobileNumber && user.phone) {
+        const { dialCode, localNumber } = splitPhoneNumber(user.phone);
+        setCountryCode(dialCode);
+        setMobileNumber(localNumber);
+      }
       if (!patientEmail && user.email) setPatientEmail(user.email);
     }
   }, [user, beneficiaryType]);
@@ -746,8 +759,9 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
         window.dispatchEvent(new CustomEvent('meetadr:notification_updated'));
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
-        // New appointment booking
-        const fullPhone = `${countryCode} ${mobileNumber.trim()}`;
+        // New appointment booking - clean local digits and avoid duplicate country codes
+        const cleanDigits = sanitizePhoneNumber(mobileNumber, countryCode);
+        const fullPhone = `${countryCode} ${cleanDigits}`.trim();
         const newAppt = await realBookingService.createBooking({
           doctor_id: doctor.id,
           date: selectedDateObj.date,
@@ -2033,22 +2047,30 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
 
                     {/* Mobile Number */}
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
-                        {t('booking.mobileNumber')} *
-                      </label>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-bold text-slate-700">
+                          {t('booking.mobileNumber')} *
+                        </label>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          {mobileNumber.length} / {getPhoneRule(countryCode).maxLength} digits
+                        </span>
+                      </div>
                       <div className="flex gap-2">
-                        <div className="relative w-32 shrink-0">
+                        <div className="relative w-36 shrink-0">
                           <select
                             value={countryCode}
-                            onChange={(e) => setCountryCode(e.target.value)}
-                            className="w-full appearance-none bg-[#F8FAFC] border border-[#E2EBF0] rounded-2xl px-3 py-3 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-[#2DA7B5] cursor-pointer shadow-2xs"
+                            onChange={(e) => {
+                              const newCode = e.target.value;
+                              setCountryCode(newCode);
+                              setMobileNumber((prev) => sanitizePhoneNumber(prev, newCode));
+                            }}
+                            className="w-full appearance-none bg-[#F8FAFC] border border-[#E2EBF0] rounded-2xl px-3 py-3 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-[#2DA7B5] cursor-pointer shadow-2xs pr-7 truncate"
                           >
-                            <option value="+971">+971 (UAE)</option>
-                            <option value="+965">+965 (KWT)</option>
-                            <option value="+966">+966 (KSA)</option>
-                            <option value="+974">+974 (QAT)</option>
-                            <option value="+44">+44 (UK)</option>
-                            <option value="+1">+1 (US)</option>
+                            {Object.values(COUNTRY_PHONE_RULES).map((rule) => (
+                              <option key={rule.dialCode} value={rule.dialCode}>
+                                {rule.dialCode} ({rule.countryName})
+                              </option>
+                            ))}
                           </select>
                           <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 rtl:right-auto rtl:left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                         </div>
@@ -2058,10 +2080,11 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
                           <input
                             type="tel"
                             required
-                            placeholder={t('booking.mobilePlaceholder')}
+                            placeholder={`e.g. ${getPhoneRule(countryCode).example}`}
                             value={mobileNumber}
-                            onChange={(e) => setMobileNumber(e.target.value)}
-                            className="w-full bg-transparent text-xs sm:text-sm text-slate-900 focus:outline-hidden font-medium placeholder:text-slate-400"
+                            maxLength={getPhoneRule(countryCode).maxLength + (countryCode === '+971' && mobileNumber.startsWith('0') ? 1 : 0)}
+                            onChange={(e) => setMobileNumber(sanitizePhoneNumber(e.target.value, countryCode))}
+                            className="w-full bg-transparent text-xs sm:text-sm text-slate-900 focus:outline-hidden font-medium placeholder:text-slate-400 font-mono"
                           />
                         </div>
                       </div>

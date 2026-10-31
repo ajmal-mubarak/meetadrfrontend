@@ -46,7 +46,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
 
   const isDoctors = target === 'doctors';
   const title = isDoctors ? 'Bulk Import Doctors' : 'Bulk Import Healthcare Facilities';
-  const templateName = isDoctors ? 'Template - Doctors Data.xlsx' : 'Template - HOSPTIAL Data.xlsx';
+  const templateName = isDoctors ? 'Doctor Template.xlsx' : 'Hospital Template.xlsx';
   const endpoint =
     scope === 'facility' && isDoctors
       ? '/api/v1/facility/doctors/import/'

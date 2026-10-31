@@ -51,14 +51,16 @@ export const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const safeOptions = useMemo(() => (Array.isArray(options) ? options : []), [options]);
+
   const filteredOptions = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return options;
-    return options.filter((opt) => opt.toLowerCase().includes(q));
-  }, [options, search]);
+    if (!q) return safeOptions;
+    return safeOptions.filter((opt) => (opt || '').toString().toLowerCase().includes(q));
+  }, [safeOptions, search]);
 
   const toggleOption = (opt: string) => {
-    const trimmed = opt.trim();
+    const trimmed = (opt || '').toString().trim();
     if (!trimmed) return;
     if (currentSelected.includes(trimmed)) {
       onChange(currentSelected.filter((s) => s !== trimmed));
@@ -74,8 +76,8 @@ export const SearchableMultiSelect: React.FC<SearchableMultiSelectProps> = ({
 
   const isExactMatch = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return options.some((opt) => opt.toLowerCase() === q);
-  }, [options, search]);
+    return safeOptions.some((opt) => (opt || '').toString().toLowerCase() === q);
+  }, [safeOptions, search]);
 
   return (
     <div className={`relative ${className}`} ref={containerRef}>

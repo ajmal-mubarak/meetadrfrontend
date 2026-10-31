@@ -41,29 +41,33 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const getOptValue = (opt: SearchableSelectOption): string => {
-    return typeof opt === 'string' ? opt : opt.value;
+  const getOptValue = (opt: SearchableSelectOption | any): string => {
+    if (typeof opt === 'string') return opt;
+    return (opt?.value ?? opt?.code ?? '') + '';
   };
 
-  const getOptLabel = (opt: SearchableSelectOption): string => {
-    return typeof opt === 'string' ? opt : opt.label;
+  const getOptLabel = (opt: SearchableSelectOption | any): string => {
+    if (typeof opt === 'string') return opt;
+    return (opt?.label ?? opt?.name ?? opt?.code ?? opt?.value ?? '') + '';
   };
+
+  const safeOptions = useMemo(() => (Array.isArray(options) ? options : []), [options]);
 
   const displayLabel = useMemo(() => {
     if (!value) return '';
-    const found = options.find((opt) => getOptValue(opt) === value);
+    const found = safeOptions.find((opt) => getOptValue(opt) === value);
     return found ? getOptLabel(found) : value;
-  }, [options, value]);
+  }, [safeOptions, value]);
 
   const filteredOptions = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return options;
-    return options.filter((opt) => {
-      const labelStr = getOptLabel(opt).toLowerCase();
-      const valStr = getOptValue(opt).toLowerCase();
+    if (!q) return safeOptions;
+    return safeOptions.filter((opt) => {
+      const labelStr = (getOptLabel(opt) || '').toLowerCase();
+      const valStr = (getOptValue(opt) || '').toLowerCase();
       return labelStr.includes(q) || valStr.includes(q);
     });
-  }, [options, search]);
+  }, [safeOptions, search]);
 
   const selectOption = (opt: SearchableSelectOption | string) => {
     const val = typeof opt === 'string' ? opt : getOptValue(opt);
@@ -74,10 +78,10 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
   const isExactMatch = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return options.some((opt) => {
-      return getOptLabel(opt).toLowerCase() === q || getOptValue(opt).toLowerCase() === q;
+    return safeOptions.some((opt) => {
+      return (getOptLabel(opt) || '').toLowerCase() === q || (getOptValue(opt) || '').toLowerCase() === q;
     });
-  }, [options, search]);
+  }, [safeOptions, search]);
 
   return (
     <div className={`relative ${className}`} ref={containerRef}>

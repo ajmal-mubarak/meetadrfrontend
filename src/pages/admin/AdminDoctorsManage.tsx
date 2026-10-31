@@ -167,10 +167,12 @@ import {
 
 
   SUPPORTING_DIAL_CODES,
-
-
-
 } from '../../data/supportingKeys';
+import {
+  sanitizePhoneNumber,
+  validatePhoneNumber,
+  getPhoneRule,
+} from '../../utils/phoneValidation';
 
 
 
@@ -1165,24 +1167,17 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
     if (!addForm.name.trim() || !addForm.specialty.trim() || !addForm.location.trim()) {
-
-
-
       showToast('Doctor name, specialty, and location are required.', 'error');
-
-
-
       return;
-
-
-
     }
 
-
-
-
-
-
+    if (addForm.contact_number && addForm.contact_number.trim()) {
+      const phoneErr = validatePhoneNumber(addForm.contact_number, addForm.phone_dial_code);
+      if (phoneErr) {
+        showToast(phoneErr, 'error');
+        return;
+      }
+    }
 
     setIsSubmittingAdd(true);
 
@@ -1477,24 +1472,17 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
     if (!editForm.name.trim() || !editForm.specialty.trim()) {
-
-
-
       showToast('Doctor name and specialty are required.', 'error');
-
-
-
       return;
-
-
-
     }
 
-
-
-
-
-
+    if (editForm.contact_number && editForm.contact_number.trim()) {
+      const phoneErr = validatePhoneNumber(editForm.contact_number, editForm.phone_dial_code);
+      if (phoneErr) {
+        showToast(phoneErr, 'error');
+        return;
+      }
+    }
 
     setIsSubmittingEdit(true);
 
@@ -4546,66 +4534,27 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
 
-                    onChange={(val) => setAddForm({ ...addForm, phone_dial_code: val })}
-
-
-
+                    onChange={(val) => setAddForm({ ...addForm, phone_dial_code: val, contact_number: addForm.contact_number ? sanitizePhoneNumber(addForm.contact_number, val) : '' })}
                     options={SUPPORTING_DIAL_CODES.map((d) => ({ value: d.code, label: d.label }))}
-
-
-
                     placeholder="Select dial code"
-
-
-
                     allowCustom
-
-
-
                   />
-
-
-
                 </div>
 
-
-
                 <div>
-
-
-
-                  <label className="block font-bold text-slate-700 mb-1">Contact Number</label>
-
-
-
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-bold text-slate-700">Contact Number</label>
+                    <span className="text-[10px] text-slate-400 font-semibold">
+                      Max {getPhoneRule(addForm.phone_dial_code).maxLength} digits ({addForm.contact_number?.length || 0}/{getPhoneRule(addForm.phone_dial_code).maxLength})
+                    </span>
+                  </div>
                   <input
-
-
-
                     type="text"
-
-
-
-                    placeholder="e.g. 50 123 4567"
-
-
-
+                    placeholder={`e.g. ${getPhoneRule(addForm.phone_dial_code).example}`}
                     value={addForm.contact_number}
-
-
-
-                    onChange={(e) => setAddForm({ ...addForm, contact_number: e.target.value })}
-
-
-
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
-
-
-
+                    maxLength={getPhoneRule(addForm.phone_dial_code).maxLength + (addForm.phone_dial_code === '+971' && addForm.contact_number?.startsWith('0') ? 1 : 0)}
+                    onChange={(e) => setAddForm({ ...addForm, contact_number: sanitizePhoneNumber(e.target.value, addForm.phone_dial_code) })}
                   />
-
-
-
                 </div>
 
 
@@ -5682,66 +5631,28 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
 
-                    onChange={(val) => setEditForm({ ...editForm, phone_dial_code: val })}
-
-
-
+                    onChange={(val) => setEditForm({ ...editForm, phone_dial_code: val, contact_number: editForm.contact_number ? sanitizePhoneNumber(editForm.contact_number, val) : '' })}
                     options={SUPPORTING_DIAL_CODES.map((d) => ({ value: d.code, label: d.label }))}
-
-
-
                     placeholder="Select dial code"
-
-
-
                     allowCustom
-
-
-
                   />
-
-
-
                 </div>
 
-
-
                 <div>
-
-
-
-                  <label className="block font-bold text-slate-700 mb-1">Contact Number</label>
-
-
-
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-bold text-slate-700">Contact Number</label>
+                    <span className="text-[10px] text-slate-400 font-semibold">
+                      Max {getPhoneRule(editForm.phone_dial_code).maxLength} digits ({editForm.contact_number?.length || 0}/{getPhoneRule(editForm.phone_dial_code).maxLength})
+                    </span>
+                  </div>
                   <input
-
-
-
                     type="text"
-
-
-
-                    placeholder="e.g. 50 123 4567"
-
-
-
+                    placeholder={`e.g. ${getPhoneRule(editForm.phone_dial_code).example}`}
                     value={editForm.contact_number}
-
-
-
-                    onChange={(e) => setEditForm({ ...editForm, contact_number: e.target.value })}
-
-
-
+                    maxLength={getPhoneRule(editForm.phone_dial_code).maxLength + (editForm.phone_dial_code === '+971' && editForm.contact_number?.startsWith('0') ? 1 : 0)}
+                    onChange={(e) => setEditForm({ ...editForm, contact_number: sanitizePhoneNumber(e.target.value, editForm.phone_dial_code) })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
-
-
-
                   />
-
-
-
                 </div>
 
 

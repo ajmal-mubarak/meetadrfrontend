@@ -209,15 +209,19 @@ export interface ProviderRequest {
   id: string;
   providerType: 'hospital' | 'clinic' | 'doctor';
   name: string;
+  nameAr?: string;
+  contactPerson?: string;
   specialty?: string;
   contactNumber: string;
   email: string;
   country: string;
   location: string;
+  address?: string;
   googleMapsUrl?: string;
   submittedAt: string;
   createdAt?: string;
   status?: 'pending' | 'approved' | 'rejected';
+  adminNotes?: string;
 }
 
 export interface FilterOptions {

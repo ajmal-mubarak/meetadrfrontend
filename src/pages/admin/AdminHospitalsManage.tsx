@@ -38,6 +38,11 @@ import {
   FACILITY_CATEGORIES,
   SUPPORTING_INSURANCES,
 } from '../../data/supportingKeys';
+import {
+  sanitizePhoneNumber,
+  validatePhoneNumber,
+  getPhoneRule,
+} from '../../utils/phoneValidation';
 
 
 import {
@@ -314,6 +319,13 @@ export const AdminHospitalsManage: React.FC = () => {
       showToast('Hospital / Facility Name is required.', 'error');
       return;
     }
+    if (addForm.phone && addForm.phone.trim()) {
+      const phoneErr = validatePhoneNumber(addForm.phone, addForm.phone_dial_code);
+      if (phoneErr) {
+        showToast(phoneErr, 'error');
+        return;
+      }
+    }
 
     setIsSubmittingAdd(true);
     try {
@@ -398,6 +410,13 @@ export const AdminHospitalsManage: React.FC = () => {
     if (!editForm.name.trim()) {
       showToast('Hospital / Facility Name is required.', 'error');
       return;
+    }
+    if (editForm.phone && editForm.phone.trim()) {
+      const phoneErr = validatePhoneNumber(editForm.phone, editForm.phone_dial_code);
+      if (phoneErr) {
+        showToast(phoneErr, 'error');
+        return;
+      }
     }
 
     setIsSubmittingEdit(true);
@@ -1370,21 +1389,33 @@ export const AdminHospitalsManage: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="sm:col-span-1">
                   <SearchableSelect
-                    label="Country Code (+971 - UAE)"
+                    label={`Country Code (${addForm.phone_dial_code || '+971'})`}
                     value={addForm.phone_dial_code}
-                    onChange={(val) => setAddForm({ ...addForm, phone_dial_code: val })}
+                    onChange={(val) => {
+                      setAddForm({
+                        ...addForm,
+                        phone_dial_code: val,
+                        phone: addForm.phone ? sanitizePhoneNumber(addForm.phone, val) : '',
+                      });
+                    }}
                     options={SUPPORTING_DIAL_CODES.map((d) => ({ value: d.code, label: d.label }))}
                     placeholder="Select dial code"
                     allowCustom
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Hospital Main Number</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-bold text-slate-700">Hospital Main Number</label>
+                    <span className="text-[10px] text-slate-400 font-semibold">
+                      Max {getPhoneRule(addForm.phone_dial_code).maxLength} digits ({addForm.phone?.length || 0}/{getPhoneRule(addForm.phone_dial_code).maxLength})
+                    </span>
+                  </div>
                   <input
                     type="text"
-                    placeholder="e.g. 800 4222 / 04 123 4567"
+                    placeholder={`e.g. ${getPhoneRule(addForm.phone_dial_code).example}`}
                     value={addForm.phone}
-                    onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })}
+                    maxLength={getPhoneRule(addForm.phone_dial_code).maxLength + (addForm.phone_dial_code === '+971' && addForm.phone?.startsWith('0') ? 1 : 0)}
+                    onChange={(e) => setAddForm({ ...addForm, phone: sanitizePhoneNumber(e.target.value, addForm.phone_dial_code) })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
                     dir="ltr"
                   />
@@ -1653,21 +1684,33 @@ export const AdminHospitalsManage: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="sm:col-span-1">
                   <SearchableSelect
-                    label="Country Code (+971 - UAE)"
+                    label={`Country Code (${editForm.phone_dial_code || '+971'})`}
                     value={editForm.phone_dial_code}
-                    onChange={(val) => setEditForm({ ...editForm, phone_dial_code: val })}
+                    onChange={(val) => {
+                      setEditForm({
+                        ...editForm,
+                        phone_dial_code: val,
+                        phone: editForm.phone ? sanitizePhoneNumber(editForm.phone, val) : '',
+                      });
+                    }}
                     options={SUPPORTING_DIAL_CODES.map((d) => ({ value: d.code, label: d.label }))}
                     placeholder="Select dial code"
                     allowCustom
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Hospital Main Number</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-bold text-slate-700">Hospital Main Number</label>
+                    <span className="text-[10px] text-slate-400 font-semibold">
+                      Max {getPhoneRule(editForm.phone_dial_code).maxLength} digits ({editForm.phone?.length || 0}/{getPhoneRule(editForm.phone_dial_code).maxLength})
+                    </span>
+                  </div>
                   <input
                     type="text"
-                    placeholder="e.g. 800 4222 / 04 123 4567"
+                    placeholder={`e.g. ${getPhoneRule(editForm.phone_dial_code).example}`}
                     value={editForm.phone}
-                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    maxLength={getPhoneRule(editForm.phone_dial_code).maxLength + (editForm.phone_dial_code === '+971' && editForm.phone?.startsWith('0') ? 1 : 0)}
+                    onChange={(e) => setEditForm({ ...editForm, phone: sanitizePhoneNumber(e.target.value, editForm.phone_dial_code) })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
                     dir="ltr"
                   />
