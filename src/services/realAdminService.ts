@@ -551,6 +551,22 @@ export const realAdminService = {
   },
 
   /**
+   * Administrative status update of any booking (completed, cancelled, confirmed).
+   * PATCH /api/v1/admin/bookings/{id}/status/
+   */
+  async updateBookingStatus(
+    id: string,
+    status: 'confirmed' | 'completed' | 'cancelled',
+    reason?: string
+  ): Promise<Appointment> {
+    const data = await apiClient.patch<BackendAdminBooking>(
+      API_ENDPOINTS.ADMIN.BOOKING_STATUS(id),
+      { status, reason }
+    );
+    return mapBooking(data);
+  },
+
+  /**
    * Retrieves provider onboarding requests submitted to the platform.
    * GET /api/v1/admin/requests/
    */

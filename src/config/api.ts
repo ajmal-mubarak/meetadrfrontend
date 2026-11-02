@@ -167,6 +167,8 @@ export const API_ENDPOINTS = {
     PATIENT_DETAIL: (id: string) => `/admin/patients/${id}/`,
     BOOKINGS: '/admin/bookings/',
     BOOKING_CANCEL: (id: string) => `/admin/bookings/${id}/cancel/`,
+    BOOKING_STATUS: (id: string) => `/admin/bookings/${id}/status/`,
+    BOOKING_COMPLETE: (id: string) => `/admin/bookings/${id}/complete/`,
     REPORTS: '/admin/reports/',
     DASHBOARD: '/admin/dashboard/',
     REQUESTS: '/admin/requests/',

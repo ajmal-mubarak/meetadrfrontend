@@ -18,12 +18,14 @@ import {
   TrendingUp,
   UserCheck,
   Eye,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { realAdminService, ProviderItem } from '../../services/realAdminService';
 import { Appointment, Doctor } from '../../types';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { CancelModal } from '../../components/common/CancelModal';
-import { BookingDetailsModal } from '../../components/common/BookingDetailsModal';
+import { BookingDetailsModal, formatBookingTemplate } from '../../components/common/BookingDetailsModal';
 import { useToast } from '../../context/ToastContext';
 import { useTranslation } from '../../i18n';
 
@@ -71,6 +73,34 @@ export const AdminBookings: React.FC = () => {
   const [bookingSearch, setBookingSearch] = useState<string>('');
   const [cancellingAppt, setCancellingAppt] = useState<Appointment | null>(null);
   const [viewingAppt, setViewingAppt] = useState<Appointment | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopyBooking = async (appt: Appointment) => {
+    try {
+      const text = formatBookingTemplate(appt);
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+        setCopiedId(appt.id);
+        setTimeout(() => setCopiedId(null), 2500);
+        showToast(isArabic ? 'تم نسخ بيانات الحجز' : 'Booking details copied to clipboard!', 'success');
+      }
+    } catch {
+      showToast('Failed to copy', 'error');
+    }
+  };
+
+  const handleCompleteBooking = async (appt: Appointment) => {
+    try {
+      await realAdminService.updateBookingStatus(appt.id, 'completed');
+      showToast(
+        isArabic ? 'تم تأكيد إكمال الاستشارة بنجاح.' : `Booking #${appt.id.slice(0, 8)} marked as Completed.`,
+        'success'
+      );
+      loadData();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to complete appointment', 'error');
+    }
+  };
 
   const loadData = async () => {
     setIsLoading(true);
@@ -958,24 +988,61 @@ export const AdminBookings: React.FC = () => {
                         <td className="px-5 py-3.5">
                           <StatusBadge status={appt.status} />
                         </td>
-                        <td className="px-5 py-3.5 text-right rtl:text-left space-x-1.5 rtl:space-x-reverse">
-                          <button
-                            type="button"
-                            onClick={() => setViewingAppt(appt)}
-                            className="px-2.5 py-1 text-[11px] font-semibold text-[#0E7490] hover:bg-[#E8F6F8] rounded-lg border border-[#CDEBF0] transition-colors cursor-pointer inline-flex items-center gap-1"
-                            title="View Booking Details"
-                          >
-                            <Eye className="w-3 h-3 text-[#2DA7B5]" />
-                            <span>{isArabic ? 'التفاصيل' : 'Details'}</span>
-                          </button>
-                          {appt.status?.toLowerCase() === 'confirmed' && (
+                        <td className="px-5 py-3.5 text-right rtl:text-left">
+                          <div className="inline-flex items-center gap-1.5 justify-end">
                             <button
-                              onClick={() => setCancellingAppt(appt)}
-                              className="px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 rounded-lg border border-rose-200 transition-colors cursor-pointer"
+                              type="button"
+                              onClick={() => setViewingAppt(appt)}
+                              className="px-2.5 py-1 text-[11px] font-semibold text-[#0E7490] hover:bg-[#E8F6F8] rounded-lg border border-[#CDEBF0] transition-colors cursor-pointer inline-flex items-center gap-1"
+                              title="View Booking Details"
                             >
-                              {t('adminPortal.cancelBooking') || 'Cancel'}
+                              <Eye className="w-3 h-3 text-[#2DA7B5]" />
+                              <span>{isArabic ? 'التفاصيل' : 'Details'}</span>
                             </button>
-                          )}
+                            <button
+                              type="button"
+                              onClick={() => handleCopyBooking(appt)}
+                              className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border transition-colors cursor-pointer inline-flex items-center gap-1 ${
+                                copiedId === appt.id
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                  : 'text-slate-700 hover:bg-slate-100 border-slate-200 bg-white'
+                              }`}
+                              title="Copy Booking Details"
+                            >
+                              {copiedId === appt.id ? (
+                                <Check className="w-3 h-3 text-emerald-600" />
+                              ) : (
+                                <Copy className="w-3 h-3 text-slate-500" />
+                              )}
+                              <span>{copiedId === appt.id ? (isArabic ? 'تم النسخ' : 'Copied') : (isArabic ? 'نسخ' : 'Copy')}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleCompleteBooking(appt)}
+                              disabled={appt.status?.toLowerCase() === 'completed'}
+                              className={`p-1.5 rounded-lg border transition-colors inline-flex items-center justify-center ${
+                                appt.status?.toLowerCase() === 'completed'
+                                  ? 'opacity-40 cursor-not-allowed bg-emerald-50 border-emerald-200 text-emerald-700'
+                                  : 'text-emerald-700 hover:bg-emerald-50 border-emerald-300 bg-white cursor-pointer hover:shadow-xs'
+                              }`}
+                              title={appt.status?.toLowerCase() === 'completed' ? (isArabic ? 'مكتمل بالفعل' : 'Already Completed') : (isArabic ? 'تأكيد الإكمال' : 'Mark Completed')}
+                            >
+                              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCancellingAppt(appt)}
+                              disabled={appt.status?.toLowerCase() === 'cancelled'}
+                              className={`p-1.5 rounded-lg border transition-colors inline-flex items-center justify-center ${
+                                appt.status?.toLowerCase() === 'cancelled'
+                                  ? 'opacity-40 cursor-not-allowed bg-rose-50 border-rose-200 text-rose-700'
+                                  : 'text-rose-600 hover:bg-rose-50 border-rose-200 bg-white cursor-pointer hover:shadow-xs'
+                              }`}
+                              title={appt.status?.toLowerCase() === 'cancelled' ? (isArabic ? 'ملغي بالفعل' : 'Already Cancelled') : (isArabic ? 'إلغاء الموعد' : 'Cancel Booking')}
+                            >
+                              <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -1069,24 +1136,61 @@ export const AdminBookings: React.FC = () => {
                         <td className="px-5 py-3.5">
                           <StatusBadge status={appt.status} />
                         </td>
-                        <td className="px-5 py-3.5 text-right rtl:text-left space-x-1.5 rtl:space-x-reverse">
-                          <button
-                            type="button"
-                            onClick={() => setViewingAppt(appt)}
-                            className="px-2.5 py-1 text-[11px] font-semibold text-[#0E7490] hover:bg-[#E8F6F8] rounded-lg border border-[#CDEBF0] transition-colors cursor-pointer inline-flex items-center gap-1"
-                            title="View Booking Details"
-                          >
-                            <Eye className="w-3 h-3 text-[#2DA7B5]" />
-                            <span>{isArabic ? 'التفاصيل' : 'Details'}</span>
-                          </button>
-                          {appt.status?.toLowerCase() === 'confirmed' && (
+                        <td className="px-5 py-3.5 text-right rtl:text-left">
+                          <div className="inline-flex items-center gap-1.5 justify-end">
                             <button
-                              onClick={() => setCancellingAppt(appt)}
-                              className="px-2.5 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 rounded-lg border border-rose-200 transition-colors cursor-pointer"
+                              type="button"
+                              onClick={() => setViewingAppt(appt)}
+                              className="px-2.5 py-1 text-[11px] font-semibold text-[#0E7490] hover:bg-[#E8F6F8] rounded-lg border border-[#CDEBF0] transition-colors cursor-pointer inline-flex items-center gap-1"
+                              title="View Booking Details"
                             >
-                              {t('adminPortal.cancelBooking') || 'Cancel'}
+                              <Eye className="w-3 h-3 text-[#2DA7B5]" />
+                              <span>{isArabic ? 'التفاصيل' : 'Details'}</span>
                             </button>
-                          )}
+                            <button
+                              type="button"
+                              onClick={() => handleCopyBooking(appt)}
+                              className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border transition-colors cursor-pointer inline-flex items-center gap-1 ${
+                                copiedId === appt.id
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                  : 'text-slate-700 hover:bg-slate-100 border-slate-200 bg-white'
+                              }`}
+                              title="Copy Booking Details"
+                            >
+                              {copiedId === appt.id ? (
+                                <Check className="w-3 h-3 text-emerald-600" />
+                              ) : (
+                                <Copy className="w-3 h-3 text-slate-500" />
+                              )}
+                              <span>{copiedId === appt.id ? (isArabic ? 'تم النسخ' : 'Copied') : (isArabic ? 'نسخ' : 'Copy')}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleCompleteBooking(appt)}
+                              disabled={appt.status?.toLowerCase() === 'completed'}
+                              className={`p-1.5 rounded-lg border transition-colors inline-flex items-center justify-center ${
+                                appt.status?.toLowerCase() === 'completed'
+                                  ? 'opacity-40 cursor-not-allowed bg-emerald-50 border-emerald-200 text-emerald-700'
+                                  : 'text-emerald-700 hover:bg-emerald-50 border-emerald-300 bg-white cursor-pointer hover:shadow-xs'
+                              }`}
+                              title={appt.status?.toLowerCase() === 'completed' ? (isArabic ? 'مكتمل بالفعل' : 'Already Completed') : (isArabic ? 'تأكيد الإكمال' : 'Mark Completed')}
+                            >
+                              <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCancellingAppt(appt)}
+                              disabled={appt.status?.toLowerCase() === 'cancelled'}
+                              className={`p-1.5 rounded-lg border transition-colors inline-flex items-center justify-center ${
+                                appt.status?.toLowerCase() === 'cancelled'
+                                  ? 'opacity-40 cursor-not-allowed bg-rose-50 border-rose-200 text-rose-700'
+                                  : 'text-rose-600 hover:bg-rose-50 border-rose-200 bg-white cursor-pointer hover:shadow-xs'
+                              }`}
+                              title={appt.status?.toLowerCase() === 'cancelled' ? (isArabic ? 'ملغي بالفعل' : 'Already Cancelled') : (isArabic ? 'إلغاء الموعد' : 'Cancel Booking')}
+                            >
+                              <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
