@@ -133,6 +133,10 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
       navigate(notif.link);
     } else if (user?.role === 'doctor') {
       navigate('/doctor/bookings');
+    } else if (user?.role === 'admin') {
+      navigate('/admin/bookings');
+    } else if (user?.role === 'hospital') {
+      navigate('/hospital/bookings');
     } else {
       navigate('/patient/bookings');
     }
@@ -151,7 +155,14 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     }
   };
 
-  const fallbackLink = user?.role === 'doctor' ? '/doctor/bookings' : '/patient/bookings';
+  const fallbackLink =
+    user?.role === 'doctor'
+      ? '/doctor/bookings'
+      : user?.role === 'hospital'
+      ? '/hospital/bookings'
+      : user?.role === 'admin'
+      ? '/admin/bookings'
+      : '/patient/bookings';
 
   if (!user) return null;
 
@@ -284,28 +295,30 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
             </div>
 
             {/* Footer: View Portal Link & Clear All */}
-            <div className="pt-3 mt-2 border-t border-[#E2EBF0] flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsOpen(false);
-                  navigate(fallbackLink);
-                }}
-                className="text-xs font-bold text-[#0E7490] hover:text-[#08596F] flex items-center gap-1.5 py-1 transition-colors cursor-pointer"
-              >
-                <span>
-                  {user?.role === 'doctor'
-                    ? (isArabic ? 'الانتقال إلى سجل الحجوزات' : 'Go to Bookings')
-                    : (t('navigation.viewInPatientPortal') || 'View in Patient Portal')}
-                </span>
-                <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
-              </button>
+            <div className={`pt-3 mt-2 border-t border-[#E2EBF0] flex items-center ${user?.role === 'admin' ? 'justify-end' : 'justify-between'} gap-2`}>
+              {user?.role !== 'admin' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsOpen(false);
+                    navigate(fallbackLink);
+                  }}
+                  className="text-xs font-bold text-[#0E7490] hover:text-[#08596F] flex items-center gap-1.5 py-1 transition-colors cursor-pointer"
+                >
+                  <span>
+                    {user?.role === 'doctor' || user?.role === 'hospital'
+                      ? (isArabic ? 'الانتقال إلى سجل الحجوزات' : 'Go to Bookings')
+                      : (t('navigation.viewInPatientPortal') || 'View in Patient Portal')}
+                  </span>
+                  <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
+                </button>
+              )}
 
               {notifications.length > 0 && (
                 <button
                   type="button"
                   onClick={handleClearAll}
-                  className="text-xs font-semibold text-rose-500 hover:text-rose-700 flex items-center gap-1 transition-colors cursor-pointer py-1"
+                  className="text-xs font-semibold text-rose-500 hover:text-rose-700 flex items-center gap-1 transition-colors cursor-pointer py-1 ml-auto"
                   title={isArabic ? 'مسح جميع الإشعارات' : 'Clear all notifications'}
                 >
                   <Trash2 className="w-3.5 h-3.5 text-rose-500" />
