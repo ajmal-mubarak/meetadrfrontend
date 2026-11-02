@@ -477,9 +477,21 @@ export const realAdminService = {
     username?: string;
     password?: string;
   }): Promise<ProviderItem> {
+    const cleanData: any = { ...data };
+    if (cleanData.latitude === '' || cleanData.latitude === null || cleanData.latitude === undefined) {
+      delete cleanData.latitude;
+    } else {
+      cleanData.latitude = Number(cleanData.latitude);
+    }
+    if (cleanData.longitude === '' || cleanData.longitude === null || cleanData.longitude === undefined) {
+      delete cleanData.longitude;
+    } else {
+      cleanData.longitude = Number(cleanData.longitude);
+    }
+
     const response = await apiClient.post<BackendProviderFacility>(
       API_ENDPOINTS.ADMIN.PROVIDERS,
-      data
+      cleanData
     );
     return mapProvider(response);
   },

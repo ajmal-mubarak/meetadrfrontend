@@ -207,3 +207,62 @@ export function formatDisplayPhone(raw: string): string {
   return cleaned;
 }
 
+/**
+ * Sanitizes coordinate input: allows only valid negative or positive decimal numbers.
+ * Disallows arbitrary letters or symbols while typing.
+ */
+export function sanitizeCoordinate(raw: string): string {
+  if (!raw) return '';
+  const trimmed = raw.trim();
+  if (trimmed === '-') return '-';
+
+  // Keep only digits, dots, and minus
+  let cleaned = trimmed.replace(/[^\d.-]/g, '');
+
+  // Handle minus: only allow at the start
+  const isNegative = cleaned.startsWith('-');
+  cleaned = cleaned.replace(/-/g, '');
+  if (isNegative) {
+    cleaned = '-' + cleaned;
+  }
+
+  // Handle decimal dot: keep only the first dot
+  const dotIndex = cleaned.indexOf('.');
+  if (dotIndex !== -1) {
+    cleaned = cleaned.slice(0, dotIndex + 1) + cleaned.slice(dotIndex + 1).replace(/\./g, '');
+  }
+
+  return cleaned;
+}
+
+/**
+ * Validates coordinate ranges:
+ * Latitude: -90 to 90
+ * Longitude: -180 to 180
+ * Returns error string or null if valid/empty.
+ */
+export function validateCoordinates(lat?: string | number | null, lng?: string | number | null): string | null {
+  if (lat !== undefined && lat !== null && String(lat).trim() !== '') {
+    const rawLat = String(lat).trim();
+    const num = Number(rawLat);
+    if (isNaN(num) || rawLat === '-' || rawLat === '.') {
+      return 'Latitude must be a valid numeric coordinate.';
+    }
+    if (num < -90 || num > 90) {
+      return 'Latitude must be between -90 and 90 degrees (e.g. 25.2048).';
+    }
+  }
+
+  if (lng !== undefined && lng !== null && String(lng).trim() !== '') {
+    const rawLng = String(lng).trim();
+    const num = Number(rawLng);
+    if (isNaN(num) || rawLng === '-' || rawLng === '.') {
+      return 'Longitude must be a valid numeric coordinate.';
+    }
+    if (num < -180 || num > 180) {
+      return 'Longitude must be between -180 and 180 degrees (e.g. 55.2708).';
+    }
+  }
+
+  return null;
+}

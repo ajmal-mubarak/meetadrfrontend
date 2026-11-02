@@ -37,6 +37,9 @@ import {
   sanitizePhoneNumber,
   validatePhoneNumber,
   getPhoneRule,
+  splitPhoneNumber,
+  sanitizeCoordinate,
+  validateCoordinates,
 } from '../../utils/phoneValidation';
 import { SearchableSelect } from '../../components/common/SearchableSelect';
 import { SearchableMultiSelect } from '../../components/common/SearchableMultiSelect';
@@ -84,6 +87,7 @@ export const AdminRequests: React.FC = () => {
     emergency_available: true,
     google_maps_url: '',
     manager_name: '',
+    manager_phone_dial_code: '+971',
     manager_phone: '',
     manager_email: '',
     username: '',
@@ -235,6 +239,7 @@ export const AdminRequests: React.FC = () => {
         emergency_available: !isClinic,
         google_maps_url: request.googleMapsUrl || '',
         manager_name: request.contactPerson || request.name || '',
+        manager_phone_dial_code: dialCode || '+971',
         manager_phone: cleanNumber,
         manager_email: request.email || '',
         username: suggestedUsername,
@@ -260,6 +265,18 @@ export const AdminRequests: React.FC = () => {
       const phoneErr = validatePhoneNumber(hospitalForm.phone, hospitalForm.phone_dial_code);
       if (phoneErr) {
         showToast(phoneErr, 'error');
+        return;
+      }
+    }
+    const coordErr = validateCoordinates(hospitalForm.latitude, hospitalForm.longitude);
+    if (coordErr) {
+      showToast(coordErr, 'error');
+      return;
+    }
+    if (hospitalForm.manager_phone.trim()) {
+      const mgrErr = validatePhoneNumber(hospitalForm.manager_phone, hospitalForm.manager_phone_dial_code);
+      if (mgrErr) {
+        showToast(`Manager Phone: ${mgrErr}`, 'error');
         return;
       }
     }
@@ -289,7 +306,7 @@ export const AdminRequests: React.FC = () => {
         emergency_available: hospitalForm.emergency_available,
         google_maps_url: hospitalForm.google_maps_url.trim() || undefined,
         manager_name: hospitalForm.manager_name.trim() || undefined,
-        manager_phone: hospitalForm.manager_phone.trim() || undefined,
+        manager_phone: hospitalForm.manager_phone.trim() ? `${hospitalForm.manager_phone_dial_code} ${hospitalForm.manager_phone.trim()}` : undefined,
         manager_email: hospitalForm.manager_email.trim() || undefined,
         username: hospitalForm.username.trim(),
         password: hospitalForm.password.trim(),
@@ -847,23 +864,25 @@ export const AdminRequests: React.FC = () => {
               {/* Coordinates */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Latitude</label>
+                  <label className="block font-bold text-slate-700 mb-1">Latitude (-90 to 90)</label>
                   <input
                     type="text"
                     placeholder="e.g. 25.2048"
                     value={hospitalForm.latitude}
-                    onChange={(e) => setHospitalForm({ ...hospitalForm, latitude: e.target.value })}
+                    onChange={(e) => setHospitalForm({ ...hospitalForm, latitude: sanitizeCoordinate(e.target.value) })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
+                    dir="ltr"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Longitude</label>
+                  <label className="block font-bold text-slate-700 mb-1">Longitude (-180 to 180)</label>
                   <input
                     type="text"
                     placeholder="e.g. 55.2708"
                     value={hospitalForm.longitude}
-                    onChange={(e) => setHospitalForm({ ...hospitalForm, longitude: e.target.value })}
+                    onChange={(e) => setHospitalForm({ ...hospitalForm, longitude: sanitizeCoordinate(e.target.value) })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
+                    dir="ltr"
                   />
                 </div>
               </div>
@@ -965,8 +984,8 @@ export const AdminRequests: React.FC = () => {
                 <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-2">
                   Hospital Manager Information
                 </span>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div className="sm:col-span-1">
                     <label className="block font-bold text-slate-700 mb-1">Manager Name</label>
                     <input
                       type="text"
@@ -976,18 +995,40 @@ export const AdminRequests: React.FC = () => {
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
                     />
                   </div>
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Manager Phone</label>
+                  <div className="sm:col-span-1">
+                    <SearchableSelect
+                      label={`Code (${hospitalForm.manager_phone_dial_code || '+971'})`}
+                      value={hospitalForm.manager_phone_dial_code}
+                      onChange={(val) => {
+                        setHospitalForm({
+                          ...hospitalForm,
+                          manager_phone_dial_code: val,
+                          manager_phone: hospitalForm.manager_phone ? sanitizePhoneNumber(hospitalForm.manager_phone, val) : '',
+                        });
+                      }}
+                      options={SUPPORTING_DIAL_CODES.map((d) => ({ value: d.code, label: d.label }))}
+                      placeholder="Select dial code"
+                      allowCustom
+                    />
+                  </div>
+                  <div className="sm:col-span-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block font-bold text-slate-700">Manager Phone</label>
+                      <span className="text-[10px] text-slate-400 font-semibold">
+                        Max {getPhoneRule(hospitalForm.manager_phone_dial_code).maxLength} ({hospitalForm.manager_phone?.length || 0}/{getPhoneRule(hospitalForm.manager_phone_dial_code).maxLength})
+                      </span>
+                    </div>
                     <input
                       type="text"
-                      placeholder="e.g. +971 50 123 4567"
+                      placeholder={`e.g. ${getPhoneRule(hospitalForm.manager_phone_dial_code).example}`}
                       value={hospitalForm.manager_phone}
-                      onChange={(e) => setHospitalForm({ ...hospitalForm, manager_phone: e.target.value })}
+                      maxLength={getPhoneRule(hospitalForm.manager_phone_dial_code).maxLength + (hospitalForm.manager_phone_dial_code === '+971' && hospitalForm.manager_phone?.startsWith('0') ? 1 : 0)}
+                      onChange={(e) => setHospitalForm({ ...hospitalForm, manager_phone: sanitizePhoneNumber(e.target.value, hospitalForm.manager_phone_dial_code) })}
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
                       dir="ltr"
                     />
                   </div>
-                  <div>
+                  <div className="sm:col-span-1">
                     <label className="block font-bold text-slate-700 mb-1">Manager Email</label>
                     <input
                       type="email"
