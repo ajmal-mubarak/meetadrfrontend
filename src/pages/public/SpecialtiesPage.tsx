@@ -27,7 +27,7 @@ export interface SpecialtyItem {
   commonConditions: string[];
 }
 
-export const ALL_SPECIALTIES_DATA: SpecialtyItem[] = [
+const ALL_SPECIALTIES_DATA: SpecialtyItem[] = [
   {
     id: 'skin-care',
     name: 'Skin Care & Dermatology',

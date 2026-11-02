@@ -27,7 +27,7 @@ import { Appointment } from '../../types';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { CancelModal } from '../../components/common/CancelModal';
 import { AppointmentReviewModal } from '../../components/common/AppointmentReviewModal';
-import { getAppointmentTimestamp, formatCountdown } from './PatientDashboard';
+import { getAppointmentTimestamp, formatCountdown } from '../../utils/appointmentUtils';
 
 // ─── Main PatientBookings Component ─────────────────────────────────────────
 export const PatientBookings: React.FC = () => {

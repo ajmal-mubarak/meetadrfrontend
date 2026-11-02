@@ -138,10 +138,10 @@ export default function App() {
   return (
     <ErrorBoundary>
       <LanguageProvider>
-      <ToastProvider>
         <AuthProvider>
-          <LocationProvider>
-            <BrowserRouter>
+          <ToastProvider>
+            <LocationProvider>
+              <BrowserRouter>
               <ScrollToTop />
               <Routes>
                 {/* PUBLIC & MARKETING ROUTES */}
@@ -262,10 +262,10 @@ export default function App() {
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </BrowserRouter>
-          </LocationProvider>
+            </LocationProvider>
+          </ToastProvider>
         </AuthProvider>
-      </ToastProvider>
-    </LanguageProvider>
+      </LanguageProvider>
     </ErrorBoundary>
   );
 }
