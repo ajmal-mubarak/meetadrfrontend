@@ -38,6 +38,7 @@ import { patientService, FrontendDependent } from '../../services/patientService
 import { realHospitalService } from '../../services/realFacilityService';
 import { Hospital } from '../../types';
 import { AlertCircle } from 'lucide-react';
+import { InsurancePicker } from '../../components/common/InsurancePicker';
 import {
   COUNTRY_PHONE_RULES,
   getPhoneRule,

@@ -1372,7 +1372,7 @@ export const HospitalDoctors: React.FC = () => {
         onClose={() => setShowImportModal(false)}
         target="doctors"
         scope="facility"
-        onSuccess={fetchDoctors}
+        onSuccess={loadData}
       />
 
       {/* 4. ADD DOCTOR MODAL                                                       */}

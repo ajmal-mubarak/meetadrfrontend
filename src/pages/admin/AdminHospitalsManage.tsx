@@ -310,6 +310,7 @@ export const AdminHospitalsManage: React.FC = () => {
       logo: '',
     insurance_plans: [] as string[],
       manager_name: '',
+      manager_phone_dial_code: '+971',
       manager_phone: '',
       manager_email: '',
       username: '',
@@ -474,8 +475,8 @@ export const AdminHospitalsManage: React.FC = () => {
         manager_name: editForm.manager_name.trim() || undefined,
         manager_phone: editForm.manager_phone.trim() ? `${editForm.manager_phone_dial_code} ${editForm.manager_phone.trim()}` : undefined,
         manager_email: editForm.manager_email.trim() || undefined,
-        username: editForm.username.trim() || undefined,
-        password: editForm.password.trim() || undefined,
+
+
       });
 
       setProviders((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
@@ -1293,7 +1294,7 @@ export const AdminHospitalsManage: React.FC = () => {
         onClose={() => setIsImportModalOpen(false)}
         onSuccess={() => {
           setIsImportModalOpen(false);
-          loadInitialData();
+          loadData();
         }}
         target="hospitals"
         scope="admin"
