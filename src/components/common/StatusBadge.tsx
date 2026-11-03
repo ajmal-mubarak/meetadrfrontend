@@ -17,10 +17,10 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md' })
     case 'confirmed':
       return (
         <span
-          className={`inline-flex items-center gap-1.5 rounded-full bg-[#EFF3EC] text-[#6C7A5B] border border-[#BAC7AD] ${sizeClasses}`}
+          className={`inline-flex items-center gap-1.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 ${sizeClasses} whitespace-nowrap`}
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-[#8D9B7B]" />
-          {label}
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+          {label || 'In Progress'}
         </span>
       );
     case 'cancelled':

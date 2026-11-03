@@ -187,15 +187,7 @@ export const AdminDoctors: React.FC = () => {
           </div>
         </div>
 
-        {/* Link to Doctor Management for Full Add/Edit/Delete */}
-        <Link
-          to="/admin/doctors-manage"
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all border border-slate-200"
-        >
-          <Stethoscope className="w-3.5 h-3.5 text-teal-600" />
-          <span>Go to Doctors Management (Add/Edit/Delete)</span>
-          <ArrowRight className="w-3.5 h-3.5" />
-        </Link>
+
       </div>
 
       {/* Tabs Bar */}

@@ -185,8 +185,8 @@ export const AdminBookings: React.FC = () => {
       await realAdminService.updateBookingStatus(appt.id, 'confirmed');
       showToast(
         isArabic
-          ? 'تم تأكيد الحجز وإرسال الإشعار والتأكيد للمريض بنجاح.'
-          : `Booking #${appt.id.slice(0, 8)} confirmed. Notification & email dispatched to patient.`,
+          ? 'تم نقل الطلب إلى (قيد المعالجة) وإرسال إشعار للمريض بنجاح.'
+          : `Booking #${appt.id.slice(0, 8)} moved to In Progress. Patient notified.`,
         'success'
       );
       loadData();
@@ -677,7 +677,7 @@ export const AdminBookings: React.FC = () => {
 
     if (st === 'pending') return isArabic ? 'قيد الانتظار' : 'Pending';
 
-    if (st === 'confirmed') return t('status.confirmed') || 'Confirmed';
+    if (st === 'confirmed') return isArabic ? 'قيد المعالجة' : 'In Progress';
 
     if (st === 'completed') return t('status.completed') || 'Completed';
 
@@ -849,7 +849,7 @@ export const AdminBookings: React.FC = () => {
 
               <div className="flex items-center justify-between text-emerald-600 mb-2">
 
-                <span className="text-xs font-medium text-slate-500">{isArabic ? 'مؤكدة' : 'Confirmed'}</span>
+                <span className="text-xs font-medium text-slate-500">{isArabic ? 'قيد المعالجة' : 'In Progress'}</span>
 
                 <CheckCircle2 className="w-4 h-4 text-emerald-500" />
 
@@ -1211,7 +1211,7 @@ export const AdminBookings: React.FC = () => {
 
                         <div className="text-[10px] text-emerald-700 font-medium">
 
-                          {isArabic ? 'مؤكدة' : 'Confirmed'}
+                          {isArabic ? 'قيد المعالجة' : 'In Progress'}
 
                         </div>
 
@@ -1465,7 +1465,7 @@ export const AdminBookings: React.FC = () => {
 
                 <div className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-800 text-center">
 
-                  <div className="text-[10px] font-medium">{isArabic ? 'مؤكدة' : 'Confirmed'}</div>
+                  <div className="text-[10px] font-medium">{isArabic ? 'قيد المعالجة' : 'In Progress'}</div>
 
                   <div className="text-xs font-bold">{selectedFacility.confirmedCount}</div>
 
@@ -1890,23 +1890,14 @@ export const AdminBookings: React.FC = () => {
                 <thead className="bg-[#F8FAFC] text-slate-500 font-semibold border-b border-[#E2EBF0]">
 
                   <tr>
-
-                    <th className="px-5 py-3">{t('adminPortal.bookingId') || 'Booking ID'}</th>
-
-                    <th className="px-5 py-3">{t('adminPortal.patientCol') || 'Patient'}</th>
-
-                    <th className="px-5 py-3">{t('adminPortal.doctorCol') || 'Doctor & Specialty'}</th>
-
-                    <th className="px-5 py-3">{t('adminPortal.scheduleCol') || 'Schedule Slot'}</th>
-
-                    <th className="px-5 py-3">{t('adminPortal.statusCol') || 'Status'}</th>
-
-                    <th className="px-5 py-3 text-right rtl:text-left">
-
+                    <th className="px-3 py-2.5 w-24 whitespace-nowrap">{t('adminPortal.bookingId') || 'Booking ID'}</th>
+                    <th className="px-3 py-2.5 whitespace-nowrap">{t('adminPortal.patientCol') || 'Patient'}</th>
+                    <th className="px-3 py-2.5 whitespace-nowrap">{t('adminPortal.doctorCol') || 'Doctor & Specialty'}</th>
+                    <th className="px-3 py-2.5 whitespace-nowrap">{t('adminPortal.scheduleCol') || 'Schedule Slot'}</th>
+                    <th className="px-3 py-2.5 w-28 text-center whitespace-nowrap">{t('adminPortal.statusCol') || 'Status'}</th>
+                    <th className="px-3 py-2.5 text-right rtl:text-left min-w-[210px] whitespace-nowrap">
                       {t('adminPortal.actionsCol') || 'Action'}
-
                     </th>
-
                   </tr>
 
                 </thead>
@@ -1935,19 +1926,9 @@ export const AdminBookings: React.FC = () => {
 
                       <tr key={appt.id} className="hover:bg-[#F8FAFC] transition-colors">
 
-                        <td
+                        <td className="px-3 py-2.5 font-mono text-[11px] text-[#0E7490] font-bold whitespace-nowrap" dir="ltr" title={appt.id}>#{appt.id.slice(0, 8)}</td>
 
-                          className="px-5 py-3.5 font-mono text-[11px] text-[#0E7490] font-bold"
-
-                          dir="ltr"
-
-                        >
-
-                          #{appt.id}
-
-                        </td>
-
-                        <td className="px-5 py-3.5 text-slate-900 font-medium">
+                        <td className="px-3 py-2.5 text-slate-900 font-medium">
 
                           <div className="font-bold">{appt.patientName}</div>
 
@@ -1967,7 +1948,7 @@ export const AdminBookings: React.FC = () => {
 
                         </td>
 
-                        <td className="px-5 py-3.5 text-slate-800">
+                        <td className="px-3 py-2.5 text-slate-800">
 
                           <div className="font-semibold">{appt.doctorName}</div>
 
@@ -1979,7 +1960,7 @@ export const AdminBookings: React.FC = () => {
 
                         </td>
 
-                        <td className="px-5 py-3.5 text-slate-700">
+                        <td className="px-3 py-2.5 text-slate-700">
 
                           <div className="font-medium">{appt.date}</div>
 
@@ -1991,15 +1972,15 @@ export const AdminBookings: React.FC = () => {
 
                         </td>
 
-                        <td className="px-5 py-3.5">
+                        <td className="px-3 py-2.5">
 
                           <StatusBadge status={appt.status} />
 
                         </td>
 
-                        <td className="px-5 py-3.5 text-right rtl:text-left">
+                        <td className="px-3 py-2.5 text-right rtl:text-left">
 
-                          <div className="inline-flex items-center gap-1.5 justify-end">
+                          <div className="inline-flex items-center gap-1 justify-end flex-nowrap">
 
                             <button
 
@@ -2007,7 +1988,7 @@ export const AdminBookings: React.FC = () => {
 
                               onClick={() => setViewingAppt(appt)}
 
-                              className="px-2.5 py-1 text-[11px] font-semibold text-[#0E7490] hover:bg-[#E8F6F8] rounded-lg border border-[#CDEBF0] transition-colors cursor-pointer inline-flex items-center gap-1"
+                              className="px-2 py-1 text-[11px] font-semibold text-[#0E7490] hover:bg-[#E8F6F8] rounded-lg border border-[#CDEBF0] transition-colors cursor-pointer inline-flex items-center gap-1 shrink-0"
 
                               title="View Booking Details"
 
@@ -2035,7 +2016,7 @@ export const AdminBookings: React.FC = () => {
 
                               }`}
 
-                              title="Copy Booking Details"
+                              title="Copy Booking Order"
 
                             >
 
@@ -2057,11 +2038,11 @@ export const AdminBookings: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => handleConfirmBooking(appt)}
-                                className="px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all inline-flex items-center gap-1 bg-amber-500 hover:bg-amber-600 text-white border-amber-600 cursor-pointer shadow-2xs hover:scale-102"
-                                title={isArabic ? 'تأكيد الحجز وإرسال الإشعار للمريض' : 'Confirm Booking & Notify Patient'}
+                                className="px-2 py-1 text-[11px] font-bold rounded-lg border transition-all inline-flex items-center gap-1 bg-amber-500 hover:bg-amber-600 text-white border-amber-600 cursor-pointer shadow-2xs whitespace-nowrap shrink-0 hover:scale-102"
+                                title={isArabic ? 'نقل الحجز إلى قيد المعالجة' : 'Move booking to In Progress'}
                               >
                                 <Check className="w-3 h-3 stroke-[2.5]" />
-                                <span>{isArabic ? 'تأكيد' : 'Confirm'}</span>
+                                <span>{isArabic ? 'معالجة' : 'Progress'}</span>
                               </button>
                             )}
 
@@ -2069,7 +2050,7 @@ export const AdminBookings: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => handleCompleteBooking(appt)}
-                                className="p-1.5 rounded-lg border transition-colors inline-flex items-center justify-center text-emerald-700 hover:bg-emerald-50 border-emerald-300 bg-white cursor-pointer hover:shadow-xs"
+                                className="p-1 rounded-lg border transition-colors inline-flex items-center justify-center text-emerald-700 hover:bg-emerald-50 border-emerald-300 bg-white cursor-pointer hover:shadow-xs shrink-0"
                                 title={isArabic ? 'تأكيد الإكمال' : 'Mark Completed'}
                               >
                                 <Check className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -2080,7 +2061,7 @@ export const AdminBookings: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => setCancellingAppt(appt)}
-                                className="p-1.5 rounded-lg border transition-colors inline-flex items-center justify-center text-rose-600 hover:bg-rose-50 border-rose-200 bg-white cursor-pointer hover:shadow-xs"
+                                className="p-1 rounded-lg border transition-colors inline-flex items-center justify-center text-rose-600 hover:bg-rose-50 border-rose-200 bg-white cursor-pointer hover:shadow-xs shrink-0"
                                 title={isArabic ? 'إلغاء الموعد' : 'Cancel Booking'}
                               >
                                 <X className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -2184,21 +2165,13 @@ export const AdminBookings: React.FC = () => {
                 <thead className="bg-[#F8FAFC] text-slate-500 font-semibold border-b border-[#E2EBF0]">
 
                   <tr>
-
-                    <th className="px-5 py-3">{t('adminPortal.bookingId') || 'Booking ID'}</th>
-
-                    <th className="px-5 py-3">{t('adminPortal.patientCol') || 'Patient'}</th>
-
-                    <th className="px-5 py-3">{t('adminPortal.doctorCol') || 'Doctor'}</th>
-
-                    <th className="px-5 py-3">{t('adminPortal.facilityBreakdown') || 'Facility'}</th>
-
-                    <th className="px-5 py-3">{t('adminPortal.scheduleCol') || 'Schedule'}</th>
-
-                    <th className="px-5 py-3">{t('adminPortal.statusCol') || 'Status'}</th>
-
-                    <th className="px-5 py-3 text-right rtl:text-left">{t('adminPortal.actionsCol') || 'Action'}</th>
-
+                    <th className="px-3 py-2.5 w-24 whitespace-nowrap">{t('adminPortal.bookingId') || 'Booking ID'}</th>
+                    <th className="px-3 py-2.5 whitespace-nowrap">{t('adminPortal.patientCol') || 'Patient'}</th>
+                    <th className="px-3 py-2.5 whitespace-nowrap">{t('adminPortal.doctorCol') || 'Doctor'}</th>
+                    <th className="px-3 py-2.5 whitespace-nowrap">{t('adminPortal.facilityBreakdown') || 'Facility'}</th>
+                    <th className="px-3 py-2.5 whitespace-nowrap">{t('adminPortal.scheduleCol') || 'Schedule'}</th>
+                    <th className="px-3 py-2.5 w-28 text-center whitespace-nowrap">{t('adminPortal.statusCol') || 'Status'}</th>
+                    <th className="px-3 py-2.5 text-right rtl:text-left min-w-[210px] whitespace-nowrap">{t('adminPortal.actionsCol') || 'Action'}</th>
                   </tr>
 
                 </thead>
@@ -2223,13 +2196,9 @@ export const AdminBookings: React.FC = () => {
 
                       <tr key={appt.id} className="hover:bg-[#F8FAFC] transition-colors">
 
-                        <td className="px-5 py-3.5 font-mono text-[11px] text-[#0E7490] font-bold" dir="ltr">
+                        <td className="px-3 py-2.5 font-mono text-[11px] text-[#0E7490] font-bold whitespace-nowrap" dir="ltr" title={appt.id}>#{appt.id.slice(0, 8)}</td>
 
-                          #{appt.id}
-
-                        </td>
-
-                        <td className="px-5 py-3.5 text-slate-900 font-medium">
+                        <td className="px-3 py-2.5 text-slate-900 font-medium">
 
                           <div className="font-bold">{appt.patientName}</div>
 
@@ -2243,7 +2212,7 @@ export const AdminBookings: React.FC = () => {
 
                         </td>
 
-                        <td className="px-5 py-3.5 text-slate-800">
+                        <td className="px-3 py-2.5 text-slate-800">
 
                           <div className="font-semibold">{appt.doctorName}</div>
 
@@ -2251,7 +2220,7 @@ export const AdminBookings: React.FC = () => {
 
                         </td>
 
-                        <td className="px-5 py-3.5 text-slate-600">
+                        <td className="px-3 py-2.5 text-slate-600">
 
                           <span className="font-medium text-slate-800">
 
@@ -2261,7 +2230,7 @@ export const AdminBookings: React.FC = () => {
 
                         </td>
 
-                        <td className="px-5 py-3.5 text-slate-700">
+                        <td className="px-3 py-2.5 text-slate-700">
 
                           <div>{appt.date}</div>
 
@@ -2269,15 +2238,15 @@ export const AdminBookings: React.FC = () => {
 
                         </td>
 
-                        <td className="px-5 py-3.5">
+                        <td className="px-3 py-2.5">
 
                           <StatusBadge status={appt.status} />
 
                         </td>
 
-                        <td className="px-5 py-3.5 text-right rtl:text-left">
+                        <td className="px-3 py-2.5 text-right rtl:text-left">
 
-                          <div className="inline-flex items-center gap-1.5 justify-end">
+                          <div className="inline-flex items-center gap-1 justify-end flex-nowrap">
 
                             <button
 
@@ -2285,7 +2254,7 @@ export const AdminBookings: React.FC = () => {
 
                               onClick={() => setViewingAppt(appt)}
 
-                              className="px-2.5 py-1 text-[11px] font-semibold text-[#0E7490] hover:bg-[#E8F6F8] rounded-lg border border-[#CDEBF0] transition-colors cursor-pointer inline-flex items-center gap-1"
+                              className="px-2 py-1 text-[11px] font-semibold text-[#0E7490] hover:bg-[#E8F6F8] rounded-lg border border-[#CDEBF0] transition-colors cursor-pointer inline-flex items-center gap-1 shrink-0"
 
                               title="View Booking Details"
 
@@ -2313,7 +2282,7 @@ export const AdminBookings: React.FC = () => {
 
                               }`}
 
-                              title="Copy Booking Details"
+                              title="Copy Booking Order"
 
                             >
 
@@ -2335,11 +2304,11 @@ export const AdminBookings: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => handleConfirmBooking(appt)}
-                                className="px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all inline-flex items-center gap-1 bg-amber-500 hover:bg-amber-600 text-white border-amber-600 cursor-pointer shadow-2xs hover:scale-102"
-                                title={isArabic ? 'تأكيد الحجز وإرسال الإشعار للمريض' : 'Confirm Booking & Notify Patient'}
+                                className="px-2 py-1 text-[11px] font-bold rounded-lg border transition-all inline-flex items-center gap-1 bg-amber-500 hover:bg-amber-600 text-white border-amber-600 cursor-pointer shadow-2xs whitespace-nowrap shrink-0 hover:scale-102"
+                                title={isArabic ? 'نقل الحجز إلى قيد المعالجة' : 'Move booking to In Progress'}
                               >
                                 <Check className="w-3 h-3 stroke-[2.5]" />
-                                <span>{isArabic ? 'تأكيد' : 'Confirm'}</span>
+                                <span>{isArabic ? 'معالجة' : 'Progress'}</span>
                               </button>
                             )}
 
@@ -2347,7 +2316,7 @@ export const AdminBookings: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => handleCompleteBooking(appt)}
-                                className="p-1.5 rounded-lg border transition-colors inline-flex items-center justify-center text-emerald-700 hover:bg-emerald-50 border-emerald-300 bg-white cursor-pointer hover:shadow-xs"
+                                className="p-1 rounded-lg border transition-colors inline-flex items-center justify-center text-emerald-700 hover:bg-emerald-50 border-emerald-300 bg-white cursor-pointer hover:shadow-xs shrink-0"
                                 title={isArabic ? 'تأكيد الإكمال' : 'Mark Completed'}
                               >
                                 <Check className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -2358,7 +2327,7 @@ export const AdminBookings: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => setCancellingAppt(appt)}
-                                className="p-1.5 rounded-lg border transition-colors inline-flex items-center justify-center text-rose-600 hover:bg-rose-50 border-rose-200 bg-white cursor-pointer hover:shadow-xs"
+                                className="p-1 rounded-lg border transition-colors inline-flex items-center justify-center text-rose-600 hover:bg-rose-50 border-rose-200 bg-white cursor-pointer hover:shadow-xs shrink-0"
                                 title={isArabic ? 'إلغاء الموعد' : 'Cancel Booking'}
                               >
                                 <X className="w-3.5 h-3.5 stroke-[2.5]" />

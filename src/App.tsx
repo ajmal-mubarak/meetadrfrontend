@@ -76,6 +76,7 @@ import { HospitalSettings } from './pages/hospital/HospitalSettings';
 // Admin Portal
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminDoctors } from './pages/admin/AdminDoctors';
+import { AdminHospitalsVerification } from './pages/admin/AdminHospitalsVerification';
 import { AdminDoctorsManage } from './pages/admin/AdminDoctorsManage';
 import { AdminHospitalsManage } from './pages/admin/AdminHospitalsManage';
 import { AdminPatients } from './pages/admin/AdminPatients';
@@ -272,7 +273,8 @@ export default function App() {
                   <Route index element={<Navigate to="/subadmin/bookings" replace />} />
                   <Route path="bookings" element={<AdminBookings />} />
                   <Route path="doctors" element={<AdminDoctors />} />
-                  <Route path="providers" element={<AdminProviders />} />
+                  <Route path="providers" element={<AdminHospitalsVerification />} />
+                  <Route path="hospitals" element={<AdminHospitalsVerification />} />
                   <Route path="reports" element={<AdminReports />} />
                   <Route path="dashboard" element={<Navigate to="/subadmin/bookings" replace />} />
                 </Route>

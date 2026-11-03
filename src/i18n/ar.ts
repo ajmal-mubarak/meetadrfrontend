@@ -521,7 +521,7 @@ export const ar: typeof en = {
     "fillRequiredFields": "يرجى ملء كافة الحقول الإلزامية قبل المتابعة."
   },
   "status": {
-    "confirmed": "مؤكد",
+    "confirmed": "قيد المعالجة",
     "cancelled": "ملغى",
     "completed": "مكتمل",
     "upcoming": "قادم",
@@ -952,7 +952,7 @@ export const ar: typeof en = {
     "completed": "المكتملة",
     "cancelled": "الملغاة",
     "allTab": "الكل",
-    "confirmedTab": "المؤكدة",
+    "confirmedTab": "قيد المعالجة",
     "completedTab": "المكتملة",
     "cancelledTab": "الملغاة",
     "searchPlaceholder": "ابحث عن طبيب، مستشفى، تخصص...",
@@ -1066,7 +1066,7 @@ export const ar: typeof en = {
     "byMonth": "بالشهر",
     "totalAppointments": "إجمالي المواعيد",
     "inPersonPercent": "100٪ استشارات حضورية",
-    "confirmed": "مؤكدة",
+    "confirmed": "قيد المعالجة",
     "patientVerified": "تم التحقق من المريض",
     "pendingCall": "قيد الاستقبال",
     "awaitingIntake": "بانتظار الاستقبال",

@@ -519,7 +519,7 @@ export const en = {
     "fillRequiredFields": "Please fill in all mandatory fields before continuing."
   },
   "status": {
-    "confirmed": "Confirmed",
+    "confirmed": "In Progress",
     "cancelled": "Cancelled",
     "completed": "Completed",
     "upcoming": "Upcoming",
@@ -950,7 +950,7 @@ export const en = {
     "completed": "Completed",
     "cancelled": "Cancelled",
     "allTab": "All",
-    "confirmedTab": "Confirmed",
+    "confirmedTab": "In Progress",
     "completedTab": "Completed",
     "cancelledTab": "Cancelled",
     "searchPlaceholder": "Search doctor, hospital, specialty...",
@@ -1064,7 +1064,7 @@ export const en = {
     "byMonth": "Month",
     "totalAppointments": "Total Appointments",
     "inPersonPercent": "100% In-Person Consultations",
-    "confirmed": "Confirmed",
+    "confirmed": "In Progress",
     "patientVerified": "Patient Verified",
     "pendingCall": "Pending Intake",
     "awaitingIntake": "Awaiting Intake",
