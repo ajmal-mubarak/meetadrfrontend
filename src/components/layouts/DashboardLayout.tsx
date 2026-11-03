@@ -51,6 +51,22 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
 
+  // Sub-admin restricted pages guard
+  useEffect(() => {
+    if (user?.role === 'subadmin') {
+      const restrictedPaths = ['/admin/doctors-manage', '/admin/hospitals', '/admin/patients', '/admin/requests'];
+      if (restrictedPaths.some((p) => location.pathname.startsWith(p))) {
+        navigate('/admin/bookings', { replace: true });
+        showToast(
+          isArabic
+            ? 'هذا القسم مخصص للمشرفين العامين فقط.'
+            : 'Access restricted: Available to Platform Superadministrators only.',
+          'info'
+        );
+      }
+    }
+  }, [location.pathname, user?.role]);
+
   const handleLogout = async () => {
     await logout();
     showToast(t('auth.logoutSuccess'), 'info');
@@ -62,6 +78,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     if (role === 'doctor') return isArabic ? 'بوابة الطبيب' : 'Doctor Portal';
     if (role === 'hospital') return isArabic ? 'بوابة المستشفى والعيادة' : 'Hospital Portal';
     if (role === 'admin') return isArabic ? 'بوابة الإدارة' : 'Admin Portal';
+    if (role === 'subadmin') return isArabic ? 'إدارة العمليات (مساعد)' : 'Operations Sub-Admin';
     return isArabic ? 'بوابة النظام' : 'Portal';
   };
 
@@ -92,6 +109,16 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         { name: t('navigation.doctorsRoster'), path: '/hospital/doctors', icon: Stethoscope },
         { name: t('navigation.departments'), path: '/hospital/departments', icon: Building2 },
         { name: t('navigation.facilitySettings'), path: '/hospital/settings', icon: Users },
+      ];
+    }
+
+    if (user.role === 'subadmin') {
+      return [
+        { name: t('navigation.adminDashboard') || 'Overview', path: '/admin/dashboard', icon: LayoutDashboard },
+        { name: t('navigation.bookingsRegistry') || 'Bookings Registry', path: '/admin/bookings', icon: Calendar },
+        { name: t('navigation.doctorsVerification') || 'Doctors Verification', path: '/admin/doctors', icon: ShieldCheck },
+        { name: isArabic ? 'تحقق المستشفيات' : 'Hospitals Verification', path: '/admin/providers', icon: Building2 },
+        { name: isArabic ? 'تقارير الحجوزات والسجل' : 'Booking Reports & History', path: '/admin/reports', icon: BarChart3 },
       ];
     }
 

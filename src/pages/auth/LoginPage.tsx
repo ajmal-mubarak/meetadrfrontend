@@ -77,6 +77,17 @@ const ROLES: {
       activeBg: 'bg-slate-700',
       activeText: 'text-slate-700',
     },
+    {
+      role: 'subadmin',
+      label: 'Sub-Admin',
+      icon: Shield,
+      demoEmail: 'subadmin@meetadr.demo',
+      demoPassword: 'Subadmin@123',
+      dashboard: '/admin/bookings',
+      ring: 'ring-amber-500',
+      activeBg: 'bg-amber-600',
+      activeText: 'text-amber-600',
+    },
   ];
 
 export const LoginPage: React.FC<LoginPageProps> = ({ forcedRole }) => {

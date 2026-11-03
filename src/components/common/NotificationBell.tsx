@@ -160,7 +160,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
       ? '/doctor/bookings'
       : user?.role === 'hospital'
       ? '/hospital/bookings'
-      : user?.role === 'admin'
+      : (user?.role === 'admin' || user?.role === 'subadmin')
       ? '/admin/bookings'
       : '/patient/bookings';
 
@@ -295,8 +295,8 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
             </div>
 
             {/* Footer: View Portal Link & Clear All */}
-            <div className={`pt-3 mt-2 border-t border-[#E2EBF0] flex items-center ${user?.role === 'admin' ? 'justify-end' : 'justify-between'} gap-2`}>
-              {user?.role !== 'admin' && (
+            <div className={`pt-3 mt-2 border-t border-[#E2EBF0] flex items-center ${(user?.role === 'admin' || user?.role === 'subadmin') ? 'justify-end' : 'justify-between'} gap-2`}>
+              {user?.role !== 'admin' && user?.role !== 'subadmin' && (
                 <button
                   type="button"
                   onClick={() => {

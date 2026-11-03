@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { FileBarChart, Download, Calendar, ArrowUpRight } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import { realAdminService } from '../../services/realAdminService';
 import { useToast } from '../../context/ToastContext';
 import { useTranslation } from '../../i18n';
@@ -7,6 +9,7 @@ import { useTranslation } from '../../i18n';
 export const AdminReports: React.FC = () => {
   const { showToast } = useToast();
   const { t, isRTL, isArabic, translateSpecialty } = useTranslation();
+  const { user } = useAuth();
   const [data, setData] = useState<{
     byDoctor: { name: string; count: number }[];
     bySpecialty: { specialty: string; count: number }[];
@@ -62,19 +65,45 @@ export const AdminReports: React.FC = () => {
       {/* Top Banner */}
       <div className="bg-white rounded-2xl border border-[#E2EBF0] p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">{t('adminPortal.reportsTitle')}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-slate-900">
+              {user?.role === 'subadmin'
+                ? (isArabic ? 'تقرير حجوزات وسجل العمليات' : 'Total Bookings & History Report')
+                : t('adminPortal.reportsTitle')}
+            </h1>
+            {user?.role === 'subadmin' && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                {isArabic ? 'مشرف العمليات' : 'Operations Sub-Admin'}
+              </span>
+            )}
+          </div>
           <p className="text-xs text-slate-500 mt-1">
-            {t('adminPortal.reportsSubtitle')}
+            {user?.role === 'subadmin'
+              ? (isArabic
+                  ? 'ملخص تشغيلي لحجم الحجوزات وتوزيع التخصصات وسجل الاستشارات المكتملة دون البيانات الإدارية الحساسة.'
+                  : 'Minimal operational report for total booking volumes, doctor consultations, and booking history.')
+              : t('adminPortal.reportsSubtitle')}
           </p>
         </div>
 
-        <button
-          onClick={handleDownload}
-          className="px-4 py-2.5 bg-[#2DA7B5] hover:bg-[#23929F] text-white rounded-xl text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
-        >
-          <Download className="w-4 h-4" />
-          <span>{t('adminPortal.exportJson')}</span>
-        </button>
+        <div className="flex items-center gap-2.5">
+          {user?.role === 'subadmin' && (
+            <Link
+              to="/admin/bookings"
+              className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shrink-0"
+            >
+              <Calendar className="w-4 h-4 text-slate-500" />
+              <span>{isArabic ? 'سجل الحجوزات' : 'View Bookings'}</span>
+            </Link>
+          )}
+          <button
+            onClick={handleDownload}
+            className="px-4 py-2.5 bg-[#2DA7B5] hover:bg-[#23929F] text-white rounded-xl text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
+          >
+            <Download className="w-4 h-4" />
+            <span>{t('adminPortal.exportJson')}</span>
+          </button>
+        </div>
       </div>
 
       {/* Summary Time Periods */}

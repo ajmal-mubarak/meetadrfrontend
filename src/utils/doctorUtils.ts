@@ -17,3 +17,4 @@ export const formatDoctorName = (name: string | null | undefined): string => {
 
   return cleaned;
 };
+

@@ -38,7 +38,7 @@ export const PatientBookings: React.FC = () => {
   const { t, translateSpecialty, isRTL, isArabic } = useTranslation();
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [filterStatus, setFilterStatus] = useState<'all' | 'confirmed' | 'completed' | 'cancelled'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'confirmed' | 'completed' | 'cancelled'>('all');
   const [search, setSearch] = useState<string>('');
   const [now, setNow] = useState<number>(Date.now());
   const [isLoading, setIsLoading] = useState(true);
@@ -122,6 +122,7 @@ export const PatientBookings: React.FC = () => {
   const counts = useMemo(() => {
     return {
       all: appointments.length,
+      pending: appointments.filter((a) => a.status === 'pending').length,
       confirmed: appointments.filter((a) => a.status === 'confirmed').length,
       completed: appointments.filter((a) => a.status === 'completed').length,
       cancelled: appointments.filter((a) => a.status === 'cancelled').length,
@@ -221,6 +222,7 @@ export const PatientBookings: React.FC = () => {
         <div className="flex rounded-xl bg-[#F8FAFC] border border-[#E2EBF0] p-1 w-full sm:w-auto text-xs font-semibold gap-1">
           {([
             { id: 'all', label: t('patientBookings.allTab'), count: counts.all },
+            { id: 'pending', label: isArabic ? 'قيد الانتظار' : 'Pending', count: counts.pending },
             { id: 'confirmed', label: t('patientBookings.confirmedTab'), count: counts.confirmed },
             { id: 'completed', label: t('patientBookings.completedTab'), count: counts.completed },
             { id: 'cancelled', label: t('patientBookings.cancelledTab'), count: counts.cancelled },
@@ -289,6 +291,7 @@ export const PatientBookings: React.FC = () => {
               appt.isFacilityReviewed ||
               (appt.facilityReview && appt.facilityReview.rating)
             );
+            const isPending = appt.status?.toLowerCase() === 'pending';
             const isConfirmed = appt.status?.toLowerCase() === 'confirmed';
             const isCancelled = appt.status?.toLowerCase() === 'cancelled';
             const isCompleted = appt.status?.toLowerCase() === 'completed';
@@ -326,6 +329,11 @@ export const PatientBookings: React.FC = () => {
                             #{appt.id.slice(-6).toUpperCase()}
                           </span>
                           <StatusBadge status={appt.status} />
+                          {isPending && (
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full animate-pulse">
+                              {isArabic ? 'بانتظار تأكيد المستشفى' : 'Awaiting Hospital Confirmation'}
+                            </span>
+                          )}
                           {isConfirmed && (
                             <span className="text-[10px] font-mono text-slate-400 opacity-70 flex items-center gap-1">
                               {formatCountdown(appt, now, isArabic)}

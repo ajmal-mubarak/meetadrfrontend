@@ -94,6 +94,7 @@ const PublicLayout: React.FC = () => {
     if (role === 'doctor') return '/doctor/dashboard';
     if (role === 'hospital') return '/hospital/dashboard';
     if (role === 'admin') return '/admin/dashboard';
+    if (role === 'subadmin') return '/admin/bookings';
     return '/';
   };
 
@@ -101,6 +102,7 @@ const PublicLayout: React.FC = () => {
     if (role === 'doctor') return isArabic ? 'الطبيب' : 'Doctor';
     if (role === 'hospital') return isArabic ? 'المستشفى' : 'Hospital';
     if (role === 'admin') return isArabic ? 'الإدارة' : 'Admin';
+    if (role === 'subadmin') return isArabic ? 'مشرف العمليات' : 'Operations Sub-Admin';
     return role;
   };
 
@@ -241,7 +243,7 @@ export default function App() {
                 <Route
                   path="/admin"
                   element={
-                    <ProtectedRoute allowedRoles={['admin']}>
+                    <ProtectedRoute allowedRoles={['admin', 'subadmin']}>
                       <DashboardLayout portalType="admin" />
                     </ProtectedRoute>
                   }

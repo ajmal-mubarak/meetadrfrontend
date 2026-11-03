@@ -81,6 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       doctor: { email: 'doctor@meetadr.demo', pass: 'Doctor@123' },
       hospital: { email: 'hospital@meetadr.demo', pass: 'Hospital@123' },
       admin: { email: 'admin@meetadr.demo', pass: 'Admin@123' },
+      subadmin: { email: 'subadmin@meetadr.demo', pass: 'Subadmin@123' },
     };
 
     const target = creds[role];
