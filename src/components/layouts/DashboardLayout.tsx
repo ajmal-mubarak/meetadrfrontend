@@ -12,6 +12,7 @@ import {
   UserCheck,
   UserPlus,
   ShieldCheck,
+  Clock,
   ChevronRight,
   ExternalLink,
   Menu,
@@ -22,6 +23,7 @@ import { useToast } from '../../context/ToastContext';
 import { useTranslation } from '../../i18n';
 import { LanguageSwitcher } from '../common/LanguageSwitcher';
 import { NotificationBell } from '../common/NotificationBell';
+import { realAdminService } from '../../services/realAdminService';
 
 interface DashboardLayoutProps {
   children?: React.ReactNode;
@@ -66,6 +68,35 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       }
     }
   }, [location.pathname, user?.role]);
+
+  const [pendingBookingsCount, setPendingBookingsCount] = useState<number>(0);
+
+  useEffect(() => {
+    if (user?.role === 'admin' || user?.role === 'subadmin') {
+      const fetchPendingCount = async () => {
+        try {
+          const list = await realAdminService.getBookings({ status: 'pending' });
+          const count = list.filter((b: any) => b.status === 'pending').length;
+          setPendingBookingsCount(count);
+        } catch {
+          // ignore
+        }
+      };
+
+      fetchPendingCount();
+
+      const handleUpdate = () => {
+        fetchPendingCount();
+      };
+
+      window.addEventListener('meetadr:booking_updated', handleUpdate);
+      const interval = setInterval(fetchPendingCount, 10000);
+      return () => {
+        window.removeEventListener('meetadr:booking_updated', handleUpdate);
+        clearInterval(interval);
+      };
+    }
+  }, [user?.role]);
 
   const handleLogout = async () => {
     await logout();
@@ -114,22 +145,50 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
     if (user.role === 'subadmin') {
       return [
-        { name: isArabic ? 'سجل الحجوزات والطلبات' : 'Bookings & Orders Registry', path: '/subadmin/bookings', icon: Calendar },
-        { name: t('navigation.doctorsVerification') || (isArabic ? 'تحقق الأطباء' : 'Doctors Verification'), path: '/subadmin/doctors', icon: ShieldCheck },
-        { name: isArabic ? 'تحقق المستشفيات والعيادات' : 'Hospitals Verification', path: '/subadmin/providers', icon: Building2 },
-        { name: isArabic ? 'تقارير الحجوزات والسجل' : 'Booking Reports & History', path: '/subadmin/reports', icon: BarChart3 },
+        {
+          name: isArabic ? 'حجوزات قيد الانتظار' : 'Pending Bookings',
+          path: '/subadmin/pending',
+          icon: Clock,
+          badge: pendingBookingsCount,
+        },
+        {
+          name: isArabic ? 'سجل الحجوزات' : 'Bookings Registry',
+          path: '/subadmin/bookings',
+          icon: Calendar,
+        },
+        {
+          name: t('navigation.doctorsVerification') || (isArabic ? 'تحقق الأطباء' : 'Doctors Verification'),
+          path: '/subadmin/doctors',
+          icon: ShieldCheck,
+        },
+        {
+          name: isArabic ? 'تحقق المستشفيات والعيادات' : 'Hospitals Verification',
+          path: '/subadmin/providers',
+          icon: Building2,
+        },
+        {
+          name: isArabic ? 'تقارير الحجوزات والسجل' : 'Booking Reports & History',
+          path: '/subadmin/reports',
+          icon: BarChart3,
+        },
       ];
     }
 
     if (user.role === 'admin') {
       return [
         { name: t('navigation.adminDashboard'), path: '/admin/dashboard', icon: LayoutDashboard },
+        {
+          name: isArabic ? 'حجوزات قيد الانتظار' : 'Pending Bookings',
+          path: '/admin/pending',
+          icon: Clock,
+          badge: pendingBookingsCount,
+        },
         { name: t('navigation.doctorsVerification') || 'Doctors Verification', path: '/admin/doctors', icon: ShieldCheck },
         { name: t('navigation.doctorsManagement') || 'Doctors Management', path: '/admin/doctors-manage', icon: Stethoscope },
         { name: t('navigation.hospitalsManagement') || 'Hospitals Management', path: '/admin/hospitals', icon: Building2 },
         { name: t('navigation.patientManagement') || 'Patient Management', path: '/admin/patients', icon: Users },
         { name: t('navigation.providersDirectory'), path: '/admin/providers', icon: UserCheck },
-        { name: t('navigation.bookingsRegistry'), path: '/admin/bookings', icon: Calendar },
+        { name: isArabic ? 'سجل الحجوزات' : (t('navigation.bookingsRegistry') || 'Bookings Registry'), path: '/admin/bookings', icon: Calendar },
         { name: t('navigation.providerRequests'), path: '/admin/requests', icon: UserPlus },
         { name: t('navigation.analyticalReports'), path: '/admin/reports', icon: BarChart3 },
       ];
@@ -229,6 +288,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
                   >
                     <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                     <span className="flex-1 truncate">{item.name}</span>
+                    {(item as any).badge !== undefined && Number((item as any).badge) > 0 && (
+                      <span className="ml-auto rtl:ml-0 rtl:mr-auto px-2 py-0.5 text-[10px] font-black rounded-full bg-amber-500 text-white shadow-xs animate-pulse">
+                        {(item as any).badge}
+                      </span>
+                    )}
                     {isActive && <ChevronRight className="w-3.5 h-3.5 opacity-80 shrink-0 rtl:rotate-180" />}
                   </Link>
                 );
@@ -293,6 +357,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               >
                 <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                 <span className="flex-1 truncate">{item.name}</span>
+                {(item as any).badge !== undefined && Number((item as any).badge) > 0 && (
+                  <span className="ml-auto rtl:ml-0 rtl:mr-auto px-2 py-0.5 text-[10px] font-black rounded-full bg-amber-500 text-white shadow-xs animate-pulse">
+                    {(item as any).badge}
+                  </span>
+                )}
                 {isActive && <ChevronRight className="w-3.5 h-3.5 opacity-80 shrink-0 rtl:rotate-180" />}
               </Link>
             );

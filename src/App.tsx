@@ -256,6 +256,7 @@ export default function App() {
                   <Route path="hospitals" element={<AdminHospitalsManage />} />
                   <Route path="patients" element={<AdminPatients />} />
                   <Route path="providers" element={<AdminProviders />} />
+                  <Route path="pending" element={<AdminBookings isPendingOnly={true} />} />
                   <Route path="bookings" element={<AdminBookings />} />
                   <Route path="requests" element={<AdminRequests />} />
                   <Route path="reports" element={<AdminReports />} />
@@ -271,6 +272,7 @@ export default function App() {
                   }
                 >
                   <Route index element={<Navigate to="/subadmin/bookings" replace />} />
+                  <Route path="pending" element={<AdminBookings isPendingOnly={true} />} />
                   <Route path="bookings" element={<AdminBookings />} />
                   <Route path="doctors" element={<AdminDoctors />} />
                   <Route path="providers" element={<AdminHospitalsVerification />} />

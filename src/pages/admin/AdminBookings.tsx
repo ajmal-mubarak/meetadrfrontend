@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 
 import {
 
@@ -92,11 +93,18 @@ interface HospitalCardGroup {
 
 
 
-export const AdminBookings: React.FC = () => {
+export interface AdminBookingsProps {
+  isPendingOnly?: boolean;
+}
+
+export const AdminBookings: React.FC<AdminBookingsProps> = ({ isPendingOnly = false }) => {
 
   const { showToast } = useToast();
 
   const { t, isRTL, isArabic, translateSpecialty } = useTranslation();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isPendingView = isPendingOnly || location.pathname.endsWith('/pending');
 
 
 
@@ -150,6 +158,10 @@ export const AdminBookings: React.FC = () => {
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  const pendingBookings = useMemo(() => {
+    return appointments.filter((a) => a.status?.toLowerCase() === 'pending');
+  }, [appointments]);
+
 
 
   const handleCopyBooking = async (appt: Appointment) => {
@@ -166,7 +178,7 @@ export const AdminBookings: React.FC = () => {
 
         setTimeout(() => setCopiedId(null), 2500);
 
-        showToast(isArabic ? 'تم نسخ بيانات الطلب! جاهزة للإرسال إلى المستشفى.' : 'Booking order copied! Ready to send to hospital.', 'success');
+        showToast(isArabic ? 'تم نسخ تفاصيل الحجز! جاهزة للإرسال إلى المستشفى.' : 'Booking details copied! Ready to send to hospital.', 'success');
 
       }
 
@@ -183,9 +195,10 @@ export const AdminBookings: React.FC = () => {
   const handleConfirmBooking = async (appt: Appointment) => {
     try {
       await realAdminService.updateBookingStatus(appt.id, 'confirmed');
+      window.dispatchEvent(new CustomEvent('meetadr:booking_updated', { detail: { id: appt.id, status: 'confirmed' } }));
       showToast(
         isArabic
-          ? 'تم نقل الطلب إلى (قيد المعالجة) وإرسال إشعار للمريض بنجاح.'
+          ? 'تم نقل الحجز إلى (قيد المعالجة) وإرسال إشعار للمريض بنجاح.'
           : `Booking #${appt.id.slice(0, 8)} moved to In Progress. Patient notified.`,
         'success'
       );
@@ -699,6 +712,205 @@ export const AdminBookings: React.FC = () => {
 
 
 
+  // EXCLUSIVE VIEW: PENDING BOOKINGS ONLY
+  if (isPendingView) {
+    return (
+      <div className="space-y-6">
+        {/* Top Header */}
+        <div className="bg-white rounded-2xl border border-[#E2EBF0] p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                <Clock className="w-6 h-6 text-amber-500" />
+                {isArabic ? 'حجوزات قيد الانتظار' : 'Pending Bookings'}
+              </h1>
+              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                pendingBookings.length > 0
+                  ? 'bg-amber-500 text-white animate-pulse'
+                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+              }`}>
+                {pendingBookings.length} {isArabic ? 'قيد الانتظار' : 'Pending'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              {isArabic
+                ? 'الحجوزات الجديدة الواردة من المرضى. راجع التفاصيل، انسخ القالب لإرساله إلى المستشفى، ثم اضغط على معالجة.'
+                : 'Incoming bookings requiring hospital dispatch. Copy details to notify facility, then click Progress to confirm.'}
+            </p>
+          </div>
+
+          <Link
+            to={location.pathname.startsWith('/subadmin') ? '/subadmin/bookings' : '/admin/bookings'}
+            className="px-4 py-2 rounded-xl border border-slate-200 bg-[#F8FAFC] hover:bg-slate-100 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer self-start md:self-auto"
+          >
+            <Calendar className="w-4 h-4 text-[#0E7490]" />
+            <span>{isArabic ? 'سجل كافة الحجوزات' : 'All Bookings Registry'}</span>
+          </Link>
+        </div>
+
+        {/* Content: Empty state or Pending Table */}
+        {pendingBookings.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-[#E2EBF0] p-12 text-center shadow-xs">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4 border border-emerald-100 shadow-2xs">
+              <CheckCircle2 className="w-8 h-8" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-800 mb-1">
+              {isArabic ? 'لا توجد حجوزات معلقة حالياً' : 'All Caught Up! No Pending Bookings'}
+            </h3>
+            <p className="text-xs text-slate-500 max-w-md mx-auto mb-6">
+              {isArabic
+                ? 'تمت معالجة ونقل كافة الحجوزات بنجاح إلى جدول المستشفيات. يمكنك مراجعة سجل كافة الحجوزات في أي وقت.'
+                : 'All bookings have been processed and moved to In Progress or Completed. You can view the full registry anytime.'}
+            </p>
+            <Link
+              to={location.pathname.startsWith('/subadmin') ? '/subadmin/bookings' : '/admin/bookings'}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0E7490] hover:bg-[#0c627a] text-white text-xs font-bold transition-all shadow-xs"
+            >
+              <Calendar className="w-4 h-4" />
+              <span>{isArabic ? 'الانتقال إلى سجل الحجوزات الكامل' : 'View Full Bookings Registry'}</span>
+            </Link>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl border border-[#E2EBF0] shadow-xs overflow-hidden">
+            <div className="p-4 bg-amber-50/60 border-b border-amber-200 flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-900 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-600" />
+                {isArabic ? 'الحجوزات الواردة حديثاً بانتظار الإرسال للمستشفيات' : 'Recent Incoming Bookings Awaiting Hospital Dispatch'}
+              </span>
+              <span className="text-xs font-medium text-amber-800">
+                {pendingBookings.length} {isArabic ? 'حجز متبقي' : 'pending action'}
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left rtl:text-right">
+                <thead className="bg-[#F8FAFC] text-slate-500 font-semibold border-b border-[#E2EBF0]">
+                  <tr>
+                    <th className="px-3 py-2.5 whitespace-nowrap">{t('adminPortal.bookingId') || 'Booking ID'}</th>
+                    <th className="px-3 py-2.5 whitespace-nowrap">{t('adminPortal.patient') || 'Patient Details'}</th>
+                    <th className="px-3 py-2.5 whitespace-nowrap">{t('adminPortal.doctorAndFacility') || 'Doctor & Facility'}</th>
+                    <th className="px-3 py-2.5 whitespace-nowrap">{t('adminPortal.scheduleSlot') || 'Schedule Slot'}</th>
+                    <th className="px-3 py-2.5 whitespace-nowrap">{t('adminPortal.status') || 'Status'}</th>
+                    <th className="px-3 py-2.5 text-center whitespace-nowrap">{t('adminPortal.action') || 'Action'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E2EBF0]">
+                  {pendingBookings.map((appt) => (
+                    <tr key={appt.id} className="hover:bg-[#F8FAFC] transition-colors">
+                      <td className="px-3 py-2.5 font-bold text-[#0E7490] whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => setViewingAppt(appt)}
+                          className="hover:underline cursor-pointer"
+                          title={appt.id}
+                        >
+                          #{appt.id.slice(0, 8)}
+                        </button>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <div className="font-bold text-slate-900">{appt.patientName}</div>
+                        {(appt.patientPhone || appt.patientMobile) && (
+                          <a
+                            href={`tel:${appt.patientPhone || appt.patientMobile}`}
+                            className="text-[11px] text-slate-500 hover:text-[#0E7490] flex items-center gap-1 mt-0.5"
+                          >
+                            <Phone className="w-3 h-3 text-slate-400" />
+                            <span>{appt.patientPhone || appt.patientMobile}</span>
+                          </a>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <div className="font-medium text-slate-900">{appt.doctorName}</div>
+                        <div className="text-[11px] text-slate-500">{appt.hospitalName || appt.facilityName || 'Medical Facility'}</div>
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        <div className="font-medium text-slate-800">{appt.date}</div>
+                        <div className="text-[11px] text-slate-500 flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-slate-400" />
+                          <span>{appt.timeSlot || appt.time || 'Scheduled Slot'}</span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        <StatusBadge status={appt.status} />
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap text-center">
+                        <div className="inline-flex items-center justify-center gap-1.5 min-w-[210px] flex-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => setViewingAppt(appt)}
+                            className="px-2 py-1 text-[11px] font-semibold text-[#0E7490] hover:bg-[#E8F6F8] rounded-lg border border-[#CDEBF0] transition-colors cursor-pointer inline-flex items-center gap-1 shrink-0"
+                            title="View Details"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>{isArabic ? 'تفاصيل' : 'Details'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleCopyBooking(appt)}
+                            className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border transition-colors cursor-pointer inline-flex items-center gap-1 ${
+                              copiedId === appt.id
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                : 'text-slate-700 hover:bg-slate-100 border-slate-200 bg-white'
+                            }`}
+                            title="Copy Booking Details"
+                          >
+                            {copiedId === appt.id ? (
+                              <Check className="w-3 h-3 text-emerald-600" />
+                            ) : (
+                              <Copy className="w-3 h-3 text-slate-500" />
+                            )}
+                            <span>{copiedId === appt.id ? (isArabic ? 'تم النسخ' : 'Copied') : (isArabic ? 'نسخ التفاصيل' : 'Copy Details')}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleConfirmBooking(appt)}
+                            className="px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all inline-flex items-center gap-1 bg-amber-500 hover:bg-amber-600 text-white border-amber-600 cursor-pointer shadow-2xs whitespace-nowrap shrink-0 hover:scale-102"
+                            title={isArabic ? 'نقل الحجز إلى قيد المعالجة' : 'Move booking to In Progress'}
+                          >
+                            <Check className="w-3 h-3 stroke-[2.5]" />
+                            <span>{isArabic ? 'معالجة' : 'Progress'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setCancellingAppt(appt)}
+                            className="p-1 rounded-lg border transition-colors inline-flex items-center justify-center text-rose-600 hover:bg-rose-50 border-rose-200 bg-white cursor-pointer hover:shadow-xs shrink-0"
+                            title={isArabic ? 'إلغاء الحجز' : 'Cancel Booking'}
+                          >
+                            <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Cancel Modal */}
+        {cancellingAppt && (
+          <CancelModal
+            appointment={cancellingAppt}
+            onClose={() => setCancellingAppt(null)}
+            onConfirm={handleCancelConfirm}
+          />
+        )}
+
+        {/* Booking Details Modal */}
+        {viewingAppt && (
+          <BookingDetailsModal
+            appointment={viewingAppt}
+            onClose={() => setViewingAppt(null)}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
 
     <div className="space-y-6">
@@ -810,6 +1022,137 @@ export const AdminBookings: React.FC = () => {
         </div>
 
       </div>
+      {/* PENDING RECENT BOOKINGS PRIORITY TRAY (Shown if pending bookings exist) */}
+      {pendingBookings.length > 0 && (
+        <div className="bg-gradient-to-r from-amber-50/90 via-orange-50/60 to-amber-50/90 border-2 border-amber-300 rounded-2xl p-5 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-3 w-3 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+              </span>
+              <h2 className="text-base font-bold text-amber-950 flex items-center gap-2">
+                <Clock className="w-5 h-5 text-amber-600" />
+                {isArabic ? 'حجوزات جديدة قيد الانتظار بحاجة إلى معالجة' : 'Pending Recent Bookings (Action Required)'}
+              </h2>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-500 text-white shadow-2xs">
+                {pendingBookings.length} {isArabic ? 'حجز جديد' : 'New'}
+              </span>
+            </div>
+            <p className="text-xs text-amber-800">
+              {isArabic ? 'يرجى نسخ تفاصيل الحجز لإرسالها إلى المستشفى ثم النقر على "معالجة".' : 'Copy details to notify hospital, then click Progress to confirm.'}
+            </p>
+          </div>
+
+          <div className="bg-white rounded-xl border border-amber-200 overflow-x-auto shadow-2xs">
+            <table className="w-full text-xs text-left rtl:text-right">
+              <thead className="bg-amber-100/60 text-amber-900 font-bold border-b border-amber-200">
+                <tr>
+                  <th className="px-3 py-2.5 whitespace-nowrap">{t('adminPortal.bookingId') || 'Booking ID'}</th>
+                  <th className="px-3 py-2.5 whitespace-nowrap">{t('adminPortal.patient') || 'Patient Details'}</th>
+                  <th className="px-3 py-2.5 whitespace-nowrap">{t('adminPortal.doctorAndFacility') || 'Doctor & Facility'}</th>
+                  <th className="px-3 py-2.5 whitespace-nowrap">{t('adminPortal.scheduleSlot') || 'Schedule Slot'}</th>
+                  <th className="px-3 py-2.5 whitespace-nowrap">{t('adminPortal.status') || 'Status'}</th>
+                  <th className="px-3 py-2.5 text-center whitespace-nowrap">{t('adminPortal.action') || 'Action'}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-amber-100">
+                {pendingBookings.map((appt) => (
+                  <tr key={appt.id} className="hover:bg-amber-50/50 transition-colors">
+                    <td className="px-3 py-2.5 font-bold text-[#0E7490] whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => setViewingAppt(appt)}
+                        className="hover:underline cursor-pointer"
+                        title={appt.id}
+                      >
+                        #{appt.id.slice(0, 8)}
+                      </button>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div className="font-bold text-slate-900">{appt.patientName}</div>
+                      {(appt.patientPhone || appt.patientMobile) && (
+                        <a
+                          href={`tel:${appt.patientPhone || appt.patientMobile}`}
+                          className="text-[11px] text-slate-500 hover:text-[#0E7490] flex items-center gap-1 mt-0.5"
+                        >
+                          <Phone className="w-3 h-3 text-slate-400" />
+                          <span>{appt.patientPhone || appt.patientMobile}</span>
+                        </a>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div className="font-medium text-slate-900">{appt.doctorName}</div>
+                      <div className="text-[11px] text-slate-500">{appt.hospitalName || appt.facilityName || 'Medical Facility'}</div>
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      <div className="font-medium text-slate-800">{appt.date}</div>
+                      <div className="text-[11px] text-slate-500 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-slate-400" />
+                        <span>{appt.timeSlot || appt.time || 'Scheduled Slot'}</span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      <StatusBadge status={appt.status} />
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap text-center">
+                      <div className="inline-flex items-center justify-center gap-1.5 min-w-[210px] flex-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => setViewingAppt(appt)}
+                          className="px-2 py-1 text-[11px] font-semibold text-[#0E7490] hover:bg-[#E8F6F8] rounded-lg border border-[#CDEBF0] transition-colors cursor-pointer inline-flex items-center gap-1 shrink-0"
+                          title="View Details"
+                        >
+                          <Eye className="w-3 h-3" />
+                          <span>{isArabic ? 'تفاصيل' : 'Details'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleCopyBooking(appt)}
+                          className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg border transition-colors cursor-pointer inline-flex items-center gap-1 ${
+                            copiedId === appt.id
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                              : 'text-slate-700 hover:bg-slate-100 border-slate-200 bg-white'
+                          }`}
+                          title="Copy Booking Details"
+                        >
+                          {copiedId === appt.id ? (
+                            <Check className="w-3 h-3 text-emerald-600" />
+                          ) : (
+                            <Copy className="w-3 h-3 text-slate-500" />
+                          )}
+                          <span>{copiedId === appt.id ? (isArabic ? 'تم النسخ' : 'Copied') : (isArabic ? 'نسخ التفاصيل' : 'Copy Details')}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleConfirmBooking(appt)}
+                          className="px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all inline-flex items-center gap-1 bg-amber-500 hover:bg-amber-600 text-white border-amber-600 cursor-pointer shadow-2xs whitespace-nowrap shrink-0 hover:scale-102"
+                          title={isArabic ? 'نقل الحجز إلى قيد المعالجة' : 'Move booking to In Progress'}
+                        >
+                          <Check className="w-3 h-3 stroke-[2.5]" />
+                          <span>{isArabic ? 'معالجة' : 'Progress'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setCancellingAppt(appt)}
+                          className="p-1 rounded-lg border transition-colors inline-flex items-center justify-center text-rose-600 hover:bg-rose-50 border-rose-200 bg-white cursor-pointer hover:shadow-xs shrink-0"
+                          title={isArabic ? 'إلغاء الحجز' : 'Cancel Booking'}
+                        >
+                          <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
 
 
 
@@ -2016,7 +2359,7 @@ export const AdminBookings: React.FC = () => {
 
                               }`}
 
-                              title="Copy Booking Order"
+                              title="Copy Booking Details"
 
                             >
 
@@ -2030,7 +2373,7 @@ export const AdminBookings: React.FC = () => {
 
                               )}
 
-                              <span>{copiedId === appt.id ? (isArabic ? 'تم النسخ' : 'Copied') : (isArabic ? 'نسخ الطلب' : 'Copy Order')}</span>
+                              <span>{copiedId === appt.id ? (isArabic ? 'تم النسخ' : 'Copied') : (isArabic ? 'نسخ التفاصيل' : 'Copy Details')}</span>
 
                             </button>
 
@@ -2282,7 +2625,7 @@ export const AdminBookings: React.FC = () => {
 
                               }`}
 
-                              title="Copy Booking Order"
+                              title="Copy Booking Details"
 
                             >
 
@@ -2296,7 +2639,7 @@ export const AdminBookings: React.FC = () => {
 
                               )}
 
-                              <span>{copiedId === appt.id ? (isArabic ? 'تم النسخ' : 'Copied') : (isArabic ? 'نسخ الطلب' : 'Copy Order')}</span>
+                              <span>{copiedId === appt.id ? (isArabic ? 'تم النسخ' : 'Copied') : (isArabic ? 'نسخ التفاصيل' : 'Copy Details')}</span>
 
                             </button>
 

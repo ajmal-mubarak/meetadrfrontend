@@ -114,10 +114,10 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
           <div className="flex items-center gap-2">
             <Building2 className="w-4 h-4 text-[#2DA7B5]" />
             <span className="text-sm font-bold text-slate-800">
-              Booking Order #{appointment.id}
+              Booking Details #{appointment.id.slice(0, 8)}
             </span>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E8F6F8] text-[#0E7490] border border-[#CDEBF0]">
-              Hospital Dispatch Template
+              Hospital Template
             </span>
           </div>
           <button
@@ -233,12 +233,12 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
             {copied ? (
               <>
                 <Check className="w-3.5 h-3.5" />
-                <span>Order Copied! Ready to send to hospital</span>
+                <span>Booking Copied! Ready to send to hospital</span>
               </>
             ) : (
               <>
                 <Copy className="w-3.5 h-3.5 text-slate-500" />
-                <span>Copy Order for Hospital</span>
+                <span>Copy Booking Details</span>
               </>
             )}
           </button>
