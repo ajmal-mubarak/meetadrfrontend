@@ -95,6 +95,8 @@ function mapDoctor(d: BackendAdminDoctor): Doctor {
     availableDays: d.available_days || rawAny.availableDays || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Saturday'],
     availableSlots: d.standard_slots || rawAny.availableSlots || ['09:00 - 09:30', '10:00 - 10:30', '11:00 - 11:30'],
     status: (rawStatus === 'deactivated' || rawStatus === 'inactive') ? 'Deactivated' : 'Active',
+    isActive: rawStatus !== 'deactivated' && rawStatus !== 'inactive',
+    isVerified: rawAny.is_verified !== undefined ? Boolean(rawAny.is_verified) : (rawStatus !== 'deactivated' && rawStatus !== 'inactive'),
   };
 }
 

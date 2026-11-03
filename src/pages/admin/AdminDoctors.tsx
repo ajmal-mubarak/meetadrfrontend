@@ -59,6 +59,10 @@ export const AdminDoctors: React.FC = () => {
       ]);
       setDoctors(docs);
       setProviders(provs);
+      const pending = docs.filter((d) => d.status === 'Deactivated' || !d.isVerified).length;
+      if (pending === 0) {
+        setVerificationTab('verified');
+      }
     } catch (err: any) {
       showToast(err.message || 'Failed to load doctors for verification', 'error');
     } finally {
@@ -74,8 +78,9 @@ export const AdminDoctors: React.FC = () => {
   const filteredDoctors = useMemo(() => {
     return doctors.filter((doc) => {
       // Tab filter
-      if (verificationTab === 'pending' && doc.isVerified) return false;
-      if (verificationTab === 'verified' && !doc.isVerified) return false;
+      const isVerified = (doc.status === 'Active' || !!doc.isVerified) && doc.status !== 'Deactivated';
+      if (verificationTab === 'pending' && isVerified) return false;
+      if (verificationTab === 'verified' && !isVerified) return false;
 
       // Affiliation filter
       const isAffiliated = !!(doc.hospitalId || doc.hospitalName);
@@ -99,8 +104,8 @@ export const AdminDoctors: React.FC = () => {
   }, [doctors, verificationTab, affiliationFilter, searchQuery]);
 
   // Counts
-  const pendingCount = useMemo(() => doctors.filter((d) => !d.isVerified).length, [doctors]);
-  const verifiedCount = useMemo(() => doctors.filter((d) => d.isVerified).length, [doctors]);
+  const pendingCount = useMemo(() => doctors.filter((d) => d.status === 'Deactivated' || !d.isVerified).length, [doctors]);
+  const verifiedCount = useMemo(() => doctors.filter((d) => d.status === 'Active' && !!d.isVerified).length, [doctors]);
 
   // Bulk Selection
   const handleToggleSelectAll = () => {
@@ -369,7 +374,7 @@ export const AdminDoctors: React.FC = () => {
               ) : (
                 filteredDoctors.map((doc) => {
                   const isSelected = selectedDoctorIds.includes(doc.id);
-                  const isDocVerified = !!doc.isVerified;
+                  const isDocVerified = (doc.status === 'Active' || !!doc.isVerified) && doc.status !== 'Deactivated';
 
                   return (
                     <tr

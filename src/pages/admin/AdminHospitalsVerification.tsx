@@ -619,3 +619,4 @@ export const AdminHospitalsVerification: React.FC = () => {
     </div>
   );
 };
+
