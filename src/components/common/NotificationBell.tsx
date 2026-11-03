@@ -191,7 +191,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 6, scale: 0.96 }}
             transition={{ duration: 0.15 }}
-            className="absolute -right-12 rtl:-right-auto rtl:-left-12 sm:right-0 sm:rtl:right-auto sm:rtl:left-0 mt-2 w-[calc(100vw-1.5rem)] max-w-sm sm:w-96 bg-white rounded-2xl border border-[#E2EBF0] shadow-2xl p-4 z-50 backdrop-blur-xl text-slate-900"
+            className="absolute -right-6 rtl:-right-auto rtl:-left-6 sm:right-0 sm:rtl:right-auto sm:rtl:left-0 mt-2 w-[calc(100vw-2rem)] sm:w-[480px] md:w-[520px] max-w-[95vw] bg-white rounded-2xl border border-[#E2EBF0] shadow-2xl p-4 sm:p-5 z-50 backdrop-blur-xl text-slate-900"
           >
             {/* Header */}
             <div className="flex items-center justify-between pb-3 border-b border-[#E2EBF0]">
@@ -234,7 +234,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
             </div>
 
             {/* Notifications List */}
-            <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto mt-2 space-y-1">
+            <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto mt-2 space-y-1.5 pr-1">
               {notifications.length === 0 ? (
                 <div className="py-8 text-center text-slate-400">
                   <Bell className="w-8 h-8 mx-auto mb-2 opacity-30" />
@@ -270,7 +270,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
                           {notif.time || 'Recently'}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-600 mt-1 leading-snug line-clamp-2">
+                      <p className="text-xs text-slate-600 mt-1 leading-relaxed break-words whitespace-normal">
                         {notif.description}
                       </p>
                     </div>
