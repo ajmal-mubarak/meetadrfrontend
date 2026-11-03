@@ -89,7 +89,7 @@ export const AdminReports: React.FC = () => {
         <div className="flex items-center gap-2.5">
           {user?.role === 'subadmin' && (
             <Link
-              to="/admin/bookings"
+              to={user?.role === 'subadmin' ? "/subadmin/bookings" : "/admin/bookings"}
               className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shrink-0"
             >
               <Calendar className="w-4 h-4 text-slate-500" />

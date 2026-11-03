@@ -48,6 +48,7 @@ function normalizeRole(backendRole: string): UserRole {
     hospital: 'hospital',
     clinic: 'hospital',   // clinic admins use the 'hospital' portal role in frontend
     admin: 'admin',
+    subadmin: 'subadmin',
   };
   return roleMap[backendRole?.toLowerCase()] || 'patient';
 }

@@ -160,7 +160,8 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
       ? '/doctor/bookings'
       : user?.role === 'hospital'
       ? '/hospital/bookings'
-      : (user?.role === 'admin' || user?.role === 'subadmin')
+      : (user?.role === 'admin' || user?.role === 'subadmin')
+
       ? '/admin/bookings'
       : '/patient/bookings';
 

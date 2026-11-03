@@ -166,7 +166,7 @@ export const AdminBookings: React.FC = () => {
 
         setTimeout(() => setCopiedId(null), 2500);
 
-        showToast(isArabic ? 'تم نسخ بيانات الحجز' : 'Booking details copied to clipboard!', 'success');
+        showToast(isArabic ? 'تم نسخ بيانات الطلب! جاهزة للإرسال إلى المستشفى.' : 'Booking order copied! Ready to send to hospital.', 'success');
 
       }
 
@@ -2049,7 +2049,7 @@ export const AdminBookings: React.FC = () => {
 
                               )}
 
-                              <span>{copiedId === appt.id ? (isArabic ? 'تم النسخ' : 'Copied') : (isArabic ? 'نسخ' : 'Copy')}</span>
+                              <span>{copiedId === appt.id ? (isArabic ? 'تم النسخ' : 'Copied') : (isArabic ? 'نسخ الطلب' : 'Copy Order')}</span>
 
                             </button>
 
@@ -2327,7 +2327,7 @@ export const AdminBookings: React.FC = () => {
 
                               )}
 
-                              <span>{copiedId === appt.id ? (isArabic ? 'تم النسخ' : 'Copied') : (isArabic ? 'نسخ' : 'Copy')}</span>
+                              <span>{copiedId === appt.id ? (isArabic ? 'تم النسخ' : 'Copied') : (isArabic ? 'نسخ الطلب' : 'Copy Order')}</span>
 
                             </button>
 

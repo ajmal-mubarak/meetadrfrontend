@@ -54,9 +54,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   // Sub-admin restricted pages guard
   useEffect(() => {
     if (user?.role === 'subadmin') {
-      const restrictedPaths = ['/admin/doctors-manage', '/admin/hospitals', '/admin/patients', '/admin/requests'];
+      const restrictedPaths = ['/admin/doctors-manage', '/admin/hospitals', '/admin/patients', '/admin/requests', '/admin/dashboard'];
       if (restrictedPaths.some((p) => location.pathname.startsWith(p))) {
-        navigate('/admin/bookings', { replace: true });
+        navigate('/subadmin/bookings', { replace: true });
         showToast(
           isArabic
             ? 'هذا القسم مخصص للمشرفين العامين فقط.'
@@ -78,7 +78,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     if (role === 'doctor') return isArabic ? 'بوابة الطبيب' : 'Doctor Portal';
     if (role === 'hospital') return isArabic ? 'بوابة المستشفى والعيادة' : 'Hospital Portal';
     if (role === 'admin') return isArabic ? 'بوابة الإدارة' : 'Admin Portal';
-    if (role === 'subadmin') return isArabic ? 'إدارة العمليات (مساعد)' : 'Operations Sub-Admin';
+    if (role === 'subadmin') return isArabic ? 'بوابة إدارة العمليات' : 'Operations Portal';
     return isArabic ? 'بوابة النظام' : 'Portal';
   };
 
@@ -114,11 +114,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
     if (user.role === 'subadmin') {
       return [
-        { name: t('navigation.adminDashboard') || 'Overview', path: '/admin/dashboard', icon: LayoutDashboard },
-        { name: t('navigation.bookingsRegistry') || 'Bookings Registry', path: '/admin/bookings', icon: Calendar },
-        { name: t('navigation.doctorsVerification') || 'Doctors Verification', path: '/admin/doctors', icon: ShieldCheck },
-        { name: isArabic ? 'تحقق المستشفيات' : 'Hospitals Verification', path: '/admin/providers', icon: Building2 },
-        { name: isArabic ? 'تقارير الحجوزات والسجل' : 'Booking Reports & History', path: '/admin/reports', icon: BarChart3 },
+        { name: isArabic ? 'سجل الحجوزات والطلبات' : 'Bookings & Orders Registry', path: '/subadmin/bookings', icon: Calendar },
+        { name: t('navigation.doctorsVerification') || (isArabic ? 'تحقق الأطباء' : 'Doctors Verification'), path: '/subadmin/doctors', icon: ShieldCheck },
+        { name: isArabic ? 'تحقق المستشفيات والعيادات' : 'Hospitals Verification', path: '/subadmin/providers', icon: Building2 },
+        { name: isArabic ? 'تقارير الحجوزات والسجل' : 'Booking Reports & History', path: '/subadmin/reports', icon: BarChart3 },
       ];
     }
 

@@ -94,7 +94,7 @@ const PublicLayout: React.FC = () => {
     if (role === 'doctor') return '/doctor/dashboard';
     if (role === 'hospital') return '/hospital/dashboard';
     if (role === 'admin') return '/admin/dashboard';
-    if (role === 'subadmin') return '/admin/bookings';
+    if (role === 'subadmin') return '/subadmin/bookings';
     return '/';
   };
 
@@ -243,7 +243,7 @@ export default function App() {
                 <Route
                   path="/admin"
                   element={
-                    <ProtectedRoute allowedRoles={['admin', 'subadmin']}>
+                    <ProtectedRoute allowedRoles={['admin']}>
                       <DashboardLayout portalType="admin" />
                     </ProtectedRoute>
                   }
@@ -258,6 +258,23 @@ export default function App() {
                   <Route path="bookings" element={<AdminBookings />} />
                   <Route path="requests" element={<AdminRequests />} />
                   <Route path="reports" element={<AdminReports />} />
+                </Route>
+
+                {/* SUBADMIN OPERATIONS PORTAL */}
+                <Route
+                  path="/subadmin"
+                  element={
+                    <ProtectedRoute allowedRoles={['subadmin', 'admin']}>
+                      <DashboardLayout portalType="subadmin" />
+                    </ProtectedRoute>
+                  }
+                >
+                  <Route index element={<Navigate to="/subadmin/bookings" replace />} />
+                  <Route path="bookings" element={<AdminBookings />} />
+                  <Route path="doctors" element={<AdminDoctors />} />
+                  <Route path="providers" element={<AdminProviders />} />
+                  <Route path="reports" element={<AdminReports />} />
+                  <Route path="dashboard" element={<Navigate to="/subadmin/bookings" replace />} />
                 </Route>
 
                 {/* Fallback */}

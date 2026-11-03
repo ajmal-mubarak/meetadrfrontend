@@ -33,7 +33,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     if (user.role === 'patient') return <Navigate to="/patient/dashboard" replace />;
     if (user.role === 'doctor') return <Navigate to="/doctor/dashboard" replace />;
     if (user.role === 'hospital') return <Navigate to="/hospital/dashboard" replace />;
-    if (user.role === 'admin' || user.role === 'subadmin') return <Navigate to="/admin/bookings" replace />;
+    if (user.role === 'subadmin') return <Navigate to="/subadmin/bookings" replace />;
+    if (user.role === 'admin') return <Navigate to="/admin/dashboard" replace />;
     return <Navigate to="/" replace />;
   }
 

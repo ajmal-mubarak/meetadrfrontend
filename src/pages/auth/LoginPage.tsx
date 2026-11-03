@@ -79,11 +79,11 @@ const ROLES: {
     },
     {
       role: 'subadmin',
-      label: 'Sub-Admin',
+      label: 'Operations Sub-Admin',
       icon: Shield,
       demoEmail: 'subadmin@meetadr.demo',
       demoPassword: 'Subadmin@123',
-      dashboard: '/admin/bookings',
+      dashboard: '/subadmin/bookings',
       ring: 'ring-amber-500',
       activeBg: 'bg-amber-600',
       activeText: 'text-amber-600',
