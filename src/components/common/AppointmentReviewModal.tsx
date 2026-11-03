@@ -1,3 +1,4 @@
+import { formatDoctorName } from '../../utils/doctorUtils';
 import React, { useState, useEffect } from 'react';
 import {
   X,
@@ -344,7 +345,7 @@ export const AppointmentReviewModal: React.FC<AppointmentReviewModalProps> = ({
                   <span>
                     {isArabic
                       ? `تقييم الدكتور ${appointment.doctorName} الآن`
-                      : `Rate Dr. ${appointment.doctorName} Now`}
+                      : `Rate ${appointment.doctorName} Now`}
                   </span>
                   <ArrowRight className="w-3.5 h-3.5 rtl:rotate-180" />
                 </button>
@@ -359,7 +360,7 @@ export const AppointmentReviewModal: React.FC<AppointmentReviewModalProps> = ({
                 {target === 'doctor'
                   ? (isArabic
                       ? `كيف كانت استشارتك مع الدكتور ${appointment.doctorName}؟`
-                      : `How was your consultation with Dr. ${appointment.doctorName}?`)
+                      : `How was your consultation with ${appointment.doctorName}?`)
                   : (isArabic
                       ? `كيف كانت تجربتك في ${facilityName}؟`
                       : `How was your experience at ${facilityName}?`)}

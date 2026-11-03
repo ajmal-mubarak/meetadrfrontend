@@ -25,6 +25,7 @@ import { realAdminService, ProviderItem } from '../../services/realAdminService'
 import { Doctor } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { DEFAULT_DOCTOR_AVATAR } from '../../utils/avatar';
+import { formatDoctorName } from '../../utils/doctorUtils';
 
 export const AdminDoctors: React.FC = () => {
   const { showToast } = useToast();
@@ -148,7 +149,7 @@ export const AdminDoctors: React.FC = () => {
         if (viewDoctor && viewDoctor.id === doctor.id) {
           setViewDoctor({ ...viewDoctor, isVerified: true, status: 'Active', isActive: true });
         }
-        showToast(`Dr. ${doctor.name} has been verified and account activated!`, 'success');
+        showToast(`${formatDoctorName(doctor.name)} has been verified and account activated!`, 'success');
       } else {
         await realAdminService.updateDoctorStatus(doctor.id, 'Deactivated');
         setDoctors((prev) =>
@@ -161,7 +162,7 @@ export const AdminDoctors: React.FC = () => {
         if (viewDoctor && viewDoctor.id === doctor.id) {
           setViewDoctor({ ...viewDoctor, isVerified: false, status: 'Deactivated', isActive: false });
         }
-        showToast(`Dr. ${doctor.name} status updated to unverified/deactivated.`, 'info');
+        showToast(`${formatDoctorName(doctor.name)} status updated to unverified/deactivated.`, 'info');
       }
     } catch (err: any) {
       showToast(err.message || 'Failed to update verification status.', 'error');
@@ -415,7 +416,7 @@ export const AdminDoctors: React.FC = () => {
                               onClick={() => setViewDoctor(doc)}
                               className="font-bold text-slate-900 hover:text-teal-600 transition-colors cursor-pointer"
                             >
-                              Dr. {doc.name}
+                              {formatDoctorName(doc.name)}
                             </div>
                             <div className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
                               <span>ID: {doc.id.slice(0, 8)}</span>
@@ -521,7 +522,7 @@ export const AdminDoctors: React.FC = () => {
                   className="w-16 h-16 rounded-2xl object-cover bg-slate-100 border border-slate-200"
                 />
                 <div>
-                  <h3 className="text-xl font-black text-slate-900">Dr. {viewDoctor.name}</h3>
+                  <h3 className="text-xl font-black text-slate-900">{formatDoctorName(viewDoctor.name)}</h3>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="px-2 py-0.5 rounded-md bg-teal-50 text-teal-800 text-xs font-bold">
                       {viewDoctor.specialty}

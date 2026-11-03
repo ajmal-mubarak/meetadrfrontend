@@ -1,3 +1,4 @@
+import { formatDoctorName } from '../../utils/doctorUtils';
 import React, { useState, useEffect, useMemo } from 'react';
 
 
@@ -1291,7 +1292,7 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
 
-      showToast(`Doctor Dr. ${created.name} added successfully!`, 'success');
+      showToast(`Doctor ${created.name} added successfully!`, 'success');
 
 
 
@@ -1508,7 +1509,7 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
 
-      const fullName = editForm.name.trim() || (editForm.first_name.trim() || editForm.last_name.trim() ? `Dr. ${editForm.first_name.trim()} ${editForm.last_name.trim()}`.trim() : '');
+      const fullName = editForm.name.trim() || (editForm.first_name.trim() || editForm.last_name.trim() ? `${editForm.first_name.trim()} ${editForm.last_name.trim()}`.trim() : '');
 
 
 
@@ -1648,7 +1649,7 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
 
-      showToast(`Dr. ${updated.name} updated successfully.`, 'success');
+      showToast(`${updated.name} updated successfully.`, 'success');
 
 
 
@@ -1816,7 +1817,7 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
 
-      showToast(`Dr. ${doctorToDelete.name} has been deleted.`, 'success');
+      showToast(`${doctorToDelete.name} has been deleted.`, 'success');
 
 
 
@@ -2789,7 +2790,7 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
 
-                              Dr. {doc.name}
+                              {formatDoctorName(doc.name)}
 
 
 
@@ -3289,7 +3290,7 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
 
-                  <h3 className="text-xl font-black text-slate-900">Dr. {viewDoctor.name}</h3>
+                  <h3 className="text-xl font-black text-slate-900">{formatDoctorName(viewDoctor.name)}</h3>
 
 
 
@@ -4162,7 +4163,7 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
 
-                    placeholder={addForm.first_name || addForm.last_name ? `Dr. ${addForm.first_name} ${addForm.last_name}`.trim() : 'e.g. Dr. Ahmed Refaat'}
+                    placeholder={addForm.first_name || addForm.last_name ? `${addForm.first_name} ${addForm.last_name}`.trim() : 'e.g. Ahmed Refaat'}
 
 
 
@@ -4915,7 +4916,7 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
 
-                  <h3 className="text-lg font-black text-slate-900">Edit Doctor: Dr. {doctorToEdit.name}</h3>
+                  <h3 className="text-lg font-black text-slate-900">Edit Doctor: {doctorToEdit.name}</h3>
 
 
 
@@ -5949,7 +5950,7 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
 
-              <span className="font-bold text-slate-900">Dr. {doctorToDelete.name}</span>? This will remove their profile and disassociate all booking references.
+              <span className="font-bold text-slate-900">{doctorToDelete.name}</span>? This will remove their profile and disassociate all booking references.
 
 
 

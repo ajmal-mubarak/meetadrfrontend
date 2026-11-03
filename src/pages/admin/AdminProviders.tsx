@@ -1,3 +1,4 @@
+import { formatDoctorName } from '../../utils/doctorUtils';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Building2,

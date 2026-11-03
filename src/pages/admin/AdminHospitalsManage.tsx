@@ -1,3 +1,4 @@
+import { formatDoctorName } from '../../utils/doctorUtils';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Building2,
@@ -661,7 +662,7 @@ export const AdminHospitalsManage: React.FC = () => {
           standard_slots: doctorForm.standard_slots,
         });
         setDoctors((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
-        showToast(`Dr. ${updated.name} updated in ${doctorModalFacility.name}.`, 'success');
+        showToast(`${updated.name} updated in ${doctorModalFacility.name}.`, 'success');
       } else {
         const created = await realAdminService.createDoctor({
           name: doctorForm.name.trim(),
@@ -683,7 +684,7 @@ export const AdminHospitalsManage: React.FC = () => {
           standard_slots: doctorForm.standard_slots,
         });
         setDoctors((prev) => [created, ...prev]);
-        showToast(`Dr. ${created.name} added to ${doctorModalFacility.name}!`, 'success');
+        showToast(`${created.name} added to ${doctorModalFacility.name}!`, 'success');
       }
       setDoctorModalFacility(null);
       setEditingDoctorInHospital(null);
@@ -701,7 +702,7 @@ export const AdminHospitalsManage: React.FC = () => {
     try {
       await realAdminService.deleteDoctor(doctorToDelete.id);
       setDoctors((prev) => prev.filter((d) => d.id !== doctorToDelete.id));
-      showToast(`Dr. ${doctorToDelete.name} deleted successfully.`, 'success');
+      showToast(`${doctorToDelete.name} deleted successfully.`, 'success');
       setDoctorToDelete(null);
     } catch (err: any) {
       showToast(err.message || 'Failed to delete doctor.', 'error');
@@ -875,7 +876,7 @@ export const AdminHospitalsManage: React.FC = () => {
                               }}
                             />
                             <div>
-                              <div className="font-bold text-slate-900">Dr. {doc.name}</div>
+                              <div className="font-bold text-slate-900">{formatDoctorName(doc.name)}</div>
                               <div className="text-xs text-slate-400">{doc.education || 'MBBS'}</div>
                             </div>
                           </div>
@@ -1520,7 +1521,7 @@ export const AdminHospitalsManage: React.FC = () => {
                     <label className="block font-bold text-slate-700 mb-1">Manager Name</label>
                     <input
                       type="text"
-                      placeholder="e.g. Dr. John Smith"
+                      placeholder="e.g. John Smith"
                       value={addForm.manager_name}
                       onChange={(e) => setAddForm({ ...addForm, manager_name: e.target.value })}
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
@@ -1838,7 +1839,7 @@ export const AdminHospitalsManage: React.FC = () => {
                     <label className="block font-bold text-slate-700 mb-1">Manager Name</label>
                     <input
                       type="text"
-                      placeholder="e.g. Dr. John Smith"
+                      placeholder="e.g. John Smith"
                       value={editForm.manager_name}
                       onChange={(e) => setEditForm({ ...editForm, manager_name: e.target.value })}
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
@@ -1992,7 +1993,7 @@ export const AdminHospitalsManage: React.FC = () => {
                 <div>
                   <h3 className="text-lg font-black text-slate-900">
                     {editingDoctorInHospital
-                      ? `Edit Doctor: Dr. ${editingDoctorInHospital.name}`
+                      ? `Edit Doctor: ${editingDoctorInHospital.name}`
                       : `Add Doctor to ${doctorModalFacility.name}`}
                   </h3>
                   <p className="text-xs text-slate-500">Affiliation: {doctorModalFacility.name}</p>
@@ -2362,7 +2363,7 @@ export const AdminHospitalsManage: React.FC = () => {
             </div>
 
             <p className="text-xs text-slate-600 leading-relaxed">
-              Are you sure you want to delete <span className="font-bold text-slate-900">Dr. {doctorToDelete.name}</span> from this facility and platform?
+              Are you sure you want to delete <span className="font-bold text-slate-900">{doctorToDelete.name}</span> from this facility and platform?
             </p>
 
             <div className="flex items-center justify-end gap-2 pt-2">

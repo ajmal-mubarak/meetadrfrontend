@@ -66,3 +66,4 @@ export const formatCountdown = (
   }
   return `in ${minutes}m ${seconds}s`;
 };
+

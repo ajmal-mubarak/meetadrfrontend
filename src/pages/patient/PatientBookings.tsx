@@ -1,3 +1,4 @@
+import { formatDoctorName } from '../../utils/doctorUtils';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -96,7 +97,7 @@ export const PatientBookings: React.FC = () => {
         showToast(
           isArabic
             ? `تم إرسال تقييم الطبيب (${rating}★) للدكتور ${appointment.doctorName}. شكراً لك!`
-            : `${rating}★ doctor review submitted for Dr. ${appointment.doctorName}. Thank you!`,
+            : `${rating}★ doctor review submitted for ${appointment.doctorName}. Thank you!`,
           'success'
         );
       } else {
