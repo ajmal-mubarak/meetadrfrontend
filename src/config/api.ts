@@ -44,7 +44,12 @@ export function buildApiUrl(
   endpoint: string,
   params?: Record<string, string | number | boolean | undefined | null>
 ): string {
-  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  let cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  if (cleanEndpoint.startsWith('/api/v1/')) {
+    cleanEndpoint = cleanEndpoint.substring('/api/v1'.length);
+  } else if (cleanEndpoint === '/api/v1') {
+    cleanEndpoint = '';
+  }
   const baseWithEndpoint = `${API_BASE_URL}${cleanEndpoint}`;
 
   if (!params) {

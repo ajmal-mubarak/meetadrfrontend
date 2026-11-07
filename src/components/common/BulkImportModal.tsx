@@ -10,6 +10,7 @@ import {
   FileText,
 } from 'lucide-react';
 import apiClient from '../../services/api/apiClient';
+import { buildApiUrl } from '../../config/api';
 import { useToast } from '../../context/ToastContext';
 
 interface BulkImportModalProps {
@@ -49,12 +50,12 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
   const templateName = isDoctors ? 'Doctor Template.xlsx' : 'Hospital Template.xlsx';
   const endpoint =
     scope === 'facility' && isDoctors
-      ? '/api/v1/facility/doctors/import/'
+      ? '/facility/doctors/import/'
       : isDoctors
-      ? '/api/v1/admin/import/doctors/'
-      : '/api/v1/admin/import/hospitals/';
+      ? '/admin/import/doctors/'
+      : '/admin/import/hospitals/';
 
-  const downloadUrl = `/api/v1/admin/import/template/${target}/`;
+  const downloadUrl = `/admin/import/template/${target}/`;
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -103,11 +104,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
       const formData = new FormData();
       formData.append('file', selectedFile);
 
-      const res = await apiClient.post<ImportResponse>(endpoint, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const res = await apiClient.post<ImportResponse>(endpoint, formData);
 
       setResult(res);
       showToast(`Successfully imported ${res.imported} ${isDoctors ? 'doctor(s)' : 'facility/facilities'}!`, 'success');
@@ -140,7 +137,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
       }
 
       // 2. Fallback to backend API endpoint
-      const backendUrl = `http://127.0.0.1:8000${downloadUrl}`;
+      const backendUrl = buildApiUrl(downloadUrl);
       const apiRes = await fetch(backendUrl);
       if (apiRes.ok) {
         const blob = await apiRes.blob();
