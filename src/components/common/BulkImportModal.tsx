@@ -110,7 +110,13 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
       showToast(`Successfully imported ${res.imported} ${isDoctors ? 'doctor(s)' : 'facility/facilities'}!`, 'success');
       onSuccess();
     } catch (err: any) {
-      const msg = err.response?.data?.error || err.message || 'Import failed.';
+      const msg =
+        err.data?.error ||
+        (Array.isArray(err.data?.errors) && err.data.errors[0]?.error
+          ? `Import error: ${err.data.errors[0].name ? err.data.errors[0].name + ' - ' : ''}${err.data.errors[0].error}`
+          : null) ||
+        err.message ||
+        'Import failed.';
       showToast(msg, 'error');
     } finally {
       setIsUploading(false);

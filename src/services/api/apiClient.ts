@@ -154,6 +154,14 @@ function normalizeError(response: Response, data: unknown): ApiError {
       message = payload.error;
     } else if (Array.isArray(payload.non_field_errors) && payload.non_field_errors.length > 0) {
       message = String(payload.non_field_errors[0]);
+    } else if (Array.isArray(payload.errors) && payload.errors.length > 0) {
+      const firstErr = payload.errors[0];
+      if (typeof firstErr === 'string') {
+        message = firstErr;
+      } else if (firstErr && typeof firstErr === 'object') {
+        const errObj = firstErr as Record<string, any>;
+        message = errObj.error ? (errObj.name ? `${errObj.name}: ${errObj.error}` : String(errObj.error)) : undefined;
+      }
     }
 
     // Extract field-level validation errors
@@ -161,13 +169,13 @@ function normalizeError(response: Response, data: unknown): ApiError {
     let foundFields = false;
 
     for (const [key, val] of Object.entries(payload)) {
-      if (['detail', 'message', 'error', 'non_field_errors'].includes(key)) {
+      if (['detail', 'message', 'error', 'non_field_errors', 'errors', 'facilities', 'doctors'].includes(key)) {
         continue;
       }
-      if (Array.isArray(val) && val.every((item) => typeof item === 'string')) {
+      if (Array.isArray(val) && val.length > 0 && val.every((item) => typeof item === 'string')) {
         potentialFields[key] = val;
         foundFields = true;
-      } else if (typeof val === 'string') {
+      } else if (typeof val === 'string' && val.trim().length > 0) {
         potentialFields[key] = val;
         foundFields = true;
       }
@@ -178,9 +186,11 @@ function normalizeError(response: Response, data: unknown): ApiError {
       if (!message) {
         const firstField = Object.keys(potentialFields)[0];
         const firstError = Array.isArray(potentialFields[firstField])
-          ? potentialFields[firstField][0]
+          ? (potentialFields[firstField] as string[])[0]
           : potentialFields[firstField];
-        message = `${firstField}: ${firstError}`;
+        if (firstError) {
+          message = `${firstField}: ${firstError}`;
+        }
       }
     }
   } else if (typeof data === 'string' && data.length < 200 && !data.trim().startsWith('<')) {
