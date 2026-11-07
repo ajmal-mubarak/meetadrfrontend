@@ -353,10 +353,10 @@ export const realAdminService = {
    * Retrieves platform-wide doctors roster.
    * GET /api/v1/admin/doctors/
    */
-  async getDoctors(params?: { status?: string; specialty?: string; search?: string }): Promise<Doctor[]> {
+  async getDoctors(params?: { status?: string; specialty?: string; search?: string; page_size?: number }): Promise<Doctor[]> {
     const response = await apiClient.get<BackendAdminDoctor[] | PaginatedResponse<BackendAdminDoctor>>(
       API_ENDPOINTS.ADMIN.DOCTORS,
-      { params }
+      { params: { page_size: 200, ...params } }
     );
     const list = Array.isArray(response)
       ? response

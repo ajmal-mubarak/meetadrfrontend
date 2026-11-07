@@ -34,8 +34,8 @@ export const AdminDoctors: React.FC = () => {
   const [providers, setProviders] = useState<ProviderItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Verification filter: 'pending' (default) | 'verified' | 'all'
-  const [verificationTab, setVerificationTab] = useState<'pending' | 'verified' | 'all'>('pending');
+  // Verification filter: 'all' (default) | 'verified' | 'pending'
+  const [verificationTab, setVerificationTab] = useState<'pending' | 'verified' | 'all'>('all');
 
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
