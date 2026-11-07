@@ -89,6 +89,10 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
       showToast('Please select a valid .xlsx or .csv spreadsheet file.', 'error');
       return;
     }
+    if (file.size > 25 * 1024 * 1024) {
+      showToast('File size exceeds the 25 MB maximum limit.', 'error');
+      return;
+    }
     setSelectedFile(file);
     setResult(null);
   };
@@ -244,17 +248,26 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
                   {selectedFile.name}
                 </span>
                 <span className="text-[11px] text-slate-400">
-                  {(selectedFile.size / 1024).toFixed(1)} KB — Click or drag to replace
+                  {(selectedFile.size / 1024).toFixed(1)} KB · Max: 25 MB (Up to 500 records) — Click or drag to replace
                 </span>
               </div>
             ) : (
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <span className="text-xs font-bold text-slate-800 block">
                   Click to browse or drag and drop your file here
                 </span>
                 <span className="text-[11px] text-slate-400 block">
                   Supports Microsoft Excel (.xlsx) and Comma-Separated Values (.csv)
                 </span>
+                <div className="inline-flex items-center gap-2 pt-1 text-[11px] font-semibold text-slate-500">
+                  <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200">
+                    Max size: 25 MB
+                  </span>
+                  <span>•</span>
+                  <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200">
+                    Max records: 500 / batch
+                  </span>
+                </div>
               </div>
             )}
           </div>
