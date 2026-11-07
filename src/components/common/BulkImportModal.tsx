@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   Loader2,
   FileText,
+  Info,
 } from 'lucide-react';
 import apiClient from '../../services/api/apiClient';
 import { buildApiUrl } from '../../config/api';
@@ -25,7 +26,9 @@ interface ImportResponse {
   success: boolean;
   total_records: number;
   imported: number;
-  errors: Array<{ record: number; name?: string; error: string }>;
+  skipped?: number;
+  message?: string;
+  errors: Array<{ record: number; name?: string; error: string; skipped?: boolean }>;
 }
 
 export const BulkImportModal: React.FC<BulkImportModalProps> = ({
@@ -111,7 +114,15 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
       const res = await apiClient.post<ImportResponse>(endpoint, formData);
 
       setResult(res);
-      showToast(`Successfully imported ${res.imported} ${isDoctors ? 'doctor(s)' : 'facility/facilities'}!`, 'success');
+      if (res.imported > 0 && res.skipped && res.skipped > 0) {
+        showToast(res.message || `Imported ${res.imported}, skipped ${res.skipped} existing duplicates.`, 'success');
+      } else if (res.imported > 0) {
+        showToast(res.message || `Successfully imported ${res.imported} ${isDoctors ? 'doctor(s)' : 'facility/facilities'}!`, 'success');
+      } else if (res.skipped && res.skipped > 0) {
+        showToast(res.message || `All records already exist in database (skipped).`, 'info');
+      } else {
+        showToast('Import completed.', 'info');
+      }
       onSuccess();
     } catch (err: any) {
       const msg =
@@ -276,30 +287,104 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
         {/* Step 3: Result Summary & Errors */}
         {result && (
           <div className="space-y-4">
-            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs space-y-1.5">
-              <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                <span>Import Finished</span>
+            <div
+              className={`p-4 rounded-2xl border text-xs space-y-2 ${
+                result.imported > 0
+                  ? 'bg-emerald-50 border-emerald-200'
+                  : (result.skipped || 0) > 0
+                  ? 'bg-amber-50 border-amber-200'
+                  : 'bg-rose-50 border-rose-200'
+              }`}
+            >
+              <div
+                className={`flex items-center gap-2 font-bold text-sm ${
+                  result.imported > 0
+                    ? 'text-emerald-800'
+                    : (result.skipped || 0) > 0
+                    ? 'text-amber-800'
+                    : 'text-rose-800'
+                }`}
+              >
+                {result.imported > 0 ? (
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                ) : (result.skipped || 0) > 0 ? (
+                  <Info className="w-5 h-5 text-amber-600" />
+                ) : (
+                  <AlertTriangle className="w-5 h-5 text-rose-600" />
+                )}
+                <span>
+                  {result.imported > 0
+                    ? 'Import Finished'
+                    : (result.skipped || 0) > 0
+                    ? 'Records Already Exist'
+                    : 'Import Failed'}
+                </span>
               </div>
-              <p className="text-emerald-700">
-                Successfully processed <strong>{result.imported}</strong> of <strong>{result.total_records}</strong>{' '}
-                records into the database.
-              </p>
+
+              {result.message && (
+                <p
+                  className={`font-medium ${
+                    result.imported > 0
+                      ? 'text-emerald-700'
+                      : (result.skipped || 0) > 0
+                      ? 'text-amber-700'
+                      : 'text-rose-700'
+                  }`}
+                >
+                  {result.message}
+                </p>
+              )}
+
+              <div className="flex flex-wrap items-center gap-2 pt-1 font-semibold">
+                <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  {result.imported} Imported
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 border border-amber-200">
+                  {result.skipped || 0} Skipped (Duplicates)
+                </span>
+                {result.errors.filter((e) => !e.skipped).length > 0 && (
+                  <span className="px-2.5 py-1 rounded-lg bg-rose-100 text-rose-800 border border-rose-200">
+                    {result.errors.filter((e) => !e.skipped).length} Failed
+                  </span>
+                )}
+              </div>
             </div>
 
-            {result.errors.length > 0 && (
-              <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs space-y-2 max-h-48 overflow-y-auto">
+            {/* Skipped duplicates notice list */}
+            {result.errors.filter((e) => e.skipped).length > 0 && (
+              <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 text-xs space-y-2 max-h-40 overflow-y-auto">
+                <span className="font-bold text-amber-800 flex items-center gap-1.5">
+                  <Info className="w-4 h-4 text-amber-600" />
+                  Existing Records Skipped ({result.errors.filter((e) => e.skipped).length})
+                </span>
+                <div className="space-y-1 font-mono text-[11px] text-amber-800">
+                  {result.errors
+                    .filter((e) => e.skipped)
+                    .map((err, i) => (
+                      <div key={i} className="bg-white/90 p-2 rounded-lg border border-amber-100">
+                        Row #{err.record}: {err.error}
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Actual errors list */}
+            {result.errors.filter((e) => !e.skipped).length > 0 && (
+              <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs space-y-2 max-h-40 overflow-y-auto">
                 <span className="font-bold text-rose-800 flex items-center gap-1.5">
                   <AlertTriangle className="w-4 h-4 text-rose-600" />
-                  {result.errors.length} Record Warnings / Skipped
+                  Import Errors ({result.errors.filter((e) => !e.skipped).length})
                 </span>
                 <div className="space-y-1 font-mono text-[11px] text-rose-700">
-                  {result.errors.map((err, i) => (
-                    <div key={i} className="bg-white/80 p-1.5 rounded-lg border border-rose-100">
-                      Row #{err.record}: {err.name ? `[${err.name}] ` : ''}
-                      {err.error}
-                    </div>
-                  ))}
+                  {result.errors
+                    .filter((e) => !e.skipped)
+                    .map((err, i) => (
+                      <div key={i} className="bg-white/80 p-2 rounded-lg border border-rose-100">
+                        Row #{err.record}: {err.name ? `[${err.name}] ` : ''}
+                        {err.error}
+                      </div>
+                    ))}
                 </div>
               </div>
             )}
