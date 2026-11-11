@@ -31,8 +31,8 @@ export const AdminHospitalsVerification: React.FC = () => {
   const [facilities, setFacilities] = useState<ProviderItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Verification filter tab: 'pending' | 'verified' | 'all'
-  const [verificationTab, setVerificationTab] = useState<'pending' | 'verified' | 'all'>('pending');
+  // Verification filter tab: 'all' (default) | 'verified' | 'pending'
+  const [verificationTab, setVerificationTab] = useState<'pending' | 'verified' | 'all'>('all');
 
   // Search & Type Filters
   const [searchQuery, setSearchQuery] = useState('');
