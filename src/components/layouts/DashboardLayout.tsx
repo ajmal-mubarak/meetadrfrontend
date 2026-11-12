@@ -17,6 +17,7 @@ import {
   ExternalLink,
   Menu,
   X,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -186,6 +187,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         { name: t('navigation.doctorsVerification') || 'Doctors Verification', path: '/admin/doctors', icon: ShieldCheck },
         { name: t('navigation.doctorsManagement') || 'Doctors Management', path: '/admin/doctors-manage', icon: Stethoscope },
         { name: t('navigation.hospitalsManagement') || 'Hospitals Management', path: '/admin/hospitals', icon: Building2 },
+        { name: isArabic ? 'إدارة الصور والوسائط' : (t('navigation.photoManage') || 'Photo Manage'), path: '/admin/photos', icon: ImageIcon },
         { name: t('navigation.patientManagement') || 'Patient Management', path: '/admin/patients', icon: Users },
         { name: t('navigation.providersDirectory'), path: '/admin/providers', icon: UserCheck },
         { name: isArabic ? 'سجل الحجوزات' : (t('navigation.bookingsRegistry') || 'Bookings Registry'), path: '/admin/bookings', icon: Calendar },

@@ -182,5 +182,8 @@ export const API_ENDPOINTS = {
     REQUEST_RESEND_INVITATION: (id: string) => `/admin/requests/${id}/resend-invitation/`,
     PROVIDER_REQUESTS: '/provider-requests/',
     PROVIDER_REQUEST_STATUS: (id: string) => `/provider-requests/${id}/`,
+    PHOTOS: '/admin/photos/',
+    PHOTOS_UPLOAD: '/admin/photos/upload/',
+    PHOTOS_DELETE: '/admin/photos/delete/',
   },
 } as const;

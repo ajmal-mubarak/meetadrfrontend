@@ -84,6 +84,7 @@ import { AdminProviders } from './pages/admin/AdminProviders';
 import { AdminBookings } from './pages/admin/AdminBookings';
 import { AdminRequests } from './pages/admin/AdminRequests';
 import { AdminReports } from './pages/admin/AdminReports';
+import { AdminPhotoManage } from './pages/admin/AdminPhotoManage';
 
 // Public Layout Wrapper with Header and Footer
 const PublicLayout: React.FC = () => {
@@ -260,6 +261,8 @@ export default function App() {
                   <Route path="bookings" element={<AdminBookings />} />
                   <Route path="requests" element={<AdminRequests />} />
                   <Route path="reports" element={<AdminReports />} />
+                  <Route path="photos" element={<AdminPhotoManage />} />
+                  <Route path="photo-manage" element={<Navigate to="/admin/photos" replace />} />
                 </Route>
 
                 {/* SUBADMIN OPERATIONS PORTAL */}
@@ -278,6 +281,8 @@ export default function App() {
                   <Route path="providers" element={<AdminHospitalsVerification />} />
                   <Route path="hospitals" element={<AdminHospitalsVerification />} />
                   <Route path="reports" element={<AdminReports />} />
+                  <Route path="photos" element={<AdminPhotoManage />} />
+                  <Route path="photo-manage" element={<Navigate to="/admin/photos" replace />} />
                   <Route path="dashboard" element={<Navigate to="/subadmin/bookings" replace />} />
                 </Route>
 

@@ -430,3 +430,4 @@ export const TopSpecialtiesSection: React.FC<TopSpecialtiesSectionProps> = ({ re
   );
 };
 export default TopSpecialtiesSection;
+

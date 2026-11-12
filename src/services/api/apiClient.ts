@@ -262,9 +262,10 @@ export async function request<T = unknown>(
     ...restInit
   } = options;
 
-  const url = endpoint.startsWith('http://') || endpoint.startsWith('https://')
-    ? endpoint
-    : buildApiUrl(endpoint, params);
+  const safeEndpoint = endpoint || '';
+  const url = safeEndpoint.startsWith('http://') || safeEndpoint.startsWith('https://')
+    ? safeEndpoint
+    : buildApiUrl(safeEndpoint, params);
 
   const headers = new Headers(customHeaders);
 
