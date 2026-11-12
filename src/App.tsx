@@ -282,7 +282,7 @@ export default function App() {
                   <Route path="hospitals" element={<AdminHospitalsVerification />} />
                   <Route path="reports" element={<AdminReports />} />
                   <Route path="photos" element={<AdminPhotoManage />} />
-                  <Route path="photo-manage" element={<Navigate to="/admin/photos" replace />} />
+                  <Route path="photo-manage" element={<Navigate to="/subadmin/photos" replace />} />
                   <Route path="dashboard" element={<Navigate to="/subadmin/bookings" replace />} />
                 </Route>
 

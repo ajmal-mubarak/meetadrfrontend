@@ -168,6 +168,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           icon: Building2,
         },
         {
+          name: isArabic ? 'إدارة الصور والوسائط' : (t('navigation.photoManage') || 'Photo Manage'),
+          path: '/subadmin/photos',
+          icon: ImageIcon,
+        },
+        {
           name: isArabic ? 'تقارير الحجوزات والسجل' : 'Booking Reports & History',
           path: '/subadmin/reports',
           icon: BarChart3,
