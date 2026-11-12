@@ -62,13 +62,35 @@ export const photoManageService = {
   },
 
   /**
-   * Delete a photo by path.
+   * Delete a single photo by path.
    */
   async deletePhoto(path: string): Promise<boolean> {
     const res = await apiClient.delete<{ success: boolean }>(API_ENDPOINTS.ADMIN.PHOTOS_DELETE, {
+      body: { path },
       data: { path },
+      params: { path },
     });
     return Boolean(res?.success);
+  },
+
+  /**
+   * Delete multiple photos in bulk by paths.
+   */
+  async deletePhotos(paths: string[]): Promise<{ success: boolean; deleted_count: number }> {
+    if (!paths || paths.length === 0) {
+      return { success: true, deleted_count: 0 };
+    }
+    const res = await apiClient.delete<{ success: boolean; deleted_count?: number }>(
+      API_ENDPOINTS.ADMIN.PHOTOS_DELETE,
+      {
+        body: { paths },
+        data: { paths },
+      }
+    );
+    return {
+      success: Boolean(res?.success),
+      deleted_count: res?.deleted_count ?? paths.length,
+    };
   },
 };
 

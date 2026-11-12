@@ -377,8 +377,13 @@ export const apiClient = {
   patch: <T = unknown>(endpoint: string, body?: unknown, options?: Omit<RequestOptions, 'method' | 'body'>) =>
     request<T>(endpoint, { ...options, method: 'PATCH', body }),
 
-  delete: <T = unknown>(endpoint: string, options?: Omit<RequestOptions, 'method' | 'body'>) =>
-    request<T>(endpoint, { ...options, method: 'DELETE' }),
+  delete: <T = unknown>(
+    endpoint: string,
+    options?: Omit<RequestOptions, 'method'> & { data?: unknown }
+  ) => {
+    const body = options?.body !== undefined ? options.body : options?.data;
+    return request<T>(endpoint, { ...options, method: 'DELETE', body });
+  },
 
   request,
   setAccessToken,

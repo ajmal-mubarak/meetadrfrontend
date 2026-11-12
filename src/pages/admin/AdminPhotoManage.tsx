@@ -53,9 +53,14 @@ export const AdminPhotoManage: React.FC = () => {
   const [copiedAll, setCopiedAll] = useState<boolean>(false);
   const [copiedFormula, setCopiedFormula] = useState<boolean>(false);
 
+  // Multi-select state
+  const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+
   // Load photos for active category
   const loadCategoryPhotos = async (category: PhotoCategory) => {
     setIsLoading(true);
+    setSelectedPaths(new Set());
     try {
       const items = await photoManageService.listPhotos(category);
       setPhotos(items);
@@ -70,6 +75,7 @@ export const AdminPhotoManage: React.FC = () => {
   useEffect(() => {
     loadCategoryPhotos(activeCategory);
     setSelectedFiles([]);
+    setSelectedPaths(new Set());
   }, [activeCategory]);
 
   // Drag and drop handlers
@@ -205,6 +211,43 @@ export const AdminPhotoManage: React.FC = () => {
     }
   };
 
+  // Multi-select toggle helpers
+  const toggleSelectPhoto = (path: string) => {
+    setSelectedPaths((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedPaths.size === filteredPhotos.length) {
+      setSelectedPaths(new Set());
+    } else {
+      setSelectedPaths(new Set(filteredPhotos.map((p) => p.path)));
+    }
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedPaths(new Set());
+  };
+
+  const copySelectedUrls = async () => {
+    const selected = photos.filter((p) => selectedPaths.has(p.path));
+    if (selected.length === 0) return;
+    const text = selected.map((p) => p.url).join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast(`Copied ${selected.length} URL(s) to clipboard!`, 'success');
+    } catch {
+      showToast('Could not copy URLs to clipboard.', 'error');
+    }
+  };
+
   // Delete single photo
   const handleDeletePhoto = async (item: StoragePhotoItem) => {
     if (!window.confirm(`Are you sure you want to delete "${item.name}" from Cloud Storage?`)) {
@@ -214,13 +257,45 @@ export const AdminPhotoManage: React.FC = () => {
     try {
       const ok = await photoManageService.deletePhoto(item.path);
       if (ok) {
-        showToast('Photo deleted successfully.', 'info');
+        showToast(`"${item.name}" deleted successfully.`, 'info');
         setPhotos((prev) => prev.filter((p) => p.path !== item.path));
+        setSelectedPaths((prev) => {
+          const next = new Set(prev);
+          next.delete(item.path);
+          return next;
+        });
       } else {
         showToast('Failed to delete photo.', 'error');
       }
     } catch (err: any) {
       showToast(err?.message || 'Delete error.', 'error');
+    }
+  };
+
+  // Bulk delete selected photos
+  const handleDeleteSelected = async () => {
+    const count = selectedPaths.size;
+    if (count === 0) return;
+
+    if (!window.confirm(`Are you sure you want to permanently delete ${count} selected photo(s) from Cloud Storage? This cannot be undone.`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const pathsToDelete = Array.from(selectedPaths);
+      const res = await photoManageService.deletePhotos(pathsToDelete);
+      if (res.success) {
+        showToast(`${res.deleted_count || count} photo(s) deleted successfully.`, 'info');
+        setPhotos((prev) => prev.filter((p) => !selectedPaths.has(p.path)));
+        setSelectedPaths(new Set());
+      } else {
+        showToast('Failed to delete selected photos.', 'error');
+      }
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to delete selected photos.', 'error');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -433,9 +508,9 @@ export const AdminPhotoManage: React.FC = () => {
       </div>
 
       {/* ── Photo Gallery Section ── */}
-      <div className="bg-white rounded-3xl border border-[#E2EBF0] p-6 shadow-xs">
+      <div className="bg-white rounded-3xl border border-[#E2EBF0] p-6 shadow-xs space-y-4">
         {/* Toolbar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <h3 className="text-base sm:text-lg font-bold text-slate-900">
               Uploaded in "{activeCategory}"
@@ -446,6 +521,36 @@ export const AdminPhotoManage: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Quick Select All Toggle */}
+            {filteredPhotos.length > 0 && (
+              <button
+                type="button"
+                onClick={handleSelectAll}
+                className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  selectedPaths.size > 0 && selectedPaths.size === filteredPhotos.length
+                    ? 'bg-[#0E7490] text-white border-[#0E7490]'
+                    : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                }`}
+              >
+                <div
+                  className={`w-3.5 h-3.5 rounded-xs border flex items-center justify-center ${
+                    selectedPaths.size > 0 && selectedPaths.size === filteredPhotos.length
+                      ? 'border-white bg-[#0E7490]'
+                      : selectedPaths.size > 0
+                      ? 'border-[#0E7490] bg-[#0E7490]/20'
+                      : 'border-slate-400'
+                  }`}
+                >
+                  {selectedPaths.size > 0 && <Check className="w-2.5 h-2.5 stroke-[3] text-white" />}
+                </div>
+                <span>
+                  {selectedPaths.size === filteredPhotos.length && filteredPhotos.length > 0
+                    ? 'Deselect All'
+                    : 'Select All'}
+                </span>
+              </button>
+            )}
+
             {/* Search */}
             <div className="relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -454,7 +559,7 @@ export const AdminPhotoManage: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Filter by filename..."
-                className="pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-hidden focus:border-[#2DA7B5] w-48 sm:w-56"
+                className="pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-hidden focus:border-[#2DA7B5] w-44 sm:w-52"
               />
             </div>
 
@@ -481,6 +586,63 @@ export const AdminPhotoManage: React.FC = () => {
           </div>
         </div>
 
+        {/* ── Multi-Select Actions Floating / Top Bar ── */}
+        {selectedPaths.size > 0 && (
+          <div className="bg-[#E8F6F8] border border-[#2DA7B5]/40 rounded-2xl p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-[#0E7490] text-white flex items-center justify-center font-black text-xs shadow-xs">
+                {selectedPaths.size}
+              </div>
+              <div>
+                <p className="text-xs sm:text-sm font-bold text-slate-900">
+                  {selectedPaths.size} of {filteredPhotos.length} photo{selectedPaths.size > 1 ? 's' : ''} selected
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  Perform bulk actions on selected files in "{activeCategory}"
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDeselectAll}
+                className="px-3 py-1.5 rounded-xl border border-slate-300 hover:bg-white text-slate-600 text-xs font-semibold cursor-pointer"
+              >
+                Clear Selection
+              </button>
+
+              <button
+                type="button"
+                onClick={copySelectedUrls}
+                className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Copy className="w-3.5 h-3.5 text-[#0E7490]" />
+                <span>Copy Selected URLs</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleDeleteSelected}
+                className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Deleting from Storage...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete Selected ({selectedPaths.size})</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Gallery Grid */}
         {isLoading ? (
           <div className="py-20 text-center">
@@ -499,10 +661,22 @@ export const AdminPhotoManage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredPhotos.map((item) => {
               const isCopied = copiedPath === item.path;
+              const isSelected = selectedPaths.has(item.path);
+
               return (
                 <div
                   key={item.path}
-                  className="group bg-white rounded-2xl border border-[#E2EBF0] overflow-hidden hover:border-[#2DA7B5] hover:shadow-md transition-all flex flex-col justify-between"
+                  onClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (!target.closest('button') && !target.closest('a')) {
+                      toggleSelectPhoto(item.path);
+                    }
+                  }}
+                  className={`group bg-white rounded-2xl border overflow-hidden transition-all flex flex-col justify-between cursor-pointer ${
+                    isSelected
+                      ? 'border-[#0E7490] ring-2 ring-[#0E7490]/40 shadow-md bg-[#E8F6F8]/20'
+                      : 'border-[#E2EBF0] hover:border-[#2DA7B5] hover:shadow-md'
+                  }`}
                 >
                   {/* Image Preview Container */}
                   <div className="relative aspect-4/3 bg-slate-900 overflow-hidden flex items-center justify-center">
@@ -513,12 +687,34 @@ export const AdminPhotoManage: React.FC = () => {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
 
+                    {/* Multi-Select Checkbox */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSelectPhoto(item.path);
+                      }}
+                      className={`absolute top-2.5 left-2.5 z-10 w-7 h-7 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#0E7490] text-white shadow-md ring-2 ring-white scale-105'
+                          : 'bg-black/50 hover:bg-black/75 text-white/80 hover:text-white backdrop-blur-xs'
+                      }`}
+                      title={isSelected ? 'Deselect photo' : 'Select photo'}
+                    >
+                      {isSelected ? (
+                        <Check className="w-4 h-4 stroke-[3]" />
+                      ) : (
+                        <div className="w-3.5 h-3.5 rounded-xs border-2 border-white/70" />
+                      )}
+                    </button>
+
                     {/* Quick View External Link */}
                     <a
                       href={item.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 text-white hover:bg-black/90 transition-all opacity-0 group-hover:opacity-100"
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute top-2.5 right-2.5 p-1.5 rounded-lg bg-black/60 text-white hover:bg-black/90 transition-all opacity-0 group-hover:opacity-100 z-10"
                       title="Open full image in new tab"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
@@ -545,7 +741,10 @@ export const AdminPhotoManage: React.FC = () => {
                       {/* Copy URL Button */}
                       <button
                         type="button"
-                        onClick={() => copyToClipboard(item.url, item.path)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyToClipboard(item.url, item.path);
+                        }}
                         className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                           isCopied
                             ? 'bg-emerald-600 text-white'
@@ -568,7 +767,10 @@ export const AdminPhotoManage: React.FC = () => {
                       {/* Delete Button */}
                       <button
                         type="button"
-                        onClick={() => handleDeletePhoto(item)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeletePhoto(item);
+                        }}
                         className="p-1.5 rounded-xl border border-slate-200 hover:border-rose-300 hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-all cursor-pointer"
                         title="Delete from bucket"
                       >
