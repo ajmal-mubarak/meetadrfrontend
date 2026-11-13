@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { CountryCodeDropdown } from '../../components/common/CountryCodeDropdown';
 import { motion } from 'motion/react';
 import {
   User as UserIcon,
@@ -42,6 +43,8 @@ export const RegisterPage: React.FC = () => {
   const { login } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectParam = searchParams.get('redirect');
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -58,6 +61,100 @@ export const RegisterPage: React.FC = () => {
 
   // Field-specific validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Password strength computation with dynamic requirements feedback
+  const passwordStrength = React.useMemo(() => {
+    if (!password) return null;
+
+    const length = password.length;
+    const isPurelyNumeric = /^\d+$/.test(password);
+    const hasLetters = /[a-zA-Z]/.test(password);
+    const hasNumbers = /\d/.test(password);
+    const hasUppercase = /[A-Z]/.test(password);
+    const hasSpecial = /[^A-Za-z0-9]/.test(password);
+
+    const missingList: string[] = [];
+
+    if (isPurelyNumeric) {
+      missingList.push('Password is fully numeric. Add letters (a-z, A-Z)');
+    } else {
+      if (!hasLetters) missingList.push('Add letters (a-z)');
+      if (!hasNumbers) missingList.push('Add at least one number (0-9)');
+    }
+
+    if (length < 8) {
+      missingList.push(`Needs at least 8 characters (currently ${length}/8)`);
+    }
+
+    if (!hasUppercase) {
+      missingList.push('Add an uppercase letter (A-Z)');
+    }
+
+    if (!hasSpecial) {
+      missingList.push('Add a special symbol (e.g. !@#$)');
+    }
+
+    // Determine score & level
+    let level: 'poor' | 'average' | 'strong' = 'poor';
+    let label = 'Poor';
+    let emoji = '😩';
+    let colorText = 'text-rose-600';
+    let colorBar = 'bg-rose-500';
+    let width = 'w-1/4';
+    let mainMessage = '';
+
+    if (isPurelyNumeric) {
+      level = 'poor';
+      label = 'Poor';
+      emoji = '😩';
+      colorText = 'text-rose-600';
+      colorBar = 'bg-rose-500';
+      width = 'w-1/4';
+      mainMessage = 'Password is fully numeric. Please add text/letters and symbols.';
+    } else if (length < 6) {
+      level = 'poor';
+      label = 'Poor';
+      emoji = '😩';
+      colorText = 'text-rose-600';
+      colorBar = 'bg-rose-500';
+      width = 'w-1/4';
+      mainMessage = `Needs at least 8 characters (currently ${length}/8).`;
+    } else if (length < 8 || !hasNumbers || !hasUppercase) {
+      level = 'average';
+      label = 'Average';
+      emoji = '😐';
+      colorText = 'text-amber-600';
+      colorBar = 'bg-amber-500';
+      width = length < 8 ? 'w-1/2' : 'w-3/4';
+      mainMessage = missingList[0] || 'Add more character variety to strengthen.';
+    } else {
+      level = 'strong';
+      label = 'Strong';
+      emoji = '😎';
+      colorText = 'text-emerald-600';
+      colorBar = 'bg-emerald-500';
+      width = 'w-full';
+      mainMessage = 'All requirements met! Great password format.';
+    }
+
+    return {
+      level,
+      label,
+      emoji,
+      colorText,
+      colorBar,
+      width,
+      mainMessage,
+      missingList,
+      hasMinLength: length >= 8,
+      hasLetters,
+      hasNumbers,
+      hasUppercase,
+      hasSpecial,
+      isPurelyNumeric,
+    };
+  }, [password]);
+
 
   // Max date for DOB (yesterday to prevent future or today)
   const todayStr = new Date().toISOString().split('T')[0];
@@ -108,11 +205,11 @@ export const RegisterPage: React.FC = () => {
       newErrors.gender = 'Please select your gender (Male or Female).';
     }
 
-    // 6. Password (Must contain at least 10 characters)
+    // 6. Password (Must contain at least 6 characters)
     if (!password) {
       newErrors.password = 'Password is required.';
-    } else if (password.length < 10) {
-      newErrors.password = 'Password must contain at least 10 characters.';
+    } else if (password.length < 6) {
+      newErrors.password = 'Password must contain at least 6 characters.';
     }
 
     // 7. Confirm Password
@@ -160,7 +257,11 @@ export const RegisterPage: React.FC = () => {
 
       const user = await login(email.trim().toLowerCase(), password);
       showToast(`Welcome to MeetAdr, ${user.name}! Your account is ready.`, 'success');
-      navigate('/patient/dashboard');
+      if (redirectParam) {
+        navigate(redirectParam);
+      } else {
+        navigate('/patient/dashboard');
+      }
     } catch (err: any) {
       const data = err?.response?.data || {};
       const msg =
@@ -271,23 +372,15 @@ export const RegisterPage: React.FC = () => {
                   <span className="text-slate-400 font-normal">(country code & numbers only)</span>
                 </label>
                 <div className="flex gap-2">
-                  {/* Country Code Dropdown */}
-                  <div className="relative shrink-0 w-36">
-                    <select
+                  {/* Country Selector (unified downward dropdown) */}
+                  <div className="w-44 shrink-0">
+                    <CountryCodeDropdown
                       value={countryCode}
-                      onChange={(e) => {
-                        setCountryCode(e.target.value);
+                      onChange={(val) => {
+                        setCountryCode(val);
                         if (errors.phone) setErrors((prev) => ({ ...prev, phone: '' }));
                       }}
-                      className="w-full h-full appearance-none pl-3 pr-8 py-3 rounded-xl border border-[#E2EBF0] bg-[#F8FAFC] text-xs font-bold text-slate-800 focus:outline-none focus:border-[#2DA7B5] focus:bg-white transition-all shadow-2xs cursor-pointer"
-                    >
-                      {COUNTRY_CODES.map((c) => (
-                        <option key={c.code} value={c.code}>
-                          {c.flag} {c.code}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    />
                   </div>
 
                   {/* Number Input (Strictly numbers only) */}
@@ -407,7 +500,7 @@ export const RegisterPage: React.FC = () => {
                       setPassword(e.target.value);
                       if (errors.password) setErrors((prev) => ({ ...prev, password: '' }));
                     }}
-                    placeholder="Must contain at least 10 characters"
+                    placeholder="Must contain at least 6 characters"
                     className={`w-full pl-10 pr-12 py-3 rounded-xl border bg-[#F8FAFC] text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white transition-all font-medium shadow-2xs ${
                       errors.password ? 'border-rose-400 focus:border-rose-400 bg-rose-50/20' : 'border-[#E2EBF0] focus:border-[#2DA7B5]'
                     }`}
@@ -420,14 +513,71 @@ export const RegisterPage: React.FC = () => {
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+
+                {/* Password Strength Indicator */}
+                {password && passwordStrength && (
+                  <div className="mt-2.5 p-3.5 bg-white border border-[#E2EBF0] rounded-2xl space-y-2.5 shadow-2xs">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span className="text-slate-800">Password Strength</span>
+                      <span className={`flex items-center gap-1 font-bold ${passwordStrength.colorText}`}>
+                        <span>{passwordStrength.label}</span>
+                        <span className="text-sm">{passwordStrength.emoji}</span>
+                      </span>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className={`h-full ${passwordStrength.colorBar} ${passwordStrength.width} rounded-full transition-all duration-300`} />
+                    </div>
+
+                    {/* Dynamic guidance message: explicitly shows what is missing */}
+                    <div className={`text-[11px] font-semibold flex items-center gap-1.5 ${passwordStrength.colorText}`}>
+                      {passwordStrength.level === 'strong' ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
+                      ) : (
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      )}
+                      <span>{passwordStrength.mainMessage}</span>
+                    </div>
+
+                    {/* Requirements live checklist */}
+                    <div className="pt-2 border-t border-slate-100 grid grid-cols-2 gap-1.5 text-[10px]">
+                      <div className={`flex items-center gap-1 font-medium ${
+                        password.length >= 8 ? 'text-emerald-600 font-bold' : password.length >= 6 ? 'text-amber-600' : 'text-slate-400'
+                      }`}>
+                        <span>{password.length >= 8 ? '✓' : '•'}</span>
+                        <span>At least 8 characters ({password.length}/8)</span>
+                      </div>
+                      <div className={`flex items-center gap-1 font-medium ${
+                        !passwordStrength.isPurelyNumeric && passwordStrength.hasLetters ? 'text-emerald-600 font-bold' : 'text-rose-500 font-bold'
+                      }`}>
+                        <span>{!passwordStrength.isPurelyNumeric && passwordStrength.hasLetters ? '✓' : '•'}</span>
+                        <span>{passwordStrength.isPurelyNumeric ? 'Not fully numeric' : 'Letters (a-z)'}</span>
+                      </div>
+                      <div className={`flex items-center gap-1 font-medium ${
+                        passwordStrength.hasNumbers ? 'text-emerald-600 font-bold' : 'text-slate-400'
+                      }`}>
+                        <span>{passwordStrength.hasNumbers ? '✓' : '•'}</span>
+                        <span>At least 1 number (0-9)</span>
+                      </div>
+                      <div className={`flex items-center gap-1 font-medium ${
+                        passwordStrength.hasUppercase ? 'text-emerald-600 font-bold' : 'text-slate-400'
+                      }`}>
+                        <span>{passwordStrength.hasUppercase ? '✓' : '•'}</span>
+                        <span>Uppercase letter (A-Z)</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {errors.password ? (
                   <p className="text-[11px] text-rose-500 font-semibold flex items-center gap-1 mt-1">
                     <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                     <span>{errors.password}</span>
                   </p>
-                ) : (
-                  <p className="text-[11px] text-slate-400">Must contain at least 10 characters</p>
-                )}
+                ) : !password ? (
+                  <p className="text-[11px] text-slate-400">Must contain at least 6 characters</p>
+                ) : null}
               </div>
 
               {/* Confirm Password */}

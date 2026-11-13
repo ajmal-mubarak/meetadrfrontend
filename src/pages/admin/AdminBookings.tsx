@@ -151,6 +151,12 @@ export const AdminBookings: React.FC<AdminBookingsProps> = ({ isPendingOnly = fa
   const [bookingStatus, setBookingStatus] = useState<string>('all');
 
   const [bookingSearch, setBookingSearch] = useState<string>('');
+  const [tablePage, setTablePage] = useState<number>(1);
+  const TABLE_PAGE_SIZE = 100;
+
+  useEffect(() => {
+    setTablePage(1);
+  }, [bookingSearch, bookingStatus, viewMode, selectedFacility, selectedDoctorId]);
 
   const [cancellingAppt, setCancellingAppt] = useState<Appointment | null>(null);
 
@@ -242,11 +248,11 @@ export const AdminBookings: React.FC<AdminBookingsProps> = ({ isPendingOnly = fa
 
       const [apptsData, providersData, doctorsData] = await Promise.all([
 
-        realAdminService.getBookings(),
+        realAdminService.getBookings({ page_size: 500 }),
 
         realAdminService.getProviders(),
 
-        realAdminService.getDoctors(),
+        realAdminService.getDoctors({ page_size: 500 }),
 
       ]);
 
@@ -657,6 +663,11 @@ export const AdminBookings: React.FC<AdminBookingsProps> = ({ isPendingOnly = fa
     return list;
 
   }, [appointments, selectedFacility, selectedDoctorId, viewMode, bookingStatus, bookingSearch]);
+
+  const pagedViewAppointments = useMemo(() => {
+    const start = (tablePage - 1) * TABLE_PAGE_SIZE;
+    return currentViewAppointments.slice(start, start + TABLE_PAGE_SIZE);
+  }, [currentViewAppointments, tablePage]);
 
 
 
@@ -2265,7 +2276,7 @@ export const AdminBookings: React.FC<AdminBookingsProps> = ({ isPendingOnly = fa
 
                   ) : (
 
-                    currentViewAppointments.map((appt) => (
+                    pagedViewAppointments.map((appt) => (
 
                       <tr key={appt.id} className="hover:bg-[#F8FAFC] transition-colors">
 
@@ -2427,6 +2438,48 @@ export const AdminBookings: React.FC<AdminBookingsProps> = ({ isPendingOnly = fa
 
             </div>
 
+            {currentViewAppointments.length > 0 && (
+              <div className="p-4 border-t border-[#E2EBF0] bg-white flex flex-col sm:flex-row items-center justify-between gap-3">
+                <p className="text-xs text-slate-500 font-medium">
+                  Showing {(tablePage - 1) * TABLE_PAGE_SIZE + 1} to {Math.min(tablePage * TABLE_PAGE_SIZE, currentViewAppointments.length)} of {currentViewAppointments.length} bookings
+                </p>
+                {Math.ceil(currentViewAppointments.length / TABLE_PAGE_SIZE) > 1 && (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setTablePage((p) => Math.max(1, p - 1))}
+                      disabled={tablePage === 1}
+                      className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
+                    >
+                      Previous
+                    </button>
+                    {Array.from({ length: Math.ceil(currentViewAppointments.length / TABLE_PAGE_SIZE) }, (_, idx) => idx + 1).map((pageNum) => (
+                      <button
+                        key={pageNum}
+                        type="button"
+                        onClick={() => setTablePage(pageNum)}
+                        className={`w-8 h-8 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          tablePage === pageNum
+                            ? 'bg-[#2DA7B5] text-white shadow-xs font-black'
+                            : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setTablePage((p) => Math.min(Math.ceil(currentViewAppointments.length / TABLE_PAGE_SIZE), p + 1))}
+                      disabled={tablePage === Math.ceil(currentViewAppointments.length / TABLE_PAGE_SIZE)}
+                      className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
           </div>
 
         </div>
@@ -2535,7 +2588,7 @@ export const AdminBookings: React.FC<AdminBookingsProps> = ({ isPendingOnly = fa
 
                   ) : (
 
-                    currentViewAppointments.map((appt) => (
+                    pagedViewAppointments.map((appt) => (
 
                       <tr key={appt.id} className="hover:bg-[#F8FAFC] transition-colors">
 
@@ -2692,6 +2745,48 @@ export const AdminBookings: React.FC<AdminBookingsProps> = ({ isPendingOnly = fa
               </table>
 
             </div>
+
+            {currentViewAppointments.length > 0 && (
+              <div className="p-4 border-t border-[#E2EBF0] bg-white flex flex-col sm:flex-row items-center justify-between gap-3">
+                <p className="text-xs text-slate-500 font-medium">
+                  Showing {(tablePage - 1) * TABLE_PAGE_SIZE + 1} to {Math.min(tablePage * TABLE_PAGE_SIZE, currentViewAppointments.length)} of {currentViewAppointments.length} bookings
+                </p>
+                {Math.ceil(currentViewAppointments.length / TABLE_PAGE_SIZE) > 1 && (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setTablePage((p) => Math.max(1, p - 1))}
+                      disabled={tablePage === 1}
+                      className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
+                    >
+                      Previous
+                    </button>
+                    {Array.from({ length: Math.ceil(currentViewAppointments.length / TABLE_PAGE_SIZE) }, (_, idx) => idx + 1).map((pageNum) => (
+                      <button
+                        key={pageNum}
+                        type="button"
+                        onClick={() => setTablePage(pageNum)}
+                        className={`w-8 h-8 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                          tablePage === pageNum
+                            ? 'bg-[#2DA7B5] text-white shadow-xs font-black'
+                            : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setTablePage((p) => Math.min(Math.ceil(currentViewAppointments.length / TABLE_PAGE_SIZE), p + 1))}
+                      disabled={tablePage === Math.ceil(currentViewAppointments.length / TABLE_PAGE_SIZE)}
+                      className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
           </div>
 

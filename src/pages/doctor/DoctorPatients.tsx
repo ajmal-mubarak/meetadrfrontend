@@ -7,6 +7,14 @@ export const DoctorPatients: React.FC = () => {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const pageSize = 20;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
 
   useEffect(() => {
     let isMounted = true;
@@ -14,9 +22,15 @@ export const DoctorPatients: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const data = await realDoctorPortalService.getPatients(search);
+        const res = await realDoctorPortalService.getPaginatedPatients({
+          search,
+          page: currentPage,
+          page_size: pageSize,
+        });
         if (isMounted) {
-          setPatients(data);
+          setPatients(res.patients);
+          setTotalCount(res.count);
+          setTotalPages(res.totalPages);
         }
       } catch (err: unknown) {
         if (isMounted) {
@@ -38,7 +52,7 @@ export const DoctorPatients: React.FC = () => {
       isMounted = false;
       clearTimeout(timer);
     };
-  }, [search]);
+  }, [search, currentPage]);
 
   return (
     <div className="space-y-6">
@@ -118,6 +132,48 @@ export const DoctorPatients: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {totalCount > 0 && (
+          <div className="p-4 border-t border-[#E2EBF0] flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-xs text-slate-500">
+              Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount} patients
+            </p>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
+                >
+                  Previous
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`w-8 h-8 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      currentPage === pageNum
+                        ? 'bg-[#2DA7B5] text-white shadow-xs font-black'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

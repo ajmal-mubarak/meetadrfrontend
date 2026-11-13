@@ -214,6 +214,50 @@ export const realDoctorPortalService = {
   },
 
   /**
+   * Retrieves paginated doctor-scoped treated patient directory with server-side search.
+   * GET /api/v1/doctor/patients/?search={q}&page={page}&page_size={page_size}
+   */
+  async getPaginatedPatients(params?: {
+    search?: string;
+    page?: number;
+    page_size?: number;
+  }): Promise<{
+    count: number;
+    totalPages: number;
+    page: number;
+    patients: DoctorPatientRecord[];
+  }> {
+    const page = params?.page || 1;
+    const pageSize = params?.page_size || 20;
+    const queryParams: Record<string, any> = { page, page_size: pageSize };
+    if (params?.search?.trim()) queryParams.search = params.search.trim();
+
+    const response = await apiClient.get<any>(
+      API_ENDPOINTS.DOCTORS.PATIENTS,
+      { params: queryParams }
+    );
+
+    if (Array.isArray(response)) {
+      return {
+        count: response.length,
+        totalPages: Math.ceil(response.length / pageSize) || 1,
+        page,
+        patients: response,
+      };
+    }
+
+    const count = response?.count ?? response?.total ?? 0;
+    const totalPages = Math.ceil(count / pageSize) || 1;
+    const list = Array.isArray(response?.results) ? response.results : [];
+    return {
+      count,
+      totalPages,
+      page,
+      patients: list,
+    };
+  },
+
+  /**
    * Access patient clinical profile. Backend enforces clinical encounter check.
    * GET /api/v1/doctor/patients/{id}/profile/
    */

@@ -73,26 +73,22 @@ export const ConditionsPage: React.FC = () => {
 
   const handleSelectLetter = (letter: string) => {
     setSelectedLetter(letter);
-    const newParams = new URLSearchParams(searchParams);
-    if (letter === 'All') {
-      newParams.delete('letter');
-    } else {
+    setSearchQuery(''); // Clear conflicting search query when selecting letter (Test 11)
+    const newParams = new URLSearchParams();
+    if (letter !== 'All') {
       newParams.set('letter', letter);
     }
     setSearchParams(newParams);
-    window.scrollTo({ top: 380, behavior: 'smooth' });
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const newParams = new URLSearchParams(searchParams);
+    const newParams = new URLSearchParams();
     if (searchQuery.trim()) {
       newParams.set('search', searchQuery.trim());
-    } else {
-      newParams.delete('search');
+      setSelectedLetter('All'); // Reset letter when searching
     }
     setSearchParams(newParams);
-    window.scrollTo({ top: 380, behavior: 'smooth' });
   };
 
   const handleClearFilters = () => {
@@ -178,7 +174,6 @@ export const ConditionsPage: React.FC = () => {
                   const newParams = new URLSearchParams(searchParams);
                   newParams.delete('search');
                   setSearchParams(newParams);
-                  window.scrollTo({ top: 380, behavior: 'smooth' });
                 }}
                 className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg mr-1 cursor-pointer"
               >

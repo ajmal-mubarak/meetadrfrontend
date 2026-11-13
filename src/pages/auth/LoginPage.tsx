@@ -105,6 +105,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ forcedRole }) => {
   const role = ROLES.find((r) => r.role === activeRole)!;
 
   const redirectAfterLogin = (r: UserRole) => {
+    const searchParams = new URLSearchParams(location.search);
+    const redirectParam = searchParams.get('redirect');
+    if (redirectParam) {
+      navigate(redirectParam, { replace: true });
+      return;
+    }
     const from = (location.state as any)?.from?.pathname;
     if (from && from !== '/login') { navigate(from, { replace: true }); return; }
     const found = ROLES.find((x) => x.role === r)!;
@@ -262,7 +268,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ forcedRole }) => {
             <p className="text-xs text-slate-500">
               Don't have an account?{' '}
               <Link
-                to="/register"
+                to={(() => {
+                  const r = new URLSearchParams(location.search).get('redirect');
+                  return r ? `/register?redirect=${encodeURIComponent(r)}` : '/register';
+                })()}
                 className="text-[#2DA7B5] hover:text-[#0E7490] font-bold transition-colors"
               >
                 Register here

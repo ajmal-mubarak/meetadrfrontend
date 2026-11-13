@@ -90,7 +90,7 @@ export const Home: React.FC = () => {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCondition, setSelectedCondition] = useState('');
-  const [selectedEmirate, setSelectedEmirate] = useState('auto');
+  const [selectedEmirate, setSelectedEmirate] = useState('Dxb');
   const [selectedInsurance, setSelectedInsurance] = useState('');
 
   // Auto-detected location
@@ -295,10 +295,35 @@ export const Home: React.FC = () => {
       params.append('specialty', specialtyFromCondition);
     }
 
-    const emirateParam =
-      selectedEmirate === 'auto'
-        ? detectedLoc?.emirateCode || 'Dxb'
-        : selectedEmirate;
+    const qLower = (searchQuery || '').toLowerCase().trim();
+    // Detect if query mentions a specific UAE emirate (e.g. Abu Dhabi, Sharjah, Dubai, etc.)
+    let detectedQueryEmirate: typeof UAE_EMIRATES[0] | undefined;
+    for (const em of UAE_EMIRATES) {
+      if (qLower.includes(em.name.toLowerCase())) {
+        detectedQueryEmirate = em;
+        break;
+      }
+    }
+
+    // Detect if query looks like a hospital search
+    const isHospitalQuery =
+      qLower.includes('hospital') ||
+      qLower.includes('clinic') ||
+      qLower.includes('center') ||
+      qLower.includes('centre') ||
+      qLower.includes('burjeel') ||
+      qLower.includes('mediclinic') ||
+      qLower.includes('cleveland') ||
+      qLower.includes('aster');
+
+    if (isHospitalQuery) {
+      params.append('type', 'Hospital');
+    }
+
+    const emirateParam = detectedQueryEmirate
+      ? detectedQueryEmirate.code
+      : (selectedEmirate === 'auto' ? 'Dxb' : selectedEmirate);
+
     if (emirateParam) {
       params.append('emirate', emirateParam);
       const emObj = UAE_EMIRATES.find((e) => e.code.toLowerCase() === emirateParam.toLowerCase());
@@ -538,8 +563,8 @@ export const Home: React.FC = () => {
         };
       }
       return {
-        name: isArabic ? t('location.useCurrentLocation') : 'Current Location',
-        iata: '',
+        name: isArabic ? 'دبي' : 'Dubai',
+        iata: 'DXB',
       };
     }
 

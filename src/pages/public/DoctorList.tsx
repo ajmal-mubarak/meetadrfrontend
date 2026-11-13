@@ -129,9 +129,9 @@ export const DoctorList: React.FC = () => {
       label: locationStatus === 'detecting'
         ? (isArabic ? 'جارٍ تحديد موقعك...' : 'Detecting location...')
         : detectedLoc
-        ? (isArabic ? `${t('location.currentLocation')}: ${detectedLoc.emirateNameAr}` : `${t('location.currentLocation')}: ${detectedLoc.emirateName}`)
-        : (isArabic ? `${t('location.useCurrentLocation')}` : `${t('location.useCurrentLocation')}`),
-      badge: detectedLoc ? 'GPS' : undefined,
+        ? (isArabic ? `${detectedLoc.emirateNameAr}` : `${detectedLoc.emirateName}`)
+        : (isArabic ? 'دبي' : 'Dubai'),
+      badge: undefined,
       icon: <LocateFixed className="w-3.5 h-3.5 text-[#2DA7B5]" />,
     },
     { value: 'divider-1', label: '', isDivider: true },

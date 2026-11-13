@@ -65,7 +65,7 @@ function doctorMatchesQuery(d: Doctor, q: string): boolean {
   if (!q) return true;
   const qLower = q.toLowerCase().trim();
 
-  // 1. Direct fields match
+  // 1. Direct name or field match
   if (
     d.name.toLowerCase().includes(qLower) ||
     d.specialty.toLowerCase().includes(qLower) ||
@@ -94,12 +94,15 @@ function doctorMatchesQuery(d: Doctor, q: string): boolean {
     return true;
   }
 
-  // 4. Token-level matching (split by space, &, comma)
+  // 4. Token-level matching (exclude stop-words, honorifics like "dr", "dr.", etc.)
+  const STOP_WORDS = new Set(['dr', 'dr.', 'doctor', 'physician', 'specialist', 'prof', 'md', 'and', 'the', 'for', 'with', 'care', 'clinic', 'hospital']);
   const tokens = qLower
-    .split(/[\s&,/+]+/)
-    .filter((w) => w.length >= 3 && !['and', 'the', 'for', 'with', 'care'].includes(w));
+    .split(/[\s&,/+.]+/)
+    .filter((w) => w.length >= 2 && !STOP_WORDS.has(w));
+
   if (tokens.length > 0) {
-    const hasToken = tokens.some(
+    // Require all search terms to match (or match doctor's name / hospital)
+    const matchesAll = tokens.every(
       (tok) =>
         d.name.toLowerCase().includes(tok) ||
         d.specialty.toLowerCase().includes(tok) ||
@@ -109,7 +112,7 @@ function doctorMatchesQuery(d: Doctor, q: string): boolean {
         (d.specialInterest && d.specialInterest.some((si) => si.toLowerCase().includes(tok))) ||
         matchesSpecialty(d.specialty, tok)
     );
-    if (hasToken) return true;
+    if (matchesAll) return true;
   }
 
   return false;
@@ -234,10 +237,21 @@ export const SearchPage: React.FC = () => {
   };
 
   const initialQuery = searchParams.get('q') || '';
+  const initialQueryLower = initialQuery.toLowerCase().trim();
+  const queryIsHospital =
+    initialQueryLower.includes('hospital') ||
+    initialQueryLower.includes('clinic') ||
+    initialQueryLower.includes('center') ||
+    initialQueryLower.includes('centre') ||
+    initialQueryLower.includes('burjeel') ||
+    initialQueryLower.includes('mediclinic') ||
+    initialQueryLower.includes('cleveland') ||
+    initialQueryLower.includes('aster');
+
   const initialSpecialty = searchParams.get('specialty') || 'All';
   const initialLocation = getUrlLocation();
   const rawType = searchParams.get('type');
-  const initialType = rawType === 'Hospital' ? 'Hospital' : 'Doctor';
+  const initialType = rawType ? (rawType === 'Hospital' ? 'Hospital' : 'Doctor') : (queryIsHospital ? 'Hospital' : 'Doctor');
   const initialInsurance = searchParams.get('insurance') || '';
 
   const [searchTerm, setSearchTerm] = useState(initialQuery);
@@ -285,9 +299,9 @@ export const SearchPage: React.FC = () => {
       label: locationStatus === 'detecting'
         ? (translateLocation('Detecting...') || 'Detecting...')
         : detectedLoc
-        ? `${t('location.currentLocation')}: ${isArabic ? detectedLoc.emirateNameAr : detectedLoc.emirateName}`
-        : `${t('location.useCurrentLocation')}`,
-      badge: detectedLoc ? 'GPS' : undefined,
+        ? `${isArabic ? detectedLoc.emirateNameAr : detectedLoc.emirateName}`
+        : (isArabic ? 'دبي' : 'Dubai'),
+      badge: undefined,
       icon: <LocateFixed className="w-3.5 h-3.5 text-[#2DA7B5]" />,
     },
     { value: 'divider-1', label: '', isDivider: true },

@@ -365,6 +365,59 @@ export const realAdminService = {
   },
 
   /**
+   * Retrieves paginated platform-wide doctors roster with server-side search and filters.
+   * GET /api/v1/admin/doctors/?page=X&page_size=Y&search=Z&status=S&specialty=SP&facility=F
+   */
+  async getPaginatedDoctors(params?: {
+    page?: number;
+    page_size?: number;
+    status?: string;
+    specialty?: string;
+    facility?: string;
+    search?: string;
+  }): Promise<{
+    count: number;
+    totalPages: number;
+    page: number;
+    doctors: Doctor[];
+  }> {
+    const page = params?.page || 1;
+    const pageSize = params?.page_size || 100;
+    const queryParams: Record<string, any> = {
+      page,
+      page_size: pageSize,
+    };
+    if (params?.status && params.status !== 'all') queryParams.status = params.status;
+    if (params?.specialty && params.specialty !== 'all') queryParams.specialty = params.specialty;
+    if (params?.facility && params.facility !== 'all') queryParams.facility = params.facility;
+    if (params?.search && params.search.trim()) queryParams.search = params.search.trim();
+
+    const response = await apiClient.get<BackendAdminDoctor[] | PaginatedResponse<BackendAdminDoctor>>(
+      API_ENDPOINTS.ADMIN.DOCTORS,
+      { params: queryParams }
+    );
+
+    if (Array.isArray(response)) {
+      return {
+        count: response.length,
+        totalPages: Math.ceil(response.length / pageSize) || 1,
+        page,
+        doctors: response.map(mapDoctor),
+      };
+    }
+
+    const count = response?.count ?? 0;
+    const totalPages = Math.ceil(count / pageSize) || 1;
+    const list = Array.isArray(response?.results) ? response.results : [];
+    return {
+      count,
+      totalPages,
+      page,
+      doctors: list.map(mapDoctor),
+    };
+  },
+
+  /**
    * Platform administrator creates an individual or facility doctor.
    * POST /api/v1/admin/doctors/
    */
@@ -541,6 +594,63 @@ export const realAdminService = {
   },
 
   /**
+   * Retrieves paginated platform-wide appointments with server-side search and filters.
+   * GET /api/v1/admin/bookings/?page=X&page_size=Y&search=Z&status=S
+   */
+  async getPaginatedBookings(params?: {
+    page?: number;
+    page_size?: number;
+    status?: string;
+    search?: string;
+    facility_id?: string;
+    hospital_id?: string;
+    clinic_id?: string;
+    doctor_id?: string;
+  }): Promise<{
+    count: number;
+    totalPages: number;
+    page: number;
+    bookings: Appointment[];
+  }> {
+    const page = params?.page || 1;
+    const pageSize = params?.page_size || 100;
+    const queryParams: Record<string, any> = {
+      page,
+      page_size: pageSize,
+    };
+    if (params?.status && params.status !== 'all') queryParams.status = params.status;
+    if (params?.search && params.search.trim()) queryParams.search = params.search.trim();
+    if (params?.facility_id) queryParams.facility_id = params.facility_id;
+    if (params?.hospital_id) queryParams.hospital_id = params.hospital_id;
+    if (params?.clinic_id) queryParams.clinic_id = params.clinic_id;
+    if (params?.doctor_id) queryParams.doctor_id = params.doctor_id;
+
+    const response = await apiClient.get<BackendAdminBooking[] | PaginatedResponse<BackendAdminBooking>>(
+      API_ENDPOINTS.ADMIN.BOOKINGS,
+      { params: queryParams }
+    );
+
+    if (Array.isArray(response)) {
+      return {
+        count: response.length,
+        totalPages: Math.ceil(response.length / pageSize) || 1,
+        page,
+        bookings: response.map(mapBooking),
+      };
+    }
+
+    const count = response?.count ?? 0;
+    const totalPages = Math.ceil(count / pageSize) || 1;
+    const list = Array.isArray(response?.results) ? response.results : [];
+    return {
+      count,
+      totalPages,
+      page,
+      bookings: list.map(mapBooking),
+    };
+  },
+
+  /**
    * Administrative cancellation of any booking.
    * POST /api/v1/admin/bookings/{id}/cancel/
    */
@@ -693,6 +803,41 @@ export const realAdminService = {
       API_ENDPOINTS.ADMIN.DOCTOR_BULK,
       { action, doctor_ids }
     );
+  },
+
+  /**
+   * Get working schedule and slots for a doctor.
+   * GET /api/v1/admin/doctors/{id}/schedule/
+   */
+  async getDoctorSchedule(doctorId: string): Promise<{
+    doctor_id: string;
+    doctor_name: string;
+    available_days: string[];
+    standard_slots: string[];
+    slot_duration_minutes: number;
+  }> {
+    return await apiClient.get(`/api/v1/admin/doctors/${doctorId}/schedule/`);
+  },
+
+  /**
+   * Update working schedule and slots for a doctor.
+   * PUT /api/v1/admin/doctors/{id}/schedule/
+   */
+  async updateDoctorSchedule(
+    doctorId: string,
+    data: {
+      available_days: string[];
+      standard_slots: string[];
+      slot_duration_minutes: number;
+    }
+  ): Promise<{
+    doctor_id: string;
+    doctor_name: string;
+    available_days: string[];
+    standard_slots: string[];
+    slot_duration_minutes: number;
+  }> {
+    return await apiClient.put(`/api/v1/admin/doctors/${doctorId}/schedule/`, data);
   },
 
   /**

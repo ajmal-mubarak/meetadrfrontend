@@ -39,6 +39,7 @@ import { realHospitalService } from '../../services/realFacilityService';
 import { Hospital } from '../../types';
 import { AlertCircle } from 'lucide-react';
 import { InsurancePicker } from '../../components/common/InsurancePicker';
+import { CountryCodeDropdown } from '../../components/common/CountryCodeDropdown';
 import {
   COUNTRY_PHONE_RULES,
   getPhoneRule,
@@ -54,61 +55,30 @@ interface GuestLoginModalProps {
 }
 
 const GuestLoginModal: React.FC<GuestLoginModalProps> = ({ onSuccess, onClose, doctorName }) => {
-  const { login, quickLoginAs } = useAuth();
+  const { login } = useAuth();
   const { showToast } = useToast();
   const { t } = useTranslation();
 
-  const [mode, setMode] = useState<'options' | 'email' | 'otp'>('options');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [mobile, setMobile] = useState('');
-  const [countryCode, setCountryCode] = useState('+971');
-  const [otp, setOtp] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  const redirectUrl = encodeURIComponent(window.location.pathname + window.location.search);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    try {
-      await login(email, password);
-      showToast('Signed in! Completing your booking...', 'success');
-      onSuccess();
-    } catch (err: any) {
-      showToast(err.message || 'Login failed. Check credentials.', 'error');
-    } finally {
-      setIsLoading(false);
+    if (!email.trim() || !password.trim()) {
+      showToast('Please enter both email and password.', 'error');
+      return;
     }
-  };
-
-  const handleSendOtp = () => {
-    if (!mobile.trim()) { showToast('Enter your mobile number.', 'error'); return; }
-    setOtpSent(true);
-    showToast(`OTP sent to ${countryCode} ${mobile}. (Demo: 1234)`, 'info');
-  };
-
-  const handleVerifyOtp = async () => {
-    if (otp.trim() !== '1234') { showToast('Invalid OTP. Demo code is 1234.', 'error'); return; }
     setIsLoading(true);
     try {
-      await login('patient@meetadr.demo', 'Patient@123');
-      showToast('Verified! Completing your booking...', 'success');
+      await login(email.trim(), password);
+      showToast('Signed in successfully! Completing your booking...', 'success');
       onSuccess();
     } catch (err: any) {
-      showToast(err.message || 'Verification failed.', 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleQuickDemo = async () => {
-    setIsLoading(true);
-    try {
-      await quickLoginAs('patient');
-      showToast('Quick login done! Completing your booking...', 'success');
-      onSuccess();
-    } catch (err: any) {
-      showToast(err.message || 'Quick login failed.', 'error');
+      showToast(err.message || 'Login failed. Please check your credentials.', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -123,7 +93,7 @@ const GuestLoginModal: React.FC<GuestLoginModalProps> = ({ onSuccess, onClose, d
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <LogIn className="w-5 h-5 text-[#2DA7B5]" />
-                <span className="font-bold text-sm text-slate-900">{t('auth.loginTitle')}</span>
+                <span className="font-bold text-sm text-slate-900">{t('auth.loginTitle') || 'Sign In to Book'}</span>
               </div>
               <p className="text-xs text-slate-500 leading-relaxed">
                 You're one step away from booking with <strong className="text-slate-900">{doctorName}</strong>.<br />
@@ -136,179 +106,78 @@ const GuestLoginModal: React.FC<GuestLoginModalProps> = ({ onSuccess, onClose, d
           </div>
         </div>
 
-        <div className="p-6 space-y-4">
-          {mode === 'options' && (
-            <div className="space-y-3">
-              {/* Quick Demo Login */}
-              <button
-                type="button"
-                onClick={handleQuickDemo}
-                disabled={isLoading}
-                className="w-full flex items-center gap-3 p-4 rounded-2xl bg-[#E8F6F8] hover:bg-[#daf1f4] border border-[#CDEBF0] transition-all cursor-pointer disabled:opacity-60 group shadow-2xs"
-              >
-                <div className="w-10 h-10 rounded-xl bg-[#2DA7B5] text-white flex items-center justify-center shrink-0 shadow-xs">
-                  {isLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Zap className="w-5 h-5" />}
-                </div>
-                <div className="text-left rtl:text-right">
-                  <p className="text-sm font-bold text-slate-900">{t('auth.demoPatient')}</p>
-                  <p className="text-[11px] text-slate-500">Enter as patient instantly — for demo/review</p>
-                </div>
-                <ArrowRight className="w-4 h-4 text-[#2DA7B5] ml-auto rtl:ml-0 rtl:mr-auto rtl:rotate-180 group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5 transition-transform" />
-              </button>
-
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-px bg-[#E2EBF0]" />
-                <span className="text-[11px] text-slate-400 font-semibold">{t('common.or') || 'or'}</span>
-                <div className="flex-1 h-px bg-[#E2EBF0]" />
+        <div className="p-6">
+          <form onSubmit={handleEmailLogin} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">{t('auth.email') || 'Email Address'}</label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 rtl:left-auto rtl:right-3" />
+                <input
+                  type="email"
+                  required
+                  placeholder="name@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-9 pr-3 rtl:pl-3 rtl:pr-9 py-2.5 border border-[#E2EBF0] rounded-xl text-sm text-slate-900 bg-[#F8FAFC] focus:border-[#2DA7B5] focus:bg-white focus:outline-hidden transition-all shadow-2xs font-medium"
+                />
               </div>
-
-              {/* Email Login */}
-              <button
-                type="button"
-                onClick={() => setMode('email')}
-                className="w-full flex items-center gap-3 p-4 rounded-2xl border border-[#E2EBF0] bg-[#F8FAFC] hover:border-[#2DA7B5] hover:bg-white transition-all cursor-pointer group shadow-2xs"
-              >
-                <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
-                  <Mail className="w-5 h-5" />
-                </div>
-                <div className="text-left rtl:text-right">
-                  <p className="text-sm font-bold text-slate-900">{t('auth.email')}</p>
-                  <p className="text-[11px] text-slate-500">Use your meetAdr account credentials</p>
-                </div>
-                <ArrowRight className="w-4 h-4 text-slate-400 ml-auto rtl:ml-0 rtl:mr-auto rtl:rotate-180 group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5 transition-transform" />
-              </button>
-
-              {/* OTP Login */}
-              <button
-                type="button"
-                onClick={() => setMode('otp')}
-                className="w-full flex items-center gap-3 p-4 rounded-2xl border border-[#E2EBF0] bg-[#F8FAFC] hover:border-[#2DA7B5] hover:bg-white transition-all cursor-pointer group shadow-2xs"
-              >
-                <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
-                  <Smartphone className="w-5 h-5" />
-                </div>
-                <div className="text-left rtl:text-right">
-                  <p className="text-sm font-bold text-slate-900">Sign in with Mobile OTP</p>
-                  <p className="text-[11px] text-slate-500">Receive a 4-digit SMS code</p>
-                </div>
-                <ArrowRight className="w-4 h-4 text-slate-400 ml-auto rtl:ml-0 rtl:mr-auto rtl:rotate-180 group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5 transition-transform" />
-              </button>
-
-              <p className="text-center text-[11px] text-slate-500 pt-1">
-                New here?{' '}
-                <Link to="/login" className="text-[#2DA7B5] font-bold hover:underline">
-                  {t('auth.registerPatient')}
-                </Link>
-              </p>
             </div>
-          )}
 
-          {mode === 'email' && (
-            <form onSubmit={handleEmailLogin} className="space-y-4">
-              <button type="button" onClick={() => setMode('options')} className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer font-bold">
-                <ChevronLeft className="w-3.5 h-3.5 rtl:rotate-180" /> {t('common.back')}
-              </button>
-
-              {/* Demo hint */}
-              <div className="bg-[#E8F6F8] border border-[#CDEBF0] rounded-xl p-3 text-xs">
-                <p className="font-bold text-[#0E7490] mb-1">Demo credentials pre-filled</p>
-                <p className="text-[#0E7490] font-mono text-[11px]">{email} / {password}</p>
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold text-slate-700">{t('auth.password') || 'Password'}</label>
+                <Link
+                  to={`/login?redirect=${redirectUrl}`}
+                  className="text-[11px] text-[#2DA7B5] hover:underline font-semibold"
+                >
+                  Forgot?
+                </Link>
               </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">{t('auth.email')}</label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3 rtl:left-auto rtl:right-3" />
-                  <input
-                    type="email" required value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-9 pr-3 rtl:pl-3 rtl:pr-9 py-2.5 border border-[#E2EBF0] rounded-xl text-sm text-slate-900 bg-[#F8FAFC] focus:border-[#2DA7B5] focus:bg-white focus:outline-hidden transition-all shadow-2xs font-medium"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">{t('auth.password')}</label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3 rtl:left-auto rtl:right-3" />
-                  <input
-                    type="password" required value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-9 pr-3 rtl:pl-3 rtl:pr-9 py-2.5 border border-[#E2EBF0] rounded-xl text-sm text-slate-900 bg-[#F8FAFC] focus:border-[#2DA7B5] focus:bg-white focus:outline-hidden transition-all shadow-2xs font-medium"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full py-3 bg-[#2DA7B5] hover:bg-[#23929F] text-white font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs"
-              >
-                {isLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <LogIn className="w-4 h-4" />}
-                {isLoading ? 'Signing in...' : 'Sign In & Book'}
-              </button>
-            </form>
-          )}
-
-          {mode === 'otp' && (
-            <div className="space-y-4">
-              <button type="button" onClick={() => { setMode('options'); setOtpSent(false); setOtp(''); }} className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer font-bold">
-                <ChevronLeft className="w-3.5 h-3.5 rtl:rotate-180" /> {t('common.back')}
-              </button>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">{t('booking.mobileNumber')}</label>
-                <div className="flex gap-2">
-                  <select value={countryCode} onChange={(e) => setCountryCode(e.target.value)}
-                    className="w-24 border border-[#E2EBF0] rounded-xl px-2 py-2.5 text-xs font-bold bg-[#F8FAFC] text-slate-800 focus:outline-hidden cursor-pointer"
-                  >
-                    <option value="+971">+971</option>
-                    <option value="+965">+965</option>
-                    <option value="+966">+966</option>
-                  </select>
-                  <input
-                    type="tel"
-                    value={mobile}
-                    onChange={(e) => setMobile(e.target.value)}
-                    placeholder="00 000 0000"
-                    className="flex-1 border border-[#E2EBF0] rounded-xl px-3 py-2.5 text-sm text-slate-900 bg-[#F8FAFC] focus:border-[#2DA7B5] focus:bg-white focus:outline-hidden font-medium"
-                  />
-                </div>
-              </div>
-
-              {!otpSent ? (
+              <div className="relative">
+                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3.5 rtl:left-auto rtl:right-3" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-9 pr-10 rtl:pl-10 rtl:pr-9 py-2.5 border border-[#E2EBF0] rounded-xl text-sm text-slate-900 bg-[#F8FAFC] focus:border-[#2DA7B5] focus:bg-white focus:outline-hidden transition-all shadow-2xs font-medium"
+                />
                 <button
                   type="button"
-                  onClick={handleSendOtp}
-                  className="w-full py-3 bg-[#2DA7B5] hover:bg-[#23929F] text-white font-bold text-sm rounded-xl transition-all cursor-pointer shadow-xs"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 rtl:right-auto rtl:left-3 top-3 text-slate-400 hover:text-slate-600 cursor-pointer"
                 >
-                  Send Verification Code
+                  <Eye className="w-4 h-4" />
                 </button>
-              ) : (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Enter 4-digit OTP</label>
-                    <input
-                      type="text"
-                      maxLength={4}
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value)}
-                      placeholder="1234"
-                      className="w-full border border-[#E2EBF0] rounded-xl py-2.5 text-center text-lg font-mono font-bold tracking-widest text-slate-900 bg-[#F8FAFC] focus:border-[#2DA7B5] focus:bg-white focus:outline-hidden"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleVerifyOtp}
-                    disabled={isLoading}
-                    className="w-full py-3 bg-[#2DA7B5] hover:bg-[#23929F] text-white font-bold text-sm rounded-xl transition-all cursor-pointer shadow-xs disabled:opacity-50"
-                  >
-                    {isLoading ? 'Verifying...' : 'Verify & Continue'}
-                  </button>
-                </div>
-              )}
+              </div>
             </div>
-          )}
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-3 bg-[#2DA7B5] hover:bg-[#23929F] text-white font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-xs mt-2"
+            >
+              {isLoading ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <LogIn className="w-4 h-4" />
+              )}
+              {isLoading ? 'Signing in...' : 'Sign In & Book'}
+            </button>
+          </form>
+
+          <div className="mt-5 pt-4 border-t border-[#E2EBF0] text-center space-y-2">
+            <p className="text-xs text-slate-500">
+              New here?{' '}
+              <Link
+                to={`/register?redirect=${redirectUrl}`}
+                className="text-[#2DA7B5] font-bold hover:underline"
+              >
+                {t('auth.registerPatient') || 'Register as Patient'}
+              </Link>
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -322,6 +191,7 @@ export const BookingPage: React.FC = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   // Pending booking flag — set to true when user fills form but isn't logged in yet
   const [pendingBooking, setPendingBooking] = useState(false);
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
   const [searchParams] = useSearchParams();
   const rescheduleApptId = searchParams.get('reschedule');
   const [rescheduleApptData, setRescheduleApptData] = useState<Appointment | null>(null);
@@ -458,6 +328,30 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
     if (!allDoctors || allDoctors.length === 0) return null;
     return allDoctors.find((d) => d.id === selectedDocId) || allDoctors[0] || null;
   }, [currentDoctorDetail, allDoctors, selectedDocId]);
+
+  // Restore draft booking details if returning from login/registration
+  React.useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('meetadr_pending_booking_draft');
+      if (raw) {
+        const draft = JSON.parse(raw);
+        if (draft.doctorId === selectedDocId || draft.doctorId === doctorId) {
+          if (draft.selectedDate) setSelectedDate(draft.selectedDate);
+          if (draft.selectedSlot) setSelectedSlot(draft.selectedSlot);
+          if (draft.selectedSpecialty) setSelectedSpecialty(draft.selectedSpecialty);
+          if (draft.patientName) setPatientName(draft.patientName);
+          if (draft.mobileNumber) setMobileNumber(draft.mobileNumber);
+          if (draft.countryCode) setCountryCode(draft.countryCode);
+          if (draft.patientEmail) setPatientEmail(draft.patientEmail);
+          if (draft.selectedDate && draft.selectedSlot) {
+            setCurrentStep(3);
+          }
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [doctorId, selectedDocId]);
 
   // Departments that THIS specific doctor actually has
   const doctorDepartments = useMemo(() => {
@@ -797,6 +691,22 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
 
   const handleBookNow = async (e: React.FormEvent) => {
     e.preventDefault();
+    setHasAttemptedSubmit(true);
+
+    try {
+      sessionStorage.setItem('meetadr_pending_booking_draft', JSON.stringify({
+        doctorId: selectedDocId || doctorId,
+        selectedDate,
+        selectedSlot,
+        selectedSpecialty,
+        patientName,
+        mobileNumber,
+        countryCode,
+        patientEmail,
+      }));
+    } catch (err) {
+      // ignore
+    }
 
     // Staff check: Admin, Hospital, and Doctor accounts cannot place public bookings
     if (isStaff) {
@@ -2028,12 +1938,27 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
                       )}
                     </div>
 
+                    {/* Mandatory fields alert banner */}
+                    <div className="p-3 bg-teal-50 border border-teal-200 rounded-2xl flex items-center gap-2.5 text-xs text-teal-900">
+                      <span className="font-bold text-[#0E7490]">* Required:</span>
+                      <span className="text-slate-600">Please provide your full name, mobile number, and accept the terms to complete booking.</span>
+                    </div>
+
                     {/* Full Name */}
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
-                        {t('booking.fullName')} *
-                      </label>
-                      <div className="bg-[#F8FAFC] hover:bg-white focus-within:bg-white rounded-2xl border border-[#E2EBF0] focus-within:border-[#2DA7B5] focus-within:ring-2 focus-within:ring-[#2DA7B5]/20 px-4 py-3 flex items-center transition-all shadow-2xs">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-[11px] font-bold text-slate-700">
+                          {t('booking.fullName')} <span className="text-rose-500 font-bold">*</span>
+                        </label>
+                        {hasAttemptedSubmit && !patientName.trim() && (
+                          <span className="text-[10px] text-rose-500 font-semibold">Required</span>
+                        )}
+                      </div>
+                      <div className={`bg-[#F8FAFC] hover:bg-white focus-within:bg-white rounded-2xl border ${
+                        hasAttemptedSubmit && !patientName.trim()
+                          ? 'border-rose-400 ring-2 ring-rose-100'
+                          : 'border-[#E2EBF0]'
+                      } focus-within:border-[#2DA7B5] focus-within:ring-2 focus-within:ring-[#2DA7B5]/20 px-4 py-3 flex items-center transition-all shadow-2xs`}>
                         <User className="w-4 h-4 text-slate-400 mr-2.5 rtl:mr-0 rtl:ml-2.5 shrink-0" />
                         <input
                           type="text"
@@ -2044,39 +1969,37 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
                           className="w-full bg-transparent text-xs sm:text-sm text-slate-900 focus:outline-hidden font-medium placeholder:text-slate-400"
                         />
                       </div>
+                      {hasAttemptedSubmit && !patientName.trim() && (
+                        <p className="text-[11px] text-rose-500 font-medium mt-1">Please enter the patient full name.</p>
+                      )}
                     </div>
 
                     {/* Mobile Number */}
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
                         <label className="text-[11px] font-bold text-slate-700">
-                          {t('booking.mobileNumber')} *
+                          {t('booking.mobileNumber')} <span className="text-rose-500 font-bold">*</span>
                         </label>
                         <span className="text-[10px] text-slate-400 font-mono">
                           {mobileNumber.length} / {getPhoneRule(countryCode).maxLength} digits
                         </span>
                       </div>
                       <div className="flex gap-2">
-                        <div className="relative w-36 shrink-0">
-                          <select
+                        <div className="w-44 shrink-0">
+                          <CountryCodeDropdown
                             value={countryCode}
-                            onChange={(e) => {
-                              const newCode = e.target.value;
+                            onChange={(newCode) => {
                               setCountryCode(newCode);
                               setMobileNumber((prev) => sanitizePhoneNumber(prev, newCode));
                             }}
-                            className="w-full appearance-none bg-[#F8FAFC] border border-[#E2EBF0] rounded-2xl px-3 py-3 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-[#2DA7B5] cursor-pointer shadow-2xs pr-7 truncate"
-                          >
-                            {Object.values(COUNTRY_PHONE_RULES).map((rule) => (
-                              <option key={rule.dialCode} value={rule.dialCode}>
-                                {rule.dialCode} ({rule.countryName})
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 rtl:right-auto rtl:left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          />
                         </div>
 
-                        <div className="flex-1 bg-[#F8FAFC] hover:bg-white focus-within:bg-white rounded-2xl border border-[#E2EBF0] focus-within:border-[#2DA7B5] focus-within:ring-2 focus-within:ring-[#2DA7B5]/20 px-4 py-3 flex items-center transition-all shadow-2xs">
+                        <div className={`flex-1 bg-[#F8FAFC] hover:bg-white focus-within:bg-white rounded-2xl border ${
+                          hasAttemptedSubmit && (!mobileNumber.trim() || mobileNumber.trim().length < 7)
+                            ? 'border-rose-400 ring-2 ring-rose-100'
+                            : 'border-[#E2EBF0]'
+                        } focus-within:border-[#2DA7B5] focus-within:ring-2 focus-within:ring-[#2DA7B5]/20 px-4 py-3 flex items-center transition-all shadow-2xs`}>
                           <Phone className="w-4 h-4 text-slate-400 mr-2.5 rtl:mr-0 rtl:ml-2.5 shrink-0" />
                           <input
                             type="tel"
@@ -2089,6 +2012,11 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
                           />
                         </div>
                       </div>
+                      {hasAttemptedSubmit && (!mobileNumber.trim() || mobileNumber.trim().length < 7) && (
+                        <p className="text-[11px] text-rose-500 font-medium mt-1">
+                          Please enter a valid mobile number ({getPhoneRule(countryCode).minLength}+ digits).
+                        </p>
+                      )}
                     </div>
 
                     {/* Email */}
@@ -2121,17 +2049,26 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
                   </div>
 
                   {/* Terms Checkbox */}
-                  <div className="flex items-start gap-2.5 pt-1">
-                    <input
-                      type="checkbox"
-                      id="termsCheckbox"
-                      checked={termsAccepted}
-                      onChange={(e) => setTermsAccepted(e.target.checked)}
-                      className="mt-0.5 rounded-sm border-[#E2EBF0] text-[#2DA7B5] focus:ring-[#2DA7B5] cursor-pointer"
-                    />
-                    <label htmlFor="termsCheckbox" className="text-xs text-slate-500 cursor-pointer leading-snug">
-                      {t('booking.termsText')}
-                    </label>
+                  <div className="space-y-1 pt-1">
+                    <div className="flex items-start gap-2.5">
+                      <input
+                        type="checkbox"
+                        id="termsCheckbox"
+                        checked={termsAccepted}
+                        onChange={(e) => setTermsAccepted(e.target.checked)}
+                        className={`mt-0.5 rounded-sm border ${
+                          hasAttemptedSubmit && !termsAccepted ? 'border-rose-400 ring-2 ring-rose-200' : 'border-[#E2EBF0]'
+                        } text-[#2DA7B5] focus:ring-[#2DA7B5] cursor-pointer`}
+                      />
+                      <label htmlFor="termsCheckbox" className="text-xs text-slate-500 cursor-pointer leading-snug">
+                        {t('booking.termsText')} <span className="text-rose-500 font-bold">*</span>
+                      </label>
+                    </div>
+                    {hasAttemptedSubmit && !termsAccepted && (
+                      <p className="text-[11px] text-rose-500 font-medium ml-6 rtl:ml-0 rtl:mr-6">
+                        Please agree to the booking terms and cancellation policy to proceed.
+                      </p>
+                    )}
                   </div>
 
                   {/* Guest notice */}
@@ -2180,10 +2117,12 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
                           )}
                           <button
                             type="submit"
-                            disabled={!isFormValid || isSubmitting}
+                            disabled={isSubmitting}
                             className={`w-full sm:w-auto py-3.5 px-8 text-xs sm:text-sm font-bold rounded-2xl flex items-center justify-center gap-2 transition-all duration-200 shadow-xs shrink-0 ${
-                              !isFormValid
-                                ? 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-75 shadow-none'
+                              isSubmitting
+                                ? 'bg-slate-300 text-slate-500 cursor-wait'
+                                : !isFormValid
+                                ? 'bg-[#2DA7B5]/80 hover:bg-[#2DA7B5] text-white cursor-pointer'
                                 : 'bg-[#2DA7B5] hover:bg-[#23929F] text-white active:scale-[0.99] cursor-pointer'
                             }`}
                           >

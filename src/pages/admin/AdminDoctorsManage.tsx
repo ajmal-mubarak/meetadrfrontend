@@ -283,6 +283,15 @@ export const AdminDoctorsManage: React.FC = () => {
 
   const [viewDoctor, setViewDoctor] = useState<Doctor | null>(null);
 
+  // Doctor Slot Management Modal
+  const [slotDoctor, setSlotDoctor] = useState<Doctor | null>(null);
+  const [slotWorkingDays, setSlotWorkingDays] = useState<string[]>(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']);
+  const [slotDuration, setSlotDuration] = useState<number>(30);
+  const [slotList, setSlotList] = useState<string[]>([]);
+  const [customSlotInput, setCustomSlotInput] = useState<string>('');
+  const [isLoadingSlots, setIsLoadingSlots] = useState<boolean>(false);
+  const [isSavingSlots, setIsSavingSlots] = useState<boolean>(false);
+
 
 
 
@@ -547,83 +556,53 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
 
-  // Load doctors & facilities
-
-
-
-  const loadData = async () => {
-
-
-
-    setIsLoading(true);
-
-
-
-    try {
-
-
-
-      const [docs, provs] = await Promise.all([
-
-
-
-        realAdminService.getDoctors(),
-
-
-
-        realAdminService.getProviders(),
-
-
-
-      ]);
-
-
-
-      setDoctors(docs);
-
-
-
-      setProviders(provs);
-
-
-
-    } catch (err: any) {
-
-
-
-      showToast(err.message || 'Failed to load doctors list', 'error');
-
-
-
-    } finally {
-
-
-
-      setIsLoading(false);
-
-
-
-    }
-
-
-
-  };
-
-
-
-
-
-
+  // Pagination & Server Search
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(100);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, statusFilter, facilityFilter, specialtyFilter]);
 
+  const loadData = async (page = currentPage) => {
+    setIsLoading(true);
+    try {
+      const [pagedDocs, provs] = await Promise.all([
+        realAdminService.getPaginatedDoctors({
+          page,
+          page_size: pageSize,
+          search: debouncedSearch,
+          status: statusFilter,
+          specialty: specialtyFilter,
+          facility: facilityFilter,
+        }),
+        realAdminService.getProviders(),
+      ]);
+      setDoctors(pagedDocs.doctors);
+      setTotalCount(pagedDocs.count);
+      setTotalPages(pagedDocs.totalPages);
+      setProviders(provs);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to load doctors list', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    loadData();
+  useEffect(() => {
+    loadData(currentPage);
+  }, [currentPage, debouncedSearch, statusFilter, facilityFilter, specialtyFilter, pageSize]);
 
-
-
-  }, []);
 
 
 
@@ -639,7 +618,7 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
 
-    const set = new Set<string>();
+    const set = new Set<string>(SUPPORTING_SPECIALTIES);
 
 
 
@@ -667,169 +646,8 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
 
-  // Filtered doctors
-
-
-
-  const filteredDoctors = useMemo(() => {
-
-
-
-    return doctors.filter((doc) => {
-
-
-
-      // Status
-
-
-
-      if (statusFilter !== 'all') {
-
-
-
-        const isDocActive = doc.status === 'Active' || doc.isActive;
-
-
-
-        if (statusFilter === 'Active' && !isDocActive) return false;
-
-
-
-        if (statusFilter === 'Deactivated' && (isDocActive || !doc.isVerified)) return false;
-
-
-
-        if (statusFilter === 'Pending' && doc.isVerified) return false;
-
-
-
-      }
-
-
-
-
-
-
-
-      // Facility
-
-
-
-      if (facilityFilter !== 'all') {
-
-
-
-        if (facilityFilter === 'independent') {
-
-
-
-          if (doc.hospitalId || doc.hospitalName) return false;
-
-
-
-        } else {
-
-
-
-          if (doc.hospitalId !== facilityFilter && doc.hospitalName !== facilityFilter) return false;
-
-
-
-        }
-
-
-
-      }
-
-
-
-
-
-
-
-      // Specialty
-
-
-
-      if (specialtyFilter !== 'all') {
-
-
-
-        if (doc.specialty !== specialtyFilter) return false;
-
-
-
-      }
-
-
-
-
-
-
-
-      // Search Query
-
-
-
-      if (searchQuery.trim()) {
-
-
-
-        const q = searchQuery.toLowerCase();
-
-
-
-        const matchesName = doc.name.toLowerCase().includes(q);
-
-
-
-        const matchesSpecialty = (doc.specialty || '').toLowerCase().includes(q);
-
-
-
-        const matchesLocation = (doc.location || '').toLowerCase().includes(q);
-
-
-
-        const matchesFacility = (doc.hospitalName || '').toLowerCase().includes(q);
-
-
-
-        if (!matchesName && !matchesSpecialty && !matchesLocation && !matchesFacility) {
-
-
-
-          return false;
-
-
-
-        }
-
-
-
-      }
-
-
-
-
-
-
-
-      return true;
-
-
-
-    });
-
-
-
-  }, [doctors, statusFilter, facilityFilter, specialtyFilter, searchQuery]);
-
-
-
-
-
-
+  // Filtered doctors (server-side filtered and paginated)
+  const filteredDoctors = doctors;
 
   // Bulk Selection
 
@@ -1684,6 +1502,105 @@ export const AdminDoctorsManage: React.FC = () => {
   // Toggle Doctor Active / Deactivate
 
 
+
+  const ALL_SCHEDULE_SLOTS = [
+    '08:00 - 08:30',
+    '08:30 - 09:00',
+    '09:00 - 09:30',
+    '09:30 - 10:00',
+    '10:00 - 10:30',
+    '10:30 - 11:00',
+    '11:00 - 11:30',
+    '11:30 - 12:00',
+    '12:00 - 12:30',
+    '14:00 - 14:30',
+    '14:30 - 15:00',
+    '15:00 - 15:30',
+    '15:30 - 16:00',
+    '16:00 - 16:30',
+    '16:30 - 17:00',
+    '17:00 - 17:30',
+    '17:30 - 18:00',
+  ];
+
+  const STANDARD_9TO5_SLOTS = [
+    '09:00 - 09:30',
+    '09:30 - 10:00',
+    '10:00 - 10:30',
+    '10:30 - 11:00',
+    '11:00 - 11:30',
+    '11:30 - 12:00',
+    '14:00 - 14:30',
+    '14:30 - 15:00',
+    '15:00 - 15:30',
+    '15:30 - 16:00',
+    '16:00 - 16:30',
+    '16:30 - 17:00',
+  ];
+
+  const MORNING_8TO12_SLOTS = [
+    '08:00 - 08:30',
+    '08:30 - 09:00',
+    '09:00 - 09:30',
+    '09:30 - 10:00',
+    '10:00 - 10:30',
+    '10:30 - 11:00',
+    '11:00 - 11:30',
+    '11:30 - 12:00',
+  ];
+
+  const handleOpenSlotModal = async (doc: Doctor) => {
+    setSlotDoctor(doc);
+    setIsLoadingSlots(true);
+    try {
+      const schedule = await realAdminService.getDoctorSchedule(doc.id);
+      setSlotWorkingDays(
+        schedule.available_days && schedule.available_days.length > 0
+          ? schedule.available_days
+          : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+      );
+      setSlotList(
+        schedule.standard_slots && schedule.standard_slots.length > 0
+          ? schedule.standard_slots
+          : [...ALL_SCHEDULE_SLOTS]
+      );
+    } catch (err) {
+      setSlotWorkingDays(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']);
+      setSlotList([...ALL_SCHEDULE_SLOTS]);
+    } finally {
+      setIsLoadingSlots(false);
+    }
+  };
+
+  const handleSaveSlots = async () => {
+    if (!slotDoctor) return;
+    setIsSavingSlots(true);
+    try {
+      await realAdminService.updateDoctorSchedule(slotDoctor.id, {
+        available_days: slotWorkingDays,
+        standard_slots: slotList,
+        slot_duration_minutes: 30,
+      });
+      showToast('Doctor schedule and appointment slots updated successfully!', 'success');
+      setSlotDoctor(null);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update schedule slots.', 'error');
+    } finally {
+      setIsSavingSlots(false);
+    }
+  };
+
+  const handleToggleDay = (day: string) => {
+    setSlotWorkingDays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+    );
+  };
+
+  const handleToggleSlot = (slot: string) => {
+    setSlotList((prev) =>
+      prev.includes(slot) ? prev.filter((s) => s !== slot) : [...prev, slot]
+    );
+  };
 
   const handleToggleDoctorStatus = async (doctor: Doctor) => {
 
@@ -3108,6 +3025,15 @@ export const AdminDoctorsManage: React.FC = () => {
 
                           </button>
 
+                          <button
+                            type="button"
+                            onClick={() => handleOpenSlotModal(doc)}
+                            title="Manage Doctor Slots & Schedule"
+                            className="p-1.5 text-slate-500 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <Calendar className="w-4 h-4" />
+                          </button>
+
 
 
 
@@ -3233,6 +3159,77 @@ export const AdminDoctorsManage: React.FC = () => {
         </div>
 
 
+        {/* Pagination Bar */}
+        {totalCount > 0 && (
+          <div className="p-4 border-t border-slate-100 bg-white flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <p className="text-xs text-slate-500 font-medium">
+                Showing {Math.min((currentPage - 1) * pageSize + 1, totalCount)} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount} doctors
+              </p>
+              <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                <span>Per page:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 font-semibold focus:outline-none"
+                >
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                  <option value={150}>150</option>
+                </select>
+              </div>
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentPage((p) => Math.max(1, p - 1));
+                    window.scrollTo({ top: 100, behavior: 'smooth' });
+                  }}
+                  disabled={currentPage === 1}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
+                >
+                  Previous
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    onClick={() => {
+                      setCurrentPage(pageNum);
+                      window.scrollTo({ top: 100, behavior: 'smooth' });
+                    }}
+                    className={`w-8 h-8 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      currentPage === pageNum
+                        ? 'bg-[#2DA7B5] text-white shadow-xs font-black'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentPage((p) => Math.min(totalPages, p + 1));
+                    window.scrollTo({ top: 100, behavior: 'smooth' });
+                  }}
+                  disabled={currentPage === totalPages}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+
 
       </div>
 
@@ -3245,6 +3242,214 @@ export const AdminDoctorsManage: React.FC = () => {
       {/* VIEW DOCTOR MODAL */}
 
 
+
+            {/* Doctor Slot Management Modal — Matching UI in Image 2 */}
+      {slotDoctor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-100 p-6 space-y-6">
+            
+            {/* Header description */}
+            <div className="flex items-start justify-between pb-3 border-b border-slate-100">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">
+                  Doctor Working Schedule & Consultation Slots
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Configure working days and standard consultation slots for <strong className="text-slate-800">{slotDoctor.name}</strong> ({slotDoctor.specialty}). You can customize individual schedules anytime.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSlotDoctor(null)}
+                className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors shrink-0"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {isLoadingSlots ? (
+              <div className="py-14 text-center">
+                <div className="w-8 h-8 border-3 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                <p className="text-xs text-slate-500 font-medium">Loading schedule...</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                
+                {/* ── Working Days Section ── */}
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-slate-900">
+                      Doctor Working Days ({slotWorkingDays.length} selected)
+                    </span>
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-[#00897B]">
+                      <button
+                        type="button"
+                        onClick={() => setSlotWorkingDays(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'])}
+                        className="hover:underline cursor-pointer"
+                      >
+                        Mon - Fri
+                      </button>
+                      <span className="text-slate-300 font-normal">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setSlotWorkingDays(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'])}
+                        className="hover:underline cursor-pointer"
+                      >
+                        Mon - Sat
+                      </button>
+                      <span className="text-slate-300 font-normal">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setSlotWorkingDays(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'])}
+                        className="hover:underline cursor-pointer"
+                      >
+                        All 7 Days
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Day Buttons Grid (Row 1: Mon-Thu, Row 2: Fri-Sun) */}
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-4 gap-2.5">
+                      {['Monday', 'Tuesday', 'Wednesday', 'Thursday'].map((day) => {
+                        const isSelected = slotWorkingDays.includes(day);
+                        return (
+                          <button
+                            key={day}
+                            type="button"
+                            onClick={() => handleToggleDay(day)}
+                            className={`py-2.5 px-3 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer text-center ${
+                              isSelected
+                                ? 'bg-[#00897B] hover:bg-[#00796B] text-white shadow-xs'
+                                : 'bg-[#F8FAFC] text-slate-700 border border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            {day}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2.5">
+                      {['Friday', 'Saturday', 'Sunday'].map((day) => {
+                        const isSelected = slotWorkingDays.includes(day);
+                        return (
+                          <button
+                            key={day}
+                            type="button"
+                            onClick={() => handleToggleDay(day)}
+                            className={`py-2.5 px-3 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer text-center ${
+                              isSelected
+                                ? 'bg-[#00897B] hover:bg-[#00796B] text-white shadow-xs'
+                                : 'bg-[#F8FAFC] text-slate-700 border border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            {day}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Consultation Slots Section ── */}
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <span className="text-sm font-bold text-slate-900">
+                      Default Consultation Slots ({slotList.length} active)
+                    </span>
+                    <div className="flex items-center gap-2 text-xs font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setSlotList([...ALL_SCHEDULE_SLOTS])}
+                        className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                          slotList.length === ALL_SCHEDULE_SLOTS.length
+                            ? 'border-2 border-slate-800 text-slate-900 bg-slate-50'
+                            : 'text-[#00897B] hover:underline'
+                        }`}
+                      >
+                        All (8 AM - 6 PM)
+                      </button>
+                      <span className="text-slate-300 font-normal">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setSlotList([...STANDARD_9TO5_SLOTS])}
+                        className="text-[#00897B] hover:underline cursor-pointer"
+                      >
+                        Standard (9 AM - 5 PM)
+                      </button>
+                      <span className="text-slate-300 font-normal">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setSlotList([...MORNING_8TO12_SLOTS])}
+                        className="text-[#00897B] hover:underline cursor-pointer"
+                      >
+                        Morning (8 AM - 12 PM)
+                      </button>
+                      <span className="text-slate-300 font-normal">|</span>
+                      <button
+                        type="button"
+                        onClick={() => setSlotList([])}
+                        className="text-rose-600 hover:underline cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 3-Column Slots Grid in Rounded Container */}
+                  <div className="p-3 bg-white border border-slate-200 rounded-3xl max-h-[300px] overflow-y-auto">
+                    <div className="grid grid-cols-3 gap-2.5">
+                      {ALL_SCHEDULE_SLOTS.map((slot) => {
+                        const isActive = slotList.includes(slot);
+                        return (
+                          <button
+                            key={slot}
+                            type="button"
+                            onClick={() => handleToggleSlot(slot)}
+                            className={`py-2.5 px-3 rounded-2xl text-xs sm:text-sm font-mono font-bold transition-all cursor-pointer text-center select-none ${
+                              isActive
+                                ? 'bg-[#E0F7FA] border border-[#26A69A] text-[#00695C] shadow-2xs hover:bg-[#B2EBF2]'
+                                : 'bg-slate-50 border border-dashed border-slate-200 text-slate-400 hover:border-slate-300 hover:text-slate-600'
+                            }`}
+                          >
+                            {slot}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Modal Footer ── */}
+                <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSlotDoctor(null)}
+                    className="px-6 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs sm:text-sm cursor-pointer transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveSlots}
+                    disabled={isSavingSlots}
+                    className="px-6 py-2.5 rounded-2xl bg-[#00897B] hover:bg-[#00796B] text-white font-bold text-xs sm:text-sm shadow-sm cursor-pointer transition-all flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {isSavingSlots ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <span>Save Default Schedule</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {viewDoctor && (
 

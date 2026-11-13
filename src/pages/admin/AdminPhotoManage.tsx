@@ -58,11 +58,14 @@ export const AdminPhotoManage: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   // Load photos for active category
+  const [photoPage, setPhotoPage] = useState(1);
+  const PHOTO_PAGE_SIZE = 100;
+
   const loadCategoryPhotos = async (category: PhotoCategory) => {
     setIsLoading(true);
     setSelectedPaths(new Set());
     try {
-      const items = await photoManageService.listPhotos(category);
+      const items = await photoManageService.listPhotos(category, 500);
       setPhotos(items);
     } catch (err: any) {
       const msg = err?.message || 'Failed to load photos from cloud storage.';
@@ -76,6 +79,7 @@ export const AdminPhotoManage: React.FC = () => {
     loadCategoryPhotos(activeCategory);
     setSelectedFiles([]);
     setSelectedPaths(new Set());
+    setPhotoPage(1);
   }, [activeCategory]);
 
   // Drag and drop handlers
@@ -305,6 +309,15 @@ export const AdminPhotoManage: React.FC = () => {
     const q = searchQuery.toLowerCase().trim();
     return photos.filter((p) => p.name.toLowerCase().includes(q));
   }, [photos, searchQuery]);
+
+  useEffect(() => {
+    setPhotoPage(1);
+  }, [searchQuery]);
+
+  const pagedPhotos = useMemo(() => {
+    const start = (photoPage - 1) * PHOTO_PAGE_SIZE;
+    return filteredPhotos.slice(start, start + PHOTO_PAGE_SIZE);
+  }, [filteredPhotos, photoPage]);
 
   const formatFileSize = (bytes: number): string => {
     if (!bytes || bytes === 0) return '0 KB';
@@ -658,8 +671,9 @@ export const AdminPhotoManage: React.FC = () => {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredPhotos.map((item) => {
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {pagedPhotos.map((item) => {
               const isCopied = copiedPath === item.path;
               const isSelected = selectedPaths.has(item.path);
 
@@ -782,7 +796,60 @@ export const AdminPhotoManage: React.FC = () => {
               );
             })}
           </div>
-        )}
+
+          {/* Pagination Controls */}
+          {filteredPhotos.length > 0 && (
+            <div className="p-4 rounded-2xl bg-white border border-[#E2EBF0] flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs">
+              <p className="text-xs text-slate-500 font-medium">
+                Showing {(photoPage - 1) * PHOTO_PAGE_SIZE + 1} to {Math.min(photoPage * PHOTO_PAGE_SIZE, filteredPhotos.length)} of {filteredPhotos.length} photos
+              </p>
+              {Math.ceil(filteredPhotos.length / PHOTO_PAGE_SIZE) > 1 && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPhotoPage((p) => Math.max(1, p - 1));
+                      window.scrollTo({ top: 300, behavior: 'smooth' });
+                    }}
+                    disabled={photoPage === 1}
+                    className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
+                  >
+                    Previous
+                  </button>
+                  {Array.from({ length: Math.ceil(filteredPhotos.length / PHOTO_PAGE_SIZE) }, (_, i) => i + 1).map((pageNum) => (
+                    <button
+                      key={pageNum}
+                      type="button"
+                      onClick={() => {
+                        setPhotoPage(pageNum);
+                        window.scrollTo({ top: 300, behavior: 'smooth' });
+                      }}
+                      className={`w-8 h-8 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        photoPage === pageNum
+                          ? 'bg-[#2DA7B5] text-white shadow-xs font-black'
+                          : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPhotoPage((p) => Math.min(Math.ceil(filteredPhotos.length / PHOTO_PAGE_SIZE), p + 1));
+                      window.scrollTo({ top: 300, behavior: 'smooth' });
+                    }}
+                    disabled={photoPage === Math.ceil(filteredPhotos.length / PHOTO_PAGE_SIZE)}
+                    className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
       </div>
     </div>
   );
