@@ -38,6 +38,49 @@ export const Header: React.FC = () => {
 
   const profileRef = useRef<HTMLDivElement>(null);
   const aboutRef = useRef<HTMLDivElement>(null);
+  const profileTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const aboutTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (profileTimeoutRef.current) clearTimeout(profileTimeoutRef.current);
+      if (aboutTimeoutRef.current) clearTimeout(aboutTimeoutRef.current);
+    };
+  }, []);
+
+  const handleProfileMouseEnter = () => {
+    if (profileTimeoutRef.current) {
+      clearTimeout(profileTimeoutRef.current);
+      profileTimeoutRef.current = null;
+    }
+    setProfileOpen(true);
+  };
+
+  const handleProfileMouseLeave = () => {
+    if (profileTimeoutRef.current) {
+      clearTimeout(profileTimeoutRef.current);
+    }
+    profileTimeoutRef.current = setTimeout(() => {
+      setProfileOpen(false);
+    }, 180);
+  };
+
+  const handleAboutMouseEnter = () => {
+    if (aboutTimeoutRef.current) {
+      clearTimeout(aboutTimeoutRef.current);
+      aboutTimeoutRef.current = null;
+    }
+    setAboutOpen(true);
+  };
+
+  const handleAboutMouseLeave = () => {
+    if (aboutTimeoutRef.current) {
+      clearTimeout(aboutTimeoutRef.current);
+    }
+    aboutTimeoutRef.current = setTimeout(() => {
+      setAboutOpen(false);
+    }, 180);
+  };
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 10);
@@ -143,7 +186,12 @@ export const Header: React.FC = () => {
             })}
 
             {/* About Dropdown (About Us, Services, Partners) */}
-            <div className="relative" ref={aboutRef}>
+            <div
+              className="relative"
+              ref={aboutRef}
+              onMouseEnter={handleAboutMouseEnter}
+              onMouseLeave={handleAboutMouseLeave}
+            >
               <button
                 type="button"
                 onClick={() => setAboutOpen((prev) => !prev)}
@@ -168,7 +216,7 @@ export const Header: React.FC = () => {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 6, scale: 0.96 }}
                     transition={{ duration: 0.15 }}
-                    className="absolute left-0 rtl:left-auto rtl:right-0 mt-2 w-44 bg-white rounded-xl border border-[#E2EBF0] shadow-xl p-1.5 z-50 backdrop-blur-xl"
+                    className="absolute left-0 rtl:left-auto rtl:right-0 mt-2 w-44 bg-white rounded-xl border border-[#E2EBF0] shadow-xl p-1.5 z-50 backdrop-blur-xl before:absolute before:-top-2.5 before:left-0 before:right-0 before:h-2.5 before:content-['']"
                   >
                     {companyLinks.map((link) => {
                       const active = location.pathname === link.path;
@@ -204,17 +252,31 @@ export const Header: React.FC = () => {
               {t('navigation.contactUs')}
             </Link>
 
-            {/* Join With Us link */}
-            <Link
-              to="/join"
-              className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
-                location.pathname === '/join'
-                  ? 'text-[#0E7490] bg-[#E8F6F8] border border-[#CDEBF0]'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white'
-              }`}
-            >
-              {t('navigation.joinWithUs')}
-            </Link>
+            {/* If patient is logged in, show dedicated "My Bookings" button; otherwise show Join With Us */}
+            {isAuthenticated && user?.role === 'patient' ? (
+              <Link
+                to="/my-bookings"
+                className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5 ${
+                  location.pathname === '/my-bookings' || location.pathname === '/patient/bookings'
+                    ? 'text-[#0E7490] bg-[#E8F6F8] border border-[#CDEBF0] font-bold'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+                }`}
+              >
+                <Calendar className="w-4 h-4 text-[#0E7490]" />
+                <span>{isRTL ? 'حجوزاتي' : 'My Bookings'}</span>
+              </Link>
+            ) : (
+              <Link
+                to="/join"
+                className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                  location.pathname === '/join'
+                    ? 'text-[#0E7490] bg-[#E8F6F8] border border-[#CDEBF0]'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+                }`}
+              >
+                {t('navigation.joinWithUs')}
+              </Link>
+            )}
           </nav>
 
           {/* ===== RIGHT SIDE ACTIONS (Desktop) ===== */}
@@ -253,7 +315,12 @@ export const Header: React.FC = () => {
                 )}
 
                 {/* Profile Dropdown */}
-                <div className="relative" ref={profileRef}>
+                <div
+                  className="relative"
+                  ref={profileRef}
+                  onMouseEnter={handleProfileMouseEnter}
+                  onMouseLeave={handleProfileMouseLeave}
+                >
                   <button
                     id="header-nav-profile-button"
                     type="button"
@@ -271,7 +338,11 @@ export const Header: React.FC = () => {
                       </span>
                       <span className="text-[10px] text-slate-500 block leading-tight capitalize">{user.role}</span>
                     </div>
-                    <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-150 ${
+                        profileOpen ? 'rotate-180 text-slate-700' : ''
+                      }`}
+                    />
                   </button>
 
                   <AnimatePresence>
@@ -281,7 +352,7 @@ export const Header: React.FC = () => {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 6, scale: 0.96 }}
                         transition={{ duration: 0.15 }}
-                        className="absolute right-0 rtl:right-auto rtl:left-0 mt-2 w-56 bg-white rounded-2xl border border-[#E2EBF0] shadow-2xl p-2 z-50 backdrop-blur-xl text-slate-900"
+                        className="absolute right-0 rtl:right-auto rtl:left-0 mt-2 w-56 bg-white rounded-2xl border border-[#E2EBF0] shadow-2xl p-2 z-50 backdrop-blur-xl text-slate-900 before:absolute before:-top-2.5 before:left-0 before:right-0 before:h-2.5 before:content-['']"
                       >
                         <div className="px-3 py-2 border-b border-[#E2EBF0]">
                           <span className="text-xs font-bold text-slate-900 block truncate">{user.name}</span>
@@ -293,24 +364,14 @@ export const Header: React.FC = () => {
 
                         <div className="py-1 space-y-0.5">
                           {user.role === 'patient' && (
-                            <>
-                              <Link
-                                to="/patient/profile"
-                                onClick={() => setProfileOpen(false)}
-                                className="w-full text-left rtl:text-right px-3 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
-                              >
-                                <User className="w-3.5 h-3.5 text-slate-500" />
-                                <span>{t('navigation.myProfile')}</span>
-                              </Link>
-                              <Link
-                                to="/patient/bookings"
-                                onClick={() => setProfileOpen(false)}
-                                className="w-full text-left rtl:text-right px-3 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
-                              >
-                                <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                                <span>{t('navigation.myBookings')}</span>
-                              </Link>
-                            </>
+                            <Link
+                              to="/patient/profile"
+                              onClick={() => setProfileOpen(false)}
+                              className="w-full text-left rtl:text-right px-3 py-2 text-xs font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                            >
+                              <User className="w-3.5 h-3.5 text-slate-500" />
+                              <span>{t('navigation.myProfile')}</span>
+                            </Link>
                           )}
                           {user.role === 'doctor' && (
                             <Link

@@ -37,6 +37,27 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const notifRef = useRef<HTMLDivElement>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  const handleMouseEnter = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      setIsOpen(true);
+    }, 150);
+  };
+
+  const handleMouseLeave = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      setIsOpen(false);
+    }, 200);
+  };
 
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
@@ -168,7 +189,12 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   if (!user) return null;
 
   return (
-    <div className={`relative ${className}`} ref={notifRef}>
+    <div
+      className={`relative ${className}`}
+      ref={notifRef}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       <button
         id={id}
         type="button"
@@ -191,7 +217,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 6, scale: 0.96 }}
             transition={{ duration: 0.15 }}
-            className="absolute -right-6 rtl:-right-auto rtl:-left-6 sm:right-0 sm:rtl:right-auto sm:rtl:left-0 mt-2 w-[calc(100vw-2rem)] sm:w-[480px] md:w-[520px] max-w-[95vw] bg-white rounded-2xl border border-[#E2EBF0] shadow-2xl p-4 sm:p-5 z-50 backdrop-blur-xl text-slate-900"
+            className="absolute -right-6 rtl:-right-auto rtl:-left-6 sm:right-0 sm:rtl:right-auto sm:rtl:left-0 mt-2 w-[calc(100vw-2rem)] sm:w-[480px] md:w-[520px] max-w-[95vw] bg-white rounded-2xl border border-[#E2EBF0] shadow-2xl p-4 sm:p-5 z-50 backdrop-blur-xl text-slate-900 before:absolute before:-top-2.5 before:left-0 before:right-0 before:h-2.5 before:content-['']"
           >
             {/* Header */}
             <div className="flex items-center justify-between pb-3 border-b border-[#E2EBF0]">

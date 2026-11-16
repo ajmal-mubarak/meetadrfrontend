@@ -61,11 +61,11 @@ const compressImage = (file: File, maxDim = 1200, quality = 0.85): Promise<strin
 };
 
 export const ImageUpload: React.FC<ImageUploadProps> = ({
-  label = 'Facility Photo / Image',
+  label,
   value,
   onChange,
   onRemove,
-  helperText = 'Supported formats: JPG, PNG, WebP (Max 10MB)',
+  helperText,
   disabled = false,
   maxDimension = 1200,
   quality = 0.85,
@@ -76,6 +76,12 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const effectiveHelperText = helperText || (
+    aspectRatio === 'square'
+      ? 'Recommended: 400 × 400 px (1:1 Square) • Max 2 MB • PNG, JPG, WebP'
+      : 'Recommended: 1200 × 630 px (16:9 Wide) • Max 5 MB • JPG, PNG, WebP'
+  );
 
   const handleFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
@@ -145,7 +151,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
   const getAspectRatioClass = () => {
     switch (aspectRatio) {
       case 'square':
-        return 'aspect-square max-w-[200px]';
+        return 'aspect-square w-32 h-32 max-w-[140px] max-h-[140px]';
       case 'video':
         return 'aspect-video';
       case 'wide':
@@ -182,40 +188,45 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
 
       {value ? (
         /* Image Preview Box */
-        <div
-          className={`relative group rounded-2xl overflow-hidden border border-[#E2EBF0] bg-slate-100 shadow-xs ${getAspectRatioClass()}`}
-        >
-          <img
-            src={value}
-            alt="Preview"
-            className="w-full h-full object-cover"
-            onError={() => setError('Image failed to render. Please choose a different file.')}
-          />
+        <>
+          <div
+            className={`relative group rounded-2xl overflow-hidden border border-[#E2EBF0] bg-slate-100 shadow-xs ${getAspectRatioClass()}`}
+          >
+            <img
+              src={value}
+              alt="Preview"
+              className="w-full h-full object-cover"
+              onError={() => setError('Image failed to render. Please choose a different file.')}
+            />
 
-          {/* Action Overlay */}
-          {!disabled && (
-            <div className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-4">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isProcessing}
-                className="px-3.5 py-2 bg-white text-slate-800 hover:bg-slate-100 text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isProcessing ? 'animate-spin' : ''}`} />
-                <span>Change Image</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleRemove}
-                disabled={isProcessing}
-                className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Remove</span>
-              </button>
-            </div>
-          )}
-        </div>
+            {/* Action Overlay */}
+            {!disabled && (
+              <div className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-4">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isProcessing}
+                  className="px-3.5 py-2 bg-white text-slate-800 hover:bg-slate-100 text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isProcessing ? 'animate-spin' : ''}`} />
+                  <span>Change Image</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRemove}
+                  disabled={isProcessing}
+                  className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Remove</span>
+                </button>
+              </div>
+            )}
+          </div>
+          <p className="text-[11px] text-slate-400 mt-1">
+            {effectiveHelperText}
+          </p>
+        </>
       ) : (
         /* Empty Upload Dropzone */
         <div
@@ -240,8 +251,8 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
           <p className="text-xs font-bold text-slate-800">
             {isProcessing ? 'Processing Image...' : 'Click to upload image or drag & drop'}
           </p>
-          <p className="text-[11px] text-slate-400 mt-1 max-w-sm">
-            {helperText}
+          <p className="text-[11px] text-slate-500 mt-1 max-w-sm">
+            {effectiveHelperText}
           </p>
 
           <button

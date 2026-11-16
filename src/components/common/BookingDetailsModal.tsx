@@ -12,26 +12,13 @@ import {
 } from 'lucide-react';
 import { Appointment } from '../../types';
 import { formatDisplayPhone } from '../../utils/phoneValidation';
+import { formatDateDDMMYYYY } from '../../utils/appointmentUtils';
 
 interface BookingDetailsModalProps {
   appointment: Appointment | null;
   onClose: () => void;
 }
 
-/**
- * Generates the exact plain text format requested for booking sharing:
- * 
- * New Booking:
- * Hospital: Aster Hospital
- * Branch: Al Qusais
- * Date & Time: August 03,2025, 15.30
- * Patient Name: ABDULLAH MUTHAIRI
- * Patient Contact #: 0501234567
- * Patient Email (Optional): Abd_1@gmail.com
- * 
- * Regards
- * Team MeetAdr.com
- */
 export function formatBookingTemplate(appointment: Appointment): string {
   const facility =
     appointment.hospitalName ||
@@ -41,18 +28,21 @@ export function formatBookingTemplate(appointment: Appointment): string {
 
   const branch = (appointment as any).branch || appointment.location || 'Main Branch';
   const time = appointment.timeSlot || appointment.time || '';
-  const dateTime = time ? `${appointment.date}, ${time}` : appointment.date;
+  const dateStr = formatDateDDMMYYYY(appointment.date);
+  const dateTime = time ? `${dateStr}, ${time} (UAE Time)` : `${dateStr} (UAE Time)`;
   const rawPhone = appointment.patientPhone || appointment.patientMobile || '';
   const phone = formatDisplayPhone(rawPhone);
-  const email = appointment.patientEmail || '';
+  const email = appointment.patientEmail || 'N/A';
+  const rawId = (appointment.id || '').replace(/[^a-zA-Z0-9]/g, '');
+  const bookingId = rawId ? `MD${rawId.slice(0, 6).toUpperCase()}` : 'MD000000';
 
-  return `New Booking:
+  return `New Booking ID# : ${bookingId}
 Hospital: ${facility}
 Branch: ${branch}
 Date & Time: ${dateTime}
 Patient Name: ${appointment.patientName}
 Patient Contact #: ${phone}
-Patient Email (Optional): ${email}
+Patient Email: ${email}
 
 Regards
 Team MeetAdr.com`;
@@ -74,10 +64,13 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
 
   const branchText = (appointment as any).branch || appointment.location || 'Main Branch';
   const time = appointment.timeSlot || appointment.time || '';
-  const dateTimeText = time ? `${appointment.date}, ${time}` : appointment.date;
+  const dateFormatted = formatDateDDMMYYYY(appointment.date);
+  const dateTimeText = time ? `${dateFormatted}, ${time} (UAE Time)` : `${dateFormatted} (UAE Time)`;
   const rawPhone = appointment.patientPhone || appointment.patientMobile || '';
   const patientContact = formatDisplayPhone(rawPhone);
   const patientEmail = appointment.patientEmail || '';
+  const rawId = (appointment.id || '').replace(/[^a-zA-Z0-9]/g, '');
+  const bookingId = rawId ? `MD${rawId.slice(0, 6).toUpperCase()}` : 'MD000000';
 
   const plainTextSummary = formatBookingTemplate(appointment);
 
@@ -114,7 +107,7 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
           <div className="flex items-center gap-2">
             <Building2 className="w-4 h-4 text-[#2DA7B5]" />
             <span className="text-sm font-bold text-slate-800">
-              Booking Details #{appointment.id.slice(0, 8)}
+              Booking Details #{bookingId}
             </span>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E8F6F8] text-[#0E7490] border border-[#CDEBF0]">
               Hospital Template
@@ -134,9 +127,9 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
         <div className="p-4 sm:p-5 overflow-y-auto flex-1 overscroll-contain">
           {/* Booking Card / Table */}
           <div className="border-2 border-slate-900 rounded-xl overflow-hidden font-sans shadow-xs">
-            {/* Table Header: "New Booking:" */}
+            {/* Table Header: "New Booking ID# : MD######" */}
             <div className="bg-slate-900 text-white px-3.5 py-2.5 font-bold text-xs sm:text-sm tracking-wide flex items-center justify-between">
-              <span>New Booking:</span>
+              <span>New Booking ID# : {bookingId}</span>
               <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded bg-white/20 text-white">
                 {appointment.status}
               </span>
@@ -199,14 +192,14 @@ export const BookingDetailsModal: React.FC<BookingDetailsModalProps> = ({
                 </div>
               </div>
 
-              {/* Row 6: Patient Email (Optional) */}
+              {/* Row 6: Patient Email */}
               <div className="grid grid-cols-12">
                 <div className="col-span-5 sm:col-span-4 p-2.5 font-bold text-slate-900 bg-slate-50 border-r border-slate-300 flex items-center gap-1.5">
                   <Mail className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                  <span>Patient Email (Optional)</span>
+                  <span>Patient Email</span>
                 </div>
                 <div className="col-span-7 sm:col-span-8 p-2.5 text-slate-700 font-medium">
-                  {patientEmail || <span className="text-slate-400 italic">Not provided</span>}
+                  {patientEmail || <span className="text-slate-400 italic">N/A</span>}
                 </div>
               </div>
 

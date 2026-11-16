@@ -54,7 +54,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { CancelModal } from '../../components/common/CancelModal';
 
 import { BookingDetailsModal, formatBookingTemplate } from '../../components/common/BookingDetailsModal';
-
+import { formatDateDDMMYYYY } from '../../utils/appointmentUtils';
 import { useToast } from '../../context/ToastContext';
 
 import { useTranslation } from '../../i18n';
@@ -279,9 +279,15 @@ export const AdminBookings: React.FC<AdminBookingsProps> = ({ isPendingOnly = fa
 
 
   useEffect(() => {
-
     loadData();
 
+    const handleUpdate = () => {
+      loadData();
+    };
+    window.addEventListener('meetadr:booking_updated', handleUpdate);
+    return () => {
+      window.removeEventListener('meetadr:booking_updated', handleUpdate);
+    };
   }, []);
 
 
@@ -835,10 +841,10 @@ export const AdminBookings: React.FC<AdminBookingsProps> = ({ isPendingOnly = fa
                         <div className="text-[11px] text-slate-500">{appt.hospitalName || appt.facilityName || 'Medical Facility'}</div>
                       </td>
                       <td className="px-3 py-2.5 whitespace-nowrap">
-                        <div className="font-medium text-slate-800">{appt.date}</div>
+                        <div className="font-medium text-slate-800">{formatDateDDMMYYYY(appt.date)}</div>
                         <div className="text-[11px] text-slate-500 flex items-center gap-1">
                           <Clock className="w-3 h-3 text-slate-400" />
-                          <span>{appt.timeSlot || appt.time || 'Scheduled Slot'}</span>
+                          <span>{appt.timeSlot || appt.time || 'Scheduled Slot'} <span className="text-[10px] text-slate-400 font-normal">UAE</span></span>
                         </div>
                       </td>
                       <td className="px-3 py-2.5 whitespace-nowrap">
@@ -1097,10 +1103,10 @@ export const AdminBookings: React.FC<AdminBookingsProps> = ({ isPendingOnly = fa
                       <div className="text-[11px] text-slate-500">{appt.hospitalName || appt.facilityName || 'Medical Facility'}</div>
                     </td>
                     <td className="px-3 py-2.5 whitespace-nowrap">
-                      <div className="font-medium text-slate-800">{appt.date}</div>
+                      <div className="font-medium text-slate-800">{formatDateDDMMYYYY(appt.date)}</div>
                       <div className="text-[11px] text-slate-500 flex items-center gap-1">
                         <Clock className="w-3 h-3 text-slate-400" />
-                        <span>{appt.timeSlot || appt.time || 'Scheduled Slot'}</span>
+                        <span>{appt.timeSlot || appt.time || 'Scheduled Slot'} <span className="text-[10px] text-slate-400 font-normal">UAE</span></span>
                       </div>
                     </td>
                     <td className="px-3 py-2.5 whitespace-nowrap">
@@ -2316,11 +2322,11 @@ export const AdminBookings: React.FC<AdminBookingsProps> = ({ isPendingOnly = fa
 
                         <td className="px-3 py-2.5 text-slate-700">
 
-                          <div className="font-medium">{appt.date}</div>
+                          <div className="font-medium">{formatDateDDMMYYYY(appt.date)}</div>
 
                           <div className="text-[10px] text-slate-400 font-mono">
 
-                            {appt.timeSlot || appt.time}
+                            {appt.timeSlot || appt.time} UAE
 
                           </div>
 
@@ -2628,9 +2634,9 @@ export const AdminBookings: React.FC<AdminBookingsProps> = ({ isPendingOnly = fa
 
                         <td className="px-3 py-2.5 text-slate-700">
 
-                          <div>{appt.date}</div>
+                          <div>{formatDateDDMMYYYY(appt.date)}</div>
 
-                          <div className="text-[10px] text-slate-400 font-mono">{appt.timeSlot || appt.time}</div>
+                          <div className="text-[10px] text-slate-400 font-mono">{appt.timeSlot || appt.time} UAE</div>
 
                         </td>
 

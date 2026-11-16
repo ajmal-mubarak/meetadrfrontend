@@ -35,8 +35,8 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { CancelModal } from '../../components/common/CancelModal';
 import { AppointmentReviewModal } from '../../components/common/AppointmentReviewModal';
 
-import { getAppointmentTimestamp, formatCountdown } from '../../utils/appointmentUtils';
-export { getAppointmentTimestamp, formatCountdown };
+import { getAppointmentTimestamp, formatCountdown, formatDateDDMMYYYY } from '../../utils/appointmentUtils';
+export { getAppointmentTimestamp, formatCountdown, formatDateDDMMYYYY };
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 export const PatientDashboard: React.FC = () => {
@@ -364,12 +364,12 @@ export const PatientDashboard: React.FC = () => {
                 <p className="text-xs font-bold text-slate-800 flex items-center gap-2 pt-1 flex-wrap">
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                    {nextAppt.date}
+                    {formatDateDDMMYYYY(nextAppt.date)}
                   </span>
                   <span className="text-slate-300">•</span>
                   <span className="flex items-center gap-1 font-mono">
                     <Clock className="w-3.5 h-3.5 text-slate-500" />
-                    {nextAppt.timeSlot}
+                    {nextAppt.timeSlot} <span className="text-[10px] text-slate-400 font-normal">UAE</span>
                   </span>
                   <span className="text-[10px] font-mono text-slate-500 opacity-60 flex items-center gap-1">
                     <span>•</span>
@@ -491,10 +491,10 @@ export const PatientDashboard: React.FC = () => {
                     <div className="mt-3 bg-[#F8FAFC] rounded-xl p-2.5 space-y-1.5 text-xs text-slate-600 border border-[#E2EBF0]/60">
                       <div className="flex items-center gap-2">
                         <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="font-semibold text-slate-800">{appt.date}</span>
+                        <span className="font-semibold text-slate-800">{formatDateDDMMYYYY(appt.date)}</span>
                         <span className="text-slate-300">•</span>
                         <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="font-mono text-slate-800">{appt.timeSlot}</span>
+                        <span className="font-mono text-slate-800">{appt.timeSlot} <span className="text-[10px] text-slate-400 font-normal">UAE</span></span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />

@@ -28,7 +28,7 @@ import { Appointment } from '../../types';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { CancelModal } from '../../components/common/CancelModal';
 import { AppointmentReviewModal } from '../../components/common/AppointmentReviewModal';
-import { getAppointmentTimestamp, formatCountdown } from '../../utils/appointmentUtils';
+import { getAppointmentTimestamp, formatCountdown, formatDateDDMMYYYY } from '../../utils/appointmentUtils';
 
 // ─── Main PatientBookings Component ─────────────────────────────────────────
 export const PatientBookings: React.FC = () => {
@@ -157,8 +157,31 @@ export const PatientBookings: React.FC = () => {
   }, [appointments, filterStatus, search]);
 
   return (
-    <div className="space-y-6">
-      {/* ── 1. METRICS OVERVIEW ── */}
+    <div className="min-h-screen bg-[#F4F7F9] text-slate-900 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* ── 0. PAGE TITLE & CALL TO ACTION ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#E2EBF0]">
+          <div>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
+              <Calendar className="w-6 h-6 text-[#2DA7B5]" />
+              <span>{isArabic ? 'حجوزاتي الطبية' : 'My Bookings'}</span>
+            </h1>
+            <p className="text-xs text-slate-500 mt-1">
+              {isArabic
+                ? 'إدارة ومتابعة مواعيد استشاراتك الطبية وحالتها المباشرة'
+                : 'Track, manage, and view your upcoming and past consultation bookings'}
+            </p>
+          </div>
+          <Link
+            to="/doctors"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#2DA7B5] hover:bg-[#23929F] text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 self-start sm:self-auto active:scale-95"
+          >
+            <Plus className="w-4 h-4" />
+            <span>{isArabic ? 'حجز استشارة جديدة' : 'Book New Consultation'}</span>
+          </Link>
+        </div>
+
+        {/* ── 1. METRICS OVERVIEW ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         <button
           type="button"
@@ -305,13 +328,13 @@ export const PatientBookings: React.FC = () => {
                   {/* Left Column: Date ticket stub + Doctor info */}
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5 flex-1">
                     {/* Ticket Date Badge */}
-                    <div className="flex sm:flex-col items-center justify-center bg-[#F8FAFC] border border-[#E2EBF0] rounded-2xl px-4 py-3 sm:w-28 text-center shrink-0">
-                      <Calendar className="w-4 h-4 text-slate-500 mb-0.5 hidden sm:block mx-auto" />
-                      <span className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">
-                        {appt.date}
+                    <div className="flex sm:flex-col items-center justify-center bg-[#F8FAFC] border border-[#E2EBF0] rounded-2xl px-4 py-3 sm:w-36 text-center shrink-0">
+                      <Calendar className="w-4 h-4 text-[#2DA7B5] mb-1 hidden sm:block mx-auto" />
+                      <span className="text-sm font-black text-slate-900 tracking-tight whitespace-nowrap">
+                        {formatDateDDMMYYYY(appt.date)}
                       </span>
-                      <span className="text-xs font-mono font-bold text-slate-700 sm:mt-1 ml-2 sm:ml-0 rtl:mr-2 rtl:ml-0 bg-white sm:bg-transparent px-2 py-0.5 sm:p-0 rounded-md">
-                        {appt.timeSlot}
+                      <span className="text-xs font-mono font-bold text-[#0E7490] sm:mt-1 ml-2 sm:ml-0 rtl:mr-2 rtl:ml-0 bg-[#E8F6F8] px-2 py-0.5 rounded-md whitespace-nowrap border border-[#CDEBF0]">
+                        {appt.timeSlot} <span className="text-[10px] font-normal opacity-75">UAE</span>
                       </span>
                     </div>
 
@@ -325,8 +348,8 @@ export const PatientBookings: React.FC = () => {
                       />
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[10px] font-mono font-bold text-slate-400 bg-[#F8FAFC] border border-[#E2EBF0] px-2 py-0.5 rounded-md">
-                            #{appt.id.slice(-6).toUpperCase()}
+                          <span className="text-[10px] font-mono font-bold text-slate-500 bg-[#F8FAFC] border border-[#E2EBF0] px-2 py-0.5 rounded-md">
+                            #{appt.id ? (appt.id.startsWith('MD') ? appt.id : `MD${appt.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase()}`) : 'MD000000'}
                           </span>
                           <StatusBadge status={appt.status} />
                           {isPending && (
@@ -335,8 +358,9 @@ export const PatientBookings: React.FC = () => {
                             </span>
                           )}
                           {isConfirmed && (
-                            <span className="text-[10px] font-mono text-slate-400 opacity-70 flex items-center gap-1">
-                              {formatCountdown(appt, now, isArabic)}
+                            <span className="text-[10px] font-mono font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
+                              <Clock className="w-3 h-3 text-slate-400" />
+                              <span>{formatCountdown(appt, now, isArabic)}</span>
                             </span>
                           )}
                           {isConfirmed && (
@@ -514,6 +538,7 @@ export const PatientBookings: React.FC = () => {
           onSubmit={handleReviewSubmit}
         />
       )}
+      </div>
     </div>
   );
 };

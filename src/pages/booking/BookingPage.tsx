@@ -1693,7 +1693,7 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
                           {/* Insurer Picker */}
                           <div>
                             <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                              {isArabic ? 'شركة التأمين الطبي' : 'Insurance Provider'} *
+                              {isArabic ? 'شركة التأمين الطبي (اختياري)' : 'Insurance Provider (Optional)'}
                             </label>
                             <InsurancePicker
                               allHospitalPlans={acceptedInsurancePlans}
@@ -1708,7 +1708,7 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
                           {/* Policy / Member Number */}
                           <div>
                             <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                              {isArabic ? 'رقم بطاقة التأمين / العضوية' : 'Insurance Member / Policy ID'} *
+                              {isArabic ? 'رقم بطاقة التأمين / العضوية (اختياري)' : 'Insurance Member / Policy ID (Optional)'}
                             </label>
                             <input
                               type="text"

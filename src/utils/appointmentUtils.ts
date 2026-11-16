@@ -67,3 +67,18 @@ export const formatCountdown = (
   return `in ${minutes}m ${seconds}s`;
 };
 
+/**
+ * Format a date string (YYYY-MM-DD or ISO) to DD/MM/YYYY
+ */
+export const formatDateDDMMYYYY = (dateStr?: string | null): string => {
+  if (!dateStr) return '';
+  const clean = String(dateStr).split('T')[0].trim();
+  const parts = clean.split('-');
+  if (parts.length === 3) {
+    const [year, month, day] = parts;
+    return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+  }
+  return dateStr;
+};
+
+

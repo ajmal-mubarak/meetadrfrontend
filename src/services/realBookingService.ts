@@ -259,7 +259,15 @@ export const realBookingService = {
       API_ENDPOINTS.APPOINTMENTS.RESCHEDULE(id),
       { date, time_slot }
     );
-    return mapAppointment(data);
+    const mapped = mapAppointment(data);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('meetadr:booking_updated', {
+          detail: { id: mapped.id, status: mapped.status, date: mapped.date, timeSlot: mapped.timeSlot },
+        })
+      );
+    }
+    return mapped;
   },
 
   /**

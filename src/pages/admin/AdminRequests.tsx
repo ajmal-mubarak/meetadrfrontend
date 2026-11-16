@@ -954,6 +954,7 @@ export const AdminRequests: React.FC = () => {
                     value={hospitalForm.photo}
                     onChange={(url) => setHospitalForm({ ...hospitalForm, photo: url })}
                     placeholder="Upload facility photo"
+                    aspectRatio="wide"
                   />
                 </div>
                 <div>
@@ -962,6 +963,7 @@ export const AdminRequests: React.FC = () => {
                     value={hospitalForm.logo}
                     onChange={(url) => setHospitalForm({ ...hospitalForm, logo: url })}
                     placeholder="Upload organization logo"
+                    aspectRatio="square"
                   />
                 </div>
               </div>

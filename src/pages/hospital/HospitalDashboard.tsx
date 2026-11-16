@@ -38,6 +38,7 @@ import { Appointment, Doctor } from '../../types';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { CancelModal } from '../../components/common/CancelModal';
 import { BookingDetailsModal } from '../../components/common/BookingDetailsModal';
+import { formatDateDDMMYYYY } from '../../utils/appointmentUtils';
 
 // ── Hospital Custom Tooltip ──────────────────────────────────────────────────
 const HospitalChartTooltip = ({ active, payload, label }: any) => {
@@ -67,8 +68,8 @@ export const HospitalDashboard: React.FC = () => {
   // 4 Primary Navigation Tabs from Client PDF Page 8
   const [activeTab, setActiveTab] = useState<'appointments' | 'doctors' | 'patients' | 'reports'>('appointments');
 
-  // Appointments filter by time from Client PDF Page 8: Today | Tomorrow | Specific Date
-  const [appointmentDateFilter, setAppointmentDateFilter] = useState<'today' | 'tomorrow' | 'custom'>('today');
+  // Appointments filter by time: Today | Tomorrow | Upcoming | Specific Date
+  const [appointmentDateFilter, setAppointmentDateFilter] = useState<'today' | 'tomorrow' | 'upcoming' | 'custom'>('today');
   const [customFilterDate, setCustomFilterDate] = useState(() => new Date().toISOString().split('T')[0]);
 
   // Reports time criteria from Client PDF Page 8: Date | Week | Month
@@ -163,6 +164,11 @@ export const HospitalDashboard: React.FC = () => {
     return d.toISOString().split('T')[0];
   }, []);
 
+  // Bucket counts for fast overview
+  const todayCount = useMemo(() => appointments.filter((a) => a.date === todayStr || !a.date).length, [appointments, todayStr]);
+  const tomorrowCount = useMemo(() => appointments.filter((a) => a.date === tomorrowStr).length, [appointments, tomorrowStr]);
+  const upcomingCount = useMemo(() => appointments.filter((a) => a.date && a.date > tomorrowStr).length, [appointments, tomorrowStr]);
+
   // Filtered and sorted appointments by time
   const appointmentsByTime = useMemo(() => {
     return [...appointments]
@@ -173,12 +179,17 @@ export const HospitalDashboard: React.FC = () => {
         if (appointmentDateFilter === 'tomorrow') {
           return a.date === tomorrowStr;
         }
+        if (appointmentDateFilter === 'upcoming') {
+          return a.date && a.date > tomorrowStr;
+        }
         if (appointmentDateFilter === 'custom') {
           return a.date === customFilterDate;
         }
         return true;
       })
       .sort((a, b) => {
+        const dateComp = (a.date || '').localeCompare(b.date || '');
+        if (dateComp !== 0) return dateComp;
         return (a.timeSlot || '').localeCompare(b.timeSlot || '');
       });
   }, [appointments, appointmentDateFilter, customFilterDate, todayStr, tomorrowStr]);
@@ -568,30 +579,51 @@ export const HospitalDashboard: React.FC = () => {
               </p>
             </div>
 
-            {/* Date Filter Pills (Client PDF Page 8: Today | Tomorrow | July-04-2026) */}
-            <div className="flex items-center gap-2 bg-[#F1F5F9] p-1.5 rounded-xl border border-[#E2EBF0]">
+            {/* Date Filter Pills: Today | Tomorrow | Upcoming | Custom Date */}
+            <div className="flex items-center gap-1.5 bg-[#F1F5F9] p-1.5 rounded-xl border border-[#E2EBF0] flex-wrap">
               <button
                 type="button"
                 onClick={() => setAppointmentDateFilter('today')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                   appointmentDateFilter === 'today'
                     ? 'bg-[#2DA7B5] text-white shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                {t('hospitalPortal.today')}
+                <span>{t('hospitalPortal.today')}</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${appointmentDateFilter === 'today' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                  {todayCount}
+                </span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setAppointmentDateFilter('tomorrow')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                   appointmentDateFilter === 'tomorrow'
                     ? 'bg-[#2DA7B5] text-white shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                {t('hospitalPortal.tomorrow')}
+                <span>{t('hospitalPortal.tomorrow')}</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${appointmentDateFilter === 'tomorrow' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                  {tomorrowCount}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAppointmentDateFilter('upcoming')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  appointmentDateFilter === 'upcoming'
+                    ? 'bg-[#2DA7B5] text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <span>{isArabic ? 'القادمة' : 'Upcoming'}</span>
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${appointmentDateFilter === 'upcoming' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                  {upcomingCount}
+                </span>
               </button>
 
               <div className="flex items-center gap-1.5 pl-2 rtl:pl-0 rtl:pr-2 border-l rtl:border-l-0 rtl:border-r border-[#CBD5E1]">
@@ -637,11 +669,18 @@ export const HospitalDashboard: React.FC = () => {
                     const isReachedOut = reachedOutIds[appt.id];
                     return (
                       <tr key={appt.id} className="hover:bg-[#F8FAFC] transition-colors">
-                        {/* Time slot */}
-                        <td className="py-3.5 px-4">
-                          <span className="font-mono font-bold text-[#0E7490] bg-[#E8F6F8] px-2.5 py-1 rounded-md border border-[#CDEBF0]">
-                            {appt.timeSlot}
-                          </span>
+                        {/* Time slot & Date */}
+                        <td className="py-3.5 px-4 whitespace-nowrap">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-mono font-bold text-[#0E7490] bg-[#E8F6F8] px-2.5 py-1 rounded-md border border-[#CDEBF0] text-center inline-block">
+                              {appt.timeSlot} <span className="text-[10px] text-slate-500 font-normal">UAE</span>
+                            </span>
+                            {appointmentDateFilter !== 'today' && appt.date && (
+                              <span className="text-[11px] font-semibold text-slate-500 text-center">
+                                {formatDateDDMMYYYY(appt.date)}
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* Patient Name & Coverage */}

@@ -78,6 +78,7 @@ export const AdminHospitalsManage: React.FC = () => {
 
   // Facility Default Schedule Modal
   const [facilityScheduleToEdit, setFacilityScheduleToEdit] = useState<ProviderItem | null>(null);
+  const [applyScheduleToAllDoctors, setApplyScheduleToAllDoctors] = useState(false);
   const [facilityDays, setFacilityDays] = useState<string[]>([]);
   const [facilitySlots, setFacilitySlots] = useState<string[]>([]);
   const [isSubmittingFacilitySchedule, setIsSubmittingFacilitySchedule] = useState(false);
@@ -535,6 +536,7 @@ export const AdminHospitalsManage: React.FC = () => {
   // Facility Default Schedule Handlers
   const handleOpenFacilityScheduleModal = (facility: ProviderItem) => {
     setFacilityScheduleToEdit(facility);
+    setApplyScheduleToAllDoctors(false);
     const initialDays = (facility.defaultAvailableDays && facility.defaultAvailableDays.length > 0)
       ? facility.defaultAvailableDays
       : (facility.default_available_days && facility.default_available_days.length > 0)
@@ -572,7 +574,22 @@ export const AdminHospitalsManage: React.FC = () => {
       if (viewHospitalDoctors && viewHospitalDoctors.id === updated.id) {
         setViewHospitalDoctors(updated);
       }
-      showToast(`Default weekly schedule for ${updated.name} updated! New doctors will inherit this schedule.`, 'success');
+
+      if (applyScheduleToAllDoctors && facilityScheduleToEdit.doctors && facilityScheduleToEdit.doctors.length > 0) {
+        await Promise.all(
+          facilityScheduleToEdit.doctors.map((doc: any) =>
+            realAdminService.updateDoctorSchedule(doc.id, {
+              available_days: facilityDays,
+              standard_slots: facilitySlots,
+              slot_duration_minutes: 30,
+            }).catch(() => null)
+          )
+        );
+        showToast(`Default weekly schedule applied to all ${facilityScheduleToEdit.doctors.length} doctors in ${updated.name}!`, 'success');
+      } else {
+        showToast(`Default weekly schedule for ${updated.name} updated! New doctors will inherit this schedule.`, 'success');
+      }
+
       setFacilityScheduleToEdit(null);
     } catch (err: any) {
       showToast(err.message || 'Failed to update facility schedule.', 'error');
@@ -1486,6 +1503,7 @@ export const AdminHospitalsManage: React.FC = () => {
                     value={addForm.photo}
                     onChange={(url) => setAddForm({ ...addForm, photo: url })}
                     placeholder="Upload facility photo"
+                    aspectRatio="wide"
                   />
                 </div>
                 <div>
@@ -1494,6 +1512,7 @@ export const AdminHospitalsManage: React.FC = () => {
                     value={addForm.logo}
                     onChange={(url) => setAddForm({ ...addForm, logo: url })}
                     placeholder="Upload organization logo"
+                    aspectRatio="square"
                   />
                 </div>
               </div>
@@ -1804,6 +1823,7 @@ export const AdminHospitalsManage: React.FC = () => {
                     value={editForm.photo}
                     onChange={(url) => setEditForm({ ...editForm, photo: url })}
                     placeholder="Upload facility photo"
+                    aspectRatio="wide"
                   />
                 </div>
                 <div>
@@ -1812,6 +1832,7 @@ export const AdminHospitalsManage: React.FC = () => {
                     value={editForm.logo}
                     onChange={(url) => setEditForm({ ...editForm, logo: url })}
                     placeholder="Upload organization logo"
+                    aspectRatio="square"
                   />
                 </div>
               </div>
@@ -2018,6 +2039,7 @@ export const AdminHospitalsManage: React.FC = () => {
                   value={doctorForm.photo}
                   onChange={(url) => setDoctorForm({ ...doctorForm, photo: url })}
                   placeholder="Doctor portrait photo"
+                  aspectRatio="square"
                 />
               </div>
 
@@ -2325,6 +2347,24 @@ export const AdminHospitalsManage: React.FC = () => {
                   })}
                 </div>
               </div>
+
+              {/* Uniform Doctor Roster Option */}
+              <label className="flex items-start gap-2.5 p-3 bg-teal-50/70 border border-teal-200 rounded-xl cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={applyScheduleToAllDoctors}
+                  onChange={(e) => setApplyScheduleToAllDoctors(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 rounded text-teal-600 focus:ring-teal-500 border-slate-300"
+                />
+                <div>
+                  <span className="text-xs font-bold text-slate-800 block">
+                    Apply this schedule to all affiliated doctors in this facility
+                  </span>
+                  <span className="text-[11px] text-slate-500 block mt-0.5">
+                    Synchronizes weekly working days and consultation slots across all doctors currently affiliated with this hospital.
+                  </span>
+                </div>
+              </label>
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">

@@ -109,7 +109,7 @@ const PublicLayout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#081217] text-slate-100 selection:bg-teal-500/30 selection:text-teal-200 font-sans overflow-x-clip w-full max-w-full">
+    <div className="min-h-screen flex flex-col bg-[#F4F7F9] text-slate-900 selection:bg-teal-100 selection:text-slate-800 font-sans overflow-x-clip w-full max-w-full">
       {/* If an admin, hospital, or doctor visits the public site, show site in guest view mode with a return bar */}
       {isNonPatientStaff && (
         <div className="bg-[#050D11] text-slate-300 text-xs px-4 py-2 flex items-center justify-between border-b border-teal-500/20 z-50">
@@ -182,6 +182,16 @@ export default function App() {
                   {/* Booking Flow */}
                   <Route path="/book" element={<BookingPage />} />
                   <Route path="/book/doctor/:doctorId" element={<BookingPage />} />
+
+                  {/* Dedicated My Bookings Page (Single booking page outside dashboard tabs) */}
+                  <Route
+                    path="/my-bookings"
+                    element={
+                      <ProtectedRoute allowedRoles={['patient']}>
+                        <PatientBookings />
+                      </ProtectedRoute>
+                    }
+                  />
 
                   {/* Auth Routes - With Header Navbar & Footer */}
                   <Route path="/login" element={<LoginPage />} />

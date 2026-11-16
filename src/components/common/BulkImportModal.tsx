@@ -51,6 +51,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
   const isDoctors = target === 'doctors';
   const title = isDoctors ? 'Bulk Import Doctors' : 'Bulk Import Healthcare Facilities';
   const templateName = isDoctors ? 'Doctor Template.xlsx' : 'Hospital Template.xlsx';
+  const emptyTemplateName = isDoctors ? 'Sample_Bulk_Doctors_Empty.xlsx' : 'Sample_Bulk_Hospitals_Empty.xlsx';
   const endpoint =
     scope === 'facility' && isDoctors
       ? '/facility/doctors/import/'
@@ -179,6 +180,47 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
     }
   };
 
+  const handleDownloadEmptyTemplate = async () => {
+    try {
+      // 1. First attempt direct static download from public templates
+      const staticUrl = `/templates/${encodeURIComponent(emptyTemplateName)}`;
+      const res = await fetch(staticUrl);
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', emptyTemplateName);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        showToast('Empty template downloaded.', 'success');
+        return;
+      }
+
+      // 2. Fallback to backend API endpoint
+      const backendUrl = buildApiUrl(`${downloadUrl}?empty=true`);
+      const apiRes = await fetch(backendUrl);
+      if (apiRes.ok) {
+        const blob = await apiRes.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', emptyTemplateName);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        showToast('Empty template downloaded.', 'success');
+        return;
+      }
+      throw new Error('Download failed');
+    } catch {
+      showToast('Failed to download empty template.', 'error');
+    }
+  };
+
   const handleReset = () => {
     setSelectedFile(null);
     setResult(null);
@@ -211,21 +253,33 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({
         </div>
 
         {/* Step 1: Template download info banner */}
-        <div className="p-4 rounded-2xl bg-[#F0FDF4] border border-[#BBF7D0] flex items-center justify-between gap-3 text-xs">
+        <div className="p-4 rounded-2xl bg-[#F0FDF4] border border-[#BBF7D0] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
           <div>
-            <span className="font-bold text-[#166534] block">Need the official template?</span>
+            <span className="font-bold text-[#166534] block text-sm">Need a bulk import template?</span>
             <span className="text-[#15803D]">
-              Download {templateName} with pre-configured headers and example entries.
+              Download the official guide with examples, or the blank empty table ready for entry.
             </span>
           </div>
-          <button
-            type="button"
-            onClick={handleDownloadTemplate}
-            className="px-3 py-2 bg-white hover:bg-[#DCFCE7] text-[#166534] border border-[#86EFAC] rounded-xl font-bold flex items-center gap-1.5 transition-all shrink-0 cursor-pointer shadow-2xs"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Download Template</span>
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleDownloadTemplate}
+              title={`Download ${templateName} with pre-configured headers and example rows`}
+              className="px-3 py-2 bg-white hover:bg-[#DCFCE7] text-[#166534] border border-[#86EFAC] rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs text-xs"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>With Examples</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleDownloadEmptyTemplate}
+              title={`Download ${emptyTemplateName} (clean blank table without dummy data)`}
+              className="px-3 py-2 bg-[#166534] hover:bg-[#14532D] text-white rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs text-xs"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Empty Template</span>
+            </button>
+          </div>
         </div>
 
         {/* Step 2: Drag and drop upload */}
