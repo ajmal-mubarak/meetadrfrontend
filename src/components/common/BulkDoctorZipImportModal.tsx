@@ -103,8 +103,8 @@ export const BulkDoctorZipImportModal: React.FC<BulkDoctorZipImportModalProps> =
   const excelInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
 
-  // Hospital selection (for Admin)
-  const [hospitals, setHospitals] = useState<Array<{ id: string; name: string }>>([]);
+  // Hospital / Clinic selection (for Admin)
+  const [facilities, setFacilities] = useState<Array<{ id: string; name: string; category?: string }>>([]);
   const [selectedHospitalId, setSelectedHospitalId] = useState<string>(facilityId || '');
 
   // Options
@@ -126,15 +126,19 @@ export const BulkDoctorZipImportModal: React.FC<BulkDoctorZipImportModalProps> =
   // Polling ref
   const pollTimerRef = useRef<any>(null);
 
-  // Load hospitals on mount for admin
+  // Load facilities on mount for admin
   useEffect(() => {
     if (scope === 'admin' && isOpen) {
       realAdminService.getProviders()
         .then((provs) => {
-          const hospList = provs.map((p) => ({ id: p.id, name: p.name }));
-          setHospitals(hospList);
-          if (hospList.length > 0 && !selectedHospitalId) {
-            setSelectedHospitalId(hospList[0].id);
+          const list = provs.map((p) => ({
+            id: p.id,
+            name: p.name,
+            category: (p as any).providerCategory || ((p as any).type === 'clinic' ? 'Clinic' : 'Hospital'),
+          }));
+          setFacilities(list);
+          if (list.length > 0 && !selectedHospitalId) {
+            setSelectedHospitalId(list[0].id);
           }
         })
         .catch(() => {});
@@ -216,7 +220,11 @@ export const BulkDoctorZipImportModal: React.FC<BulkDoctorZipImportModalProps> =
       setCurrentStep(2);
       showToast(`Analyzed ${res.total_records} doctor records and matched ${res.matched_photos} photos!`, 'success');
     } catch (err: any) {
-      const msg = err.data?.error || err.data?.detail || err.message || 'Validation failed. Please verify spreadsheet format.';
+      let msg = err.data?.error || err.data?.detail || err.message || 'Validation failed. Please verify spreadsheet format.';
+      if (typeof msg === 'string') {
+        // Strip raw field prefixes like "hospital_id: " or "file: "
+        msg = msg.replace(/^[a-zA-Z0-9_-]+:\s*/, '');
+      }
       showToast(msg, 'error');
     } finally {
       setIsValidating(false);
@@ -251,7 +259,10 @@ export const BulkDoctorZipImportModal: React.FC<BulkDoctorZipImportModalProps> =
         startPolling(activeJobId);
       }
     } catch (err: any) {
-      const msg = err.data?.error || err.message || 'Failed to start import.';
+      let msg = err.data?.error || err.message || 'Failed to start import.';
+      if (typeof msg === 'string') {
+        msg = msg.replace(/^[a-zA-Z0-9_-]+:\s*/, '');
+      }
       showToast(msg, 'error');
       setIsImporting(false);
     }
@@ -402,9 +413,9 @@ export const BulkDoctorZipImportModal: React.FC<BulkDoctorZipImportModalProps> =
                     onChange={(e) => setSelectedHospitalId(e.target.value)}
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 focus:outline-hidden focus:border-teal-500 bg-white"
                   >
-                    {hospitals.map((h) => (
+                    {facilities.map((h) => (
                       <option key={h.id} value={h.id}>
-                        {h.name}
+                        {h.name} {h.category ? `(${h.category})` : ''}
                       </option>
                     ))}
                   </select>
