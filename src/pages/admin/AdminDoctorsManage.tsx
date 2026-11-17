@@ -94,9 +94,7 @@ import {
   Sparkles,
 
   FileSpreadsheet,
-
-
-
+  FolderArchive,
 } from 'lucide-react';
 
 
@@ -124,6 +122,7 @@ import { DEFAULT_DOCTOR_AVATAR } from '../../utils/avatar';
 import { SearchableSelect } from '../../components/common/SearchableSelect';
 
 import { BulkImportModal } from '../../components/common/BulkImportModal';
+import { BulkDoctorZipImportModal } from '../../components/common/BulkDoctorZipImportModal';
 
 
 
@@ -305,6 +304,7 @@ export const AdminDoctorsManage: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isZipImportModalOpen, setIsZipImportModalOpen] = useState(false);
 
 
 
@@ -1842,6 +1842,15 @@ export const AdminDoctorsManage: React.FC = () => {
           >
             <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
             Bulk Import Doctors
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsZipImportModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-teal-50 hover:bg-teal-100 text-[#0E7490] border border-teal-200 rounded-xl font-bold text-sm transition-all shadow-xs cursor-pointer"
+            title="Upload doctors spreadsheet with ZIP of headshot photos"
+          >
+            <FolderArchive className="w-4 h-4 text-teal-600" />
+            Bulk Import (Excel + ZIP)
           </button>
           <button
             type="button"
@@ -3949,17 +3958,18 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
       <BulkImportModal
-
         isOpen={isImportModalOpen}
-
         onClose={() => setIsImportModalOpen(false)}
-
         onSuccess={loadData}
-
         target="doctors"
-
         scope="admin"
+      />
 
+      <BulkDoctorZipImportModal
+        isOpen={isZipImportModalOpen}
+        onClose={() => setIsZipImportModalOpen(false)}
+        onSuccess={loadData}
+        scope="admin"
       />
 
 

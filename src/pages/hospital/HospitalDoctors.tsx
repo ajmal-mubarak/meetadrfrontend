@@ -26,10 +26,12 @@ import {
   GraduationCap,
   Loader2,
   Building2,
+  FolderArchive,
 } from 'lucide-react';
 import { realFacilityAdminService, FacilitySettingsData } from '../../services/realFacilityAdminService';
 import { Doctor } from '../../types';
 import { BulkImportModal } from '../../components/common/BulkImportModal';
+import { BulkDoctorZipImportModal } from '../../components/common/BulkDoctorZipImportModal';
 import { SPECIALTIES } from '../../data/mockSpecialties';
 import { useToast } from '../../context/ToastContext';
 
@@ -46,6 +48,7 @@ export const HospitalDoctors: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showZipImportModal, setShowZipImportModal] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [searchFilter, setSearchFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'Active' | 'Deactivated'>('all');
@@ -605,6 +608,17 @@ export const HospitalDoctors: React.FC = () => {
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
             <span>Import Excel / CSV</span>
+          </button>
+
+          {/* Enterprise Bulk Import (Excel + ZIP) Button */}
+          <button
+            type="button"
+            onClick={() => setShowZipImportModal(true)}
+            className="px-3.5 py-2 bg-teal-50 hover:bg-teal-100 text-[#0E7490] border border-teal-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            title="Bulk import doctors with ZIP of headshots"
+          >
+            <FolderArchive className="w-3.5 h-3.5 text-teal-600" />
+            <span>Import (Excel + ZIP)</span>
           </button>
 
           {/* Add Doctor Button */}
@@ -1372,6 +1386,14 @@ export const HospitalDoctors: React.FC = () => {
         onClose={() => setShowImportModal(false)}
         target="doctors"
         scope="facility"
+        onSuccess={loadData}
+      />
+
+      <BulkDoctorZipImportModal
+        isOpen={showZipImportModal}
+        onClose={() => setShowZipImportModal(false)}
+        scope="facility"
+        facilityName={facilitySettings?.name}
         onSuccess={loadData}
       />
 
