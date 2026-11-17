@@ -89,7 +89,7 @@ function mapDoctor(d: BackendAdminDoctor): Doctor {
     reviewCount: Number(d.review_count || rawAny.reviewCount) || 0,
     hospitalId: rawAny.hospitalId || rawAny.hospital_id || '',
     clinicId: rawAny.clinicId || rawAny.clinic_id || '',
-    hospitalName: rawAny.hospitalName || rawAny.hospital_name || (!rawAny.clinicName && !rawAny.clinic_name ? d.facility_name : '') || '',
+    hospitalName: rawAny.hospitalName || rawAny.hospital_name || rawAny.clinicName || rawAny.clinic_name || (d as any).facility_name || '',
     clinicName: rawAny.clinicName || rawAny.clinic_name || '',
     location: d.location || 'United Arab Emirates',
     availableDays: d.available_days || rawAny.availableDays || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Saturday'],

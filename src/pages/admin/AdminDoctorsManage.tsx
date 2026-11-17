@@ -2812,34 +2812,13 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
 
-                          {doc.hospitalName ? (
-
-
-
+                          {(doc.hospitalName || doc.clinicName) ? (
                             <div className="font-semibold text-slate-800 flex items-center gap-1.5">
-
-
-
                               <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-
-
-
-                              <span className="truncate max-w-[160px]">{doc.hospitalName}</span>
-
-
-
+                              <span className="truncate max-w-[160px]">{doc.hospitalName || doc.clinicName}</span>
                             </div>
-
-
-
                           ) : (
-
-
-
                             <span className="text-slate-500 font-medium italic">Independent</span>
-
-
-
                           )}
 
 
@@ -3604,7 +3583,7 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
 
-                  {viewDoctor.hospitalName || 'Independent Practice'}
+                  {viewDoctor.hospitalName || viewDoctor.clinicName || 'Independent Practice'}
 
 
 
