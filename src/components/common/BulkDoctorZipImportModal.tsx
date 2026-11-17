@@ -17,6 +17,7 @@ import {
   AlertCircle,
   HelpCircle,
   ImageIcon,
+  Info,
 } from 'lucide-react';
 import apiClient from '../../services/api/apiClient';
 import { buildApiUrl } from '../../config/api';
