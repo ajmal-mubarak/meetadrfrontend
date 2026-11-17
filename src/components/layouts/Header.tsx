@@ -252,8 +252,20 @@ export const Header: React.FC = () => {
               {t('navigation.contactUs')}
             </Link>
 
-            {/* Show "Join With Us" only when user is not a logged-in patient */}
-            {(!isAuthenticated || user?.role !== 'patient') && (
+            {/* If patient is logged in, show dedicated "My Bookings" button in navbar; otherwise show Join With Us */}
+            {isAuthenticated && user?.role === 'patient' ? (
+              <Link
+                to="/my-bookings"
+                className={`px-3.5 py-1.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-1.5 shadow-xs ${
+                  location.pathname === '/my-bookings' || location.pathname === '/patient/bookings'
+                    ? 'text-white bg-[#0E7490] hover:bg-[#0c627a] font-bold'
+                    : 'text-[#0E7490] bg-[#E8F6F8] hover:bg-[#d8f0f4] border border-[#CDEBF0]'
+                }`}
+              >
+                <Calendar className="w-4 h-4" />
+                <span>{isRTL ? 'حجوزاتي' : 'My Bookings'}</span>
+              </Link>
+            ) : (
               <Link
                 to="/join"
                 className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
