@@ -329,29 +329,6 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
     return allDoctors.find((d) => d.id === selectedDocId) || allDoctors[0] || null;
   }, [currentDoctorDetail, allDoctors, selectedDocId]);
 
-  // Restore draft booking details if returning from login/registration
-  React.useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem('meetadr_pending_booking_draft');
-      if (raw) {
-        const draft = JSON.parse(raw);
-        if (draft.doctorId === selectedDocId || draft.doctorId === doctorId) {
-          if (draft.selectedDate) setSelectedDate(draft.selectedDate);
-          if (draft.selectedSlot) setSelectedSlot(draft.selectedSlot);
-          if (draft.selectedSpecialty) setSelectedSpecialty(draft.selectedSpecialty);
-          if (draft.patientName) setPatientName(draft.patientName);
-          if (draft.mobileNumber) setMobileNumber(draft.mobileNumber);
-          if (draft.countryCode) setCountryCode(draft.countryCode);
-          if (draft.patientEmail) setPatientEmail(draft.patientEmail);
-          if (draft.selectedDate && draft.selectedSlot) {
-            setCurrentStep(3);
-          }
-        }
-      }
-    } catch (e) {
-      // ignore
-    }
-  }, [doctorId, selectedDocId]);
 
   // Departments that THIS specific doctor actually has
   const doctorDepartments = useMemo(() => {
@@ -689,6 +666,83 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
     await submitBooking();
   };
 
+  // Restore draft booking details and auto-complete booking if returning from registration/login
+  const hasRestoredDraftRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (hasRestoredDraftRef.current) return;
+    if (!doctor || loadingDoctors) return;
+
+    try {
+      const raw = sessionStorage.getItem('meetadr_pending_booking_draft');
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+
+      // Match doctor
+      if (draft.doctorId && String(draft.doctorId) !== String(doctor.id) && String(draft.doctorId) !== String(selectedDocId)) {
+        return;
+      }
+
+      // Restore form values
+      if (draft.selectedDate) {
+        const foundDate = nextDates.find((d) => d.date === draft.selectedDate);
+        if (foundDate) setSelectedDateObj(foundDate);
+      }
+      if (draft.selectedSlot) setSelectedSlot(draft.selectedSlot);
+      if (draft.selectedSpecialty) setSelectedSpecialty(draft.selectedSpecialty);
+      if (draft.patientName) setPatientName(draft.patientName);
+      if (draft.mobileNumber) setMobileNumber(draft.mobileNumber);
+      if (draft.countryCode) setCountryCode(draft.countryCode);
+      if (draft.patientEmail) setPatientEmail(draft.patientEmail);
+      if (draft.beneficiaryType) setBeneficiaryType(draft.beneficiaryType);
+      if (draft.selectedDependentId) setSelectedDependentId(draft.selectedDependentId);
+      if (draft.billingType) setBillingType(draft.billingType);
+      if (draft.insuranceProvider) setInsuranceProvider(draft.insuranceProvider);
+      if (draft.insuranceNumber) setInsuranceNumber(draft.insuranceNumber);
+      if (draft.termsAccepted) setTermsAccepted(true);
+
+      setCurrentStep(3);
+
+      // If user is now authenticated and autoSubmit was requested, complete the booking automatically!
+      if (isAuthenticated && draft.autoSubmit && !isStaff) {
+        hasRestoredDraftRef.current = true;
+        sessionStorage.removeItem('meetadr_pending_booking_draft');
+
+        const cleanDigits = sanitizePhoneNumber(draft.mobileNumber || user?.phone || '', draft.countryCode || '+971');
+        const fullPhone = `${draft.countryCode || '+971'} ${cleanDigits}`.trim();
+        const bookingDate = draft.selectedDate || selectedDateObj.date;
+        const bookingSlot = draft.selectedSlot || selectedSlot;
+
+        if (bookingDate && bookingSlot) {
+          setIsSubmitting(true);
+          realBookingService.createBooking({
+            doctor_id: doctor.id,
+            date: bookingDate,
+            time_slot: bookingSlot,
+            dependent_id: draft.beneficiaryType === 'dependent' ? draft.selectedDependentId : undefined,
+            notes: '',
+            patient_phone: fullPhone,
+            billing_type: draft.billingType || 'self_pay',
+            insurance_provider: draft.billingType === 'insurance' ? (draft.insuranceProvider || '').trim() : '',
+            insurance_number: draft.billingType === 'insurance' ? (draft.insuranceNumber || '').trim() : '',
+          }).then((newAppt) => {
+            setBookedAppointment(newAppt);
+            setBookedSlotsForDate((prev) => [...prev, bookingSlot]);
+            window.dispatchEvent(new CustomEvent('meetadr:notification_updated'));
+            showToast(t('booking.bookingConfirmedTitle'), 'success');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }).catch((err: any) => {
+            showToast(err.message || 'Failed to place booking.', 'error');
+          }).finally(() => {
+            setIsSubmitting(false);
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Error restoring booking draft:', e);
+    }
+  }, [doctor, loadingDoctors, isAuthenticated, isStaff, nextDates]);
+
   const handleBookNow = async (e: React.FormEvent) => {
     e.preventDefault();
     setHasAttemptedSubmit(true);
@@ -696,13 +750,20 @@ const generateFullScheduleSlots = (doctorSlots: string[] = []): string[] => {
     try {
       sessionStorage.setItem('meetadr_pending_booking_draft', JSON.stringify({
         doctorId: selectedDocId || doctorId,
-        selectedDate,
+        selectedDate: selectedDateObj?.date,
         selectedSlot,
         selectedSpecialty,
         patientName,
         mobileNumber,
         countryCode,
         patientEmail,
+        beneficiaryType,
+        selectedDependentId,
+        billingType,
+        insuranceProvider,
+        insuranceNumber,
+        termsAccepted: true,
+        autoSubmit: true,
       }));
     } catch (err) {
       // ignore

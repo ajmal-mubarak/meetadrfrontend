@@ -205,11 +205,11 @@ export const RegisterPage: React.FC = () => {
       newErrors.gender = 'Please select your gender (Male or Female).';
     }
 
-    // 6. Password (Must contain at least 6 characters)
+    // 6. Password (Must contain at least 8 characters)
     if (!password) {
       newErrors.password = 'Password is required.';
-    } else if (password.length < 6) {
-      newErrors.password = 'Password must contain at least 6 characters.';
+    } else if (password.length < 8) {
+      newErrors.password = 'Password must contain at least 8 characters.';
     }
 
     // 7. Confirm Password
@@ -227,8 +227,6 @@ export const RegisterPage: React.FC = () => {
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) {
-      const firstError = Object.values(newErrors)[0];
-      showToast(firstError, 'error');
       return false;
     }
 
@@ -264,17 +262,24 @@ export const RegisterPage: React.FC = () => {
       }
     } catch (err: any) {
       const data = err?.response?.data || {};
-      const msg =
-        (data.email && data.email[0]) ||
-        (data.phone && data.phone[0]) ||
-        (data.password && data.password[0]) ||
-        (data.gender && data.gender[0]) ||
-        (data.dob && data.dob[0]) ||
-        data.detail ||
-        data.message ||
-        err?.message ||
-        'Registration failed. Please check all fields and try again.';
-      showToast(msg, 'error');
+      const backendErrors: Record<string, string> = {};
+      if (data.email) backendErrors.email = Array.isArray(data.email) ? data.email[0] : data.email;
+      if (data.phone) backendErrors.phone = Array.isArray(data.phone) ? data.phone[0] : data.phone;
+      if (data.password) backendErrors.password = Array.isArray(data.password) ? data.password[0] : data.password;
+      if (data.gender) backendErrors.gender = Array.isArray(data.gender) ? data.gender[0] : data.gender;
+      if (data.dob) backendErrors.dob = Array.isArray(data.dob) ? data.dob[0] : data.dob;
+      if (data.name) backendErrors.name = Array.isArray(data.name) ? data.name[0] : data.name;
+
+      if (Object.keys(backendErrors).length > 0) {
+        setErrors((prev) => ({ ...prev, ...backendErrors }));
+      } else {
+        const msg =
+          data.detail ||
+          data.message ||
+          err?.message ||
+          'Registration failed. Please check all fields and try again.';
+        showToast(msg, 'error');
+      }
     } finally {
       setIsLoading(false);
     }

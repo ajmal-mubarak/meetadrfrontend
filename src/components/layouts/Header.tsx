@@ -252,20 +252,8 @@ export const Header: React.FC = () => {
               {t('navigation.contactUs')}
             </Link>
 
-            {/* If patient is logged in, show dedicated "My Bookings" button; otherwise show Join With Us */}
-            {isAuthenticated && user?.role === 'patient' ? (
-              <Link
-                to="/my-bookings"
-                className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-1.5 ${
-                  location.pathname === '/my-bookings' || location.pathname === '/patient/bookings'
-                    ? 'text-[#0E7490] bg-[#E8F6F8] border border-[#CDEBF0] font-bold'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white'
-                }`}
-              >
-                <Calendar className="w-4 h-4 text-[#0E7490]" />
-                <span>{isRTL ? 'حجوزاتي' : 'My Bookings'}</span>
-              </Link>
-            ) : (
+            {/* Show "Join With Us" only when user is not a logged-in patient */}
+            {(!isAuthenticated || user?.role !== 'patient') && (
               <Link
                 to="/join"
                 className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
@@ -336,7 +324,9 @@ export const Header: React.FC = () => {
                       <span className="text-xs font-bold text-slate-900 block leading-tight">
                         {user.name.split(' ')[0]}
                       </span>
-                      <span className="text-[10px] text-slate-500 block leading-tight capitalize">{user.role}</span>
+                      {user.role && user.role.toLowerCase() !== 'patient' && (
+                        <span className="text-[10px] text-slate-500 block leading-tight capitalize">{user.role}</span>
+                      )}
                     </div>
                     <ChevronDown
                       className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-150 ${
@@ -357,9 +347,11 @@ export const Header: React.FC = () => {
                         <div className="px-3 py-2 border-b border-[#E2EBF0]">
                           <span className="text-xs font-bold text-slate-900 block truncate">{user.name}</span>
                           <span className="text-[11px] text-slate-500 block truncate">{user.email}</span>
-                          <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#E8F6F8] text-[#0E7490] border border-[#CDEBF0] capitalize">
-                            {user.role}
-                          </span>
+                          {user.role && user.role.toLowerCase() !== 'patient' && (
+                            <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#E8F6F8] text-[#0E7490] border border-[#CDEBF0] capitalize">
+                              {user.role}
+                            </span>
+                          )}
                         </div>
 
                         <div className="py-1 space-y-0.5">
@@ -511,7 +503,9 @@ export const Header: React.FC = () => {
                     </div>
                     <div>
                       <span className="text-xs font-bold text-slate-900 block">{user.name}</span>
-                      <span className="text-[11px] text-slate-500 capitalize">{user.role}</span>
+                      {user.role && user.role.toLowerCase() !== 'patient' && (
+                        <span className="text-[11px] text-slate-500 capitalize">{user.role}</span>
+                      )}
                     </div>
                   </div>
                   {user.role === 'patient' ? (
