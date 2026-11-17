@@ -517,15 +517,81 @@ export const BulkDoctorZipImportModal: React.FC<BulkDoctorZipImportModalProps> =
                 </div>
               </div>
 
-              {/* Photo Naming Guidance */}
-              <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-600 flex items-start gap-2.5">
-                <HelpCircle className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <span className="font-bold text-slate-800 block">How photo matching works:</span>
-                  <p className="text-slate-500 text-[11px] leading-relaxed">
-                    Name images in the ZIP using the <strong>Doctor ID</strong> (e.g. <code>D001.jpg</code>) or the exact filename listed in the spreadsheet.
-                    Supported formats: <strong>JPG, JPEG, PNG, WebP</strong>. Images are automatically cropped and converted to high-performance WebP upon import.
-                  </p>
+              {/* Photo Naming Guidance with Examples */}
+              <div className="p-4 bg-slate-50/90 rounded-2xl border border-slate-200/90 text-xs text-slate-600 space-y-3">
+                <div className="flex items-start gap-2.5">
+                  <HelpCircle className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <span className="font-bold text-slate-800 block text-xs">How photo matching works & naming examples:</span>
+                    <p className="text-slate-500 text-[11px] leading-relaxed">
+                      Store all doctor headshot photos inside one <code className="bg-slate-200/70 px-1 py-0.5 rounded text-[11px] font-mono text-slate-700">.zip</code> file. The system automatically links photos to doctors using either method below:
+                    </p>
+                  </div>
+                </div>
+
+                {/* Visual Examples Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-0.5">
+                  {/* Method 1 */}
+                  <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="w-5 h-5 rounded-full bg-teal-100 text-teal-800 font-bold text-[10px] flex items-center justify-center shrink-0">1</span>
+                      <span className="font-bold text-slate-800 text-[11px]">Option A: Match by Doctor ID (Recommended)</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mb-2">
+                      Name the photo file exactly like the <span className="font-semibold text-slate-700">Doctor ID</span> in Column A:
+                    </p>
+                    <div className="bg-slate-50 p-2 rounded-lg font-mono text-[10px] space-y-1 text-slate-700 border border-slate-100">
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500">Excel ID: <strong className="text-teal-700">D001</strong></span>
+                        <span>➔</span>
+                        <span>Photo: <strong className="text-teal-700">D001.jpg</strong></span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500">Excel ID: <strong className="text-teal-700">D002</strong></span>
+                        <span>➔</span>
+                        <span>Photo: <strong className="text-teal-700">D002.png</strong></span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500">Excel ID: <strong className="text-teal-700">MED-105</strong></span>
+                        <span>➔</span>
+                        <span>Photo: <strong className="text-teal-700">MED-105.jpeg</strong></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Method 2 */}
+                  <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-800 font-bold text-[10px] flex items-center justify-center shrink-0">2</span>
+                      <span className="font-bold text-slate-800 text-[11px]">Option B: Match by Filename in Column B</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mb-2">
+                      Type the photo's filename in <span className="font-semibold text-slate-700">Doctor Photo Filename</span>:
+                    </p>
+                    <div className="bg-slate-50 p-2 rounded-lg font-mono text-[10px] space-y-1 text-slate-700 border border-slate-100">
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500">Column B: <strong className="text-blue-700">dr_ahmed.jpg</strong></span>
+                        <span>➔</span>
+                        <span>Photo: <strong className="text-blue-700">dr_ahmed.jpg</strong></span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500">Column B: <strong className="text-blue-700">sarah_h.png</strong></span>
+                        <span>➔</span>
+                        <span>Photo: <strong className="text-blue-700">sarah_h.png</strong></span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500">Column B: <strong className="text-blue-700">patel_profile.webp</strong></span>
+                        <span>➔</span>
+                        <span>Photo: <strong className="text-blue-700">patel_profile.webp</strong></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-[10px] text-slate-400 flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5 border-t border-slate-200/60">
+                  <span>✓ Formats: <strong>JPG, JPEG, PNG, WebP</strong></span>
+                  <span>✓ Case-insensitive (<code className="text-slate-500">d001.JPG</code> matches <code className="text-slate-500">D001</code>)</span>
+                  <span>✓ Automatically cropped & compressed to WebP (800x800)</span>
                 </div>
               </div>
 
