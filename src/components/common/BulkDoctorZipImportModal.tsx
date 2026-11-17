@@ -83,6 +83,7 @@ interface JobStatusResponse {
   missing_photos: number;
   unused_photos: number;
   error_log: any[];
+  current_phase?: string;
 }
 
 export const BulkDoctorZipImportModal: React.FC<BulkDoctorZipImportModalProps> = ({
@@ -932,33 +933,34 @@ export const BulkDoctorZipImportModal: React.FC<BulkDoctorZipImportModalProps> =
                 </div>
               ) : (
                 <div className="space-y-5 animate-in fade-in">
-                  <div className="w-14 h-14 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center mx-auto">
+                  <div className="w-14 h-14 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center mx-auto shadow-xs">
                     <Loader2 className="w-7 h-7 animate-spin" />
                   </div>
                   <div>
                     <h4 className="text-base font-bold text-slate-900">Importing Doctors & Photos...</h4>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Optimizing headshots to WebP, uploading to Supabase Storage, and creating doctor profiles.
+                    <p className="text-xs text-teal-700 font-medium mt-1.5 min-h-[20px] transition-all">
+                      {jobStatus?.current_phase || 'Optimizing headshots to WebP, uploading to Supabase Storage, and creating doctor profiles.'}
                     </p>
                   </div>
 
                   {/* Progress bar */}
-                  <div className="space-y-2">
+                  <div className="space-y-2 pt-1">
                     <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
                       <div
-                        className="bg-teal-600 h-full rounded-full transition-all duration-300"
-                        style={{ width: `${jobStatus?.percentage || 10}%` }}
+                        className="bg-teal-600 h-full rounded-full transition-all duration-500 ease-out"
+                        style={{ width: `${Math.max(jobStatus?.percentage || 5, 5)}%` }}
                       />
                     </div>
                     <div className="flex justify-between text-[11px] font-semibold text-slate-500">
-                      <span>{jobStatus?.processed_records || 0} of {jobStatus?.total_records || previewResult?.total_records || '...'} processed</span>
-                      <span>{jobStatus?.percentage || 10}%</span>
+                      <span>{jobStatus?.processed_records || 0} of {jobStatus?.total_records || previewResult?.total_records || '...'} records processed</span>
+                      <span className="font-bold text-teal-700">{jobStatus?.percentage || 5}%</span>
                     </div>
                   </div>
 
-                  <p className="text-[11px] text-slate-400">
-                    You can safely keep this open. Large imports (700+ doctors) run in parallel in the background.
-                  </p>
+                  <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
+                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Background worker active · You can keep this open or monitor in background</span>
+                  </div>
                 </div>
               )}
             </div>
