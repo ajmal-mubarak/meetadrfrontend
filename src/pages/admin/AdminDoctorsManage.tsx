@@ -36,6 +36,7 @@ import {
 
 
   Eye,
+  EyeOff,
 
 
 
@@ -302,6 +303,7 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [showAddPassword, setShowAddPassword] = useState(false);
 
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isZipImportModalOpen, setIsZipImportModalOpen] = useState(false);
@@ -4945,31 +4947,27 @@ export const AdminDoctorsManage: React.FC = () => {
                   </div>
 
                   <div>
-
                     <label className="block font-bold text-slate-700 mb-1">
-
                       Password <span className="text-rose-500">*</span>
-
                     </label>
-
-                    <input
-
-                      type="password"
-
-                      required
-
-                      placeholder="Min. 8 characters"
-
-                      value={addForm.password}
-
-                      onChange={(e) => setAddForm({ ...addForm, password: e.target.value })}
-
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
-
-                    />
-
-
-
+                    <div className="relative">
+                      <input
+                        type={showAddPassword ? "text" : "password"}
+                        required
+                        placeholder="Min. 8 characters"
+                        value={addForm.password}
+                        onChange={(e) => setAddForm({ ...addForm, password: e.target.value })}
+                        className="w-full pl-3 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowAddPassword(!showAddPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer p-1"
+                        title={showAddPassword ? "Hide password" : "Show password"}
+                      >
+                        {showAddPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 text-slate-400" />}
+                      </button>
+                    </div>
                   </div>
 
 

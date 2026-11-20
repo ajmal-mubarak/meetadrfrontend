@@ -148,8 +148,14 @@ function normalizeError(response: Response, data: unknown): ApiError {
 
     if (payload.detail && typeof payload.detail === 'string') {
       message = payload.detail;
+      if (response.status === 401 || message.toLowerCase().includes('credentials were not provided')) {
+        message = 'Your session has expired. Please log in again to continue.';
+      }
     } else if (payload.message && typeof payload.message === 'string') {
       message = payload.message;
+      if (response.status === 401) {
+        message = 'Your session has expired. Please log in again to continue.';
+      }
     } else if (payload.error && typeof payload.error === 'string') {
       message = payload.error;
     } else if (Array.isArray(payload.non_field_errors) && payload.non_field_errors.length > 0) {
@@ -203,7 +209,7 @@ function normalizeError(response: Response, data: unknown): ApiError {
         message = 'The request was invalid. Please check your input.';
         break;
       case 401:
-        message = 'Authentication required. Please log in.';
+        message = 'Your session has expired. Please log in again to continue.';
         break;
       case 403:
         message = 'You do not have permission to perform this action.';

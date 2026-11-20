@@ -9,6 +9,7 @@ import {
   CheckCircle,
   XCircle,
   Eye,
+  EyeOff,
   Stethoscope,
   Phone,
   Clock,
@@ -85,6 +86,9 @@ export const AdminHospitalsManage: React.FC = () => {
 
   // Add Hospital Modal
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [showAddPassword, setShowAddPassword] = useState(false);
+  const [showEditPassword, setShowEditPassword] = useState(false);
+  const [showDoctorPassword, setShowDoctorPassword] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isSubmittingAdd, setIsSubmittingAdd] = useState(false);
   const [addForm, setAddForm] = useState({
@@ -1609,12 +1613,24 @@ export const AdminHospitalsManage: React.FC = () => {
                   </div>
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">Password <span className="text-rose-500">*</span></label>
-<input type="password" required
-                      placeholder="e.g. Hospital@12345"
-                      value={addForm.password}
-                      onChange={(e) => setAddForm({ ...addForm, password: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showAddPassword ? "text" : "password"}
+                        required
+                        placeholder="e.g. Hospital@12345"
+                        value={addForm.password}
+                        onChange={(e) => setAddForm({ ...addForm, password: e.target.value })}
+                        className="w-full pl-3 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowAddPassword(!showAddPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer p-1"
+                        title={showAddPassword ? "Hide password" : "Show password"}
+                      >
+                        {showAddPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 text-slate-400" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1930,13 +1946,23 @@ export const AdminHospitalsManage: React.FC = () => {
                   </div>
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">New Password (Optional)</label>
-                    <input
-                      type="password"
-                      placeholder="Enter new password"
-                      value={editForm.password}
-                      onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showEditPassword ? "text" : "password"}
+                        placeholder="Enter new password"
+                        value={editForm.password}
+                        onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                        className="w-full pl-3 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 font-semibold"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowEditPassword(!showEditPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer p-1"
+                        title={showEditPassword ? "Hide password" : "Show password"}
+                      >
+                        {showEditPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 text-slate-400" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2149,13 +2175,23 @@ export const AdminHospitalsManage: React.FC = () => {
                       <label className="block font-bold text-slate-700 mb-1">
                         Password
                       </label>
-                      <input
-                        type="password"
-                        placeholder="Min. 8 characters"
-                        value={doctorForm.password || ''}
-                        onChange={(e) => setDoctorForm({ ...doctorForm, password: e.target.value })}
-                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
-                      />
+                      <div className="relative">
+                        <input
+                          type={showDoctorPassword ? "text" : "password"}
+                          placeholder="Min. 8 characters"
+                          value={doctorForm.password || ''}
+                          onChange={(e) => setDoctorForm({ ...doctorForm, password: e.target.value })}
+                          className="w-full pl-3 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 font-semibold"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowDoctorPassword(!showDoctorPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer p-1"
+                          title={showDoctorPassword ? "Hide password" : "Show password"}
+                        >
+                          {showDoctorPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 text-slate-400" />}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

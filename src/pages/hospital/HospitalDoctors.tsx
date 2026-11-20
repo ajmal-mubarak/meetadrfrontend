@@ -17,6 +17,7 @@ import {
   Search,
   ExternalLink,
   Eye,
+  EyeOff,
   Edit3,
   Trash2,
   ShieldCheck,
@@ -97,6 +98,7 @@ export const HospitalDoctors: React.FC = () => {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [doctorEmail, setDoctorEmail] = useState('');
   const [doctorPassword, setDoctorPassword] = useState('');
+  const [showDoctorPassword, setShowDoctorPassword] = useState(false);
   const [addDays, setAddDays] = useState<string[]>(WEEK_DAYS.slice(0, 5));
   const [addSlots, setAddSlots] = useState<string[]>(DEFAULT_PRESET_SLOTS);
 
@@ -1565,14 +1567,24 @@ export const HospitalDoctors: React.FC = () => {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Password <span className="text-rose-500">*</span>
                   </label>
-                  <input
-                    type="password"
-                    required
-                    value={doctorPassword}
-                    onChange={(e) => setDoctorPassword(e.target.value)}
-                    placeholder="Min. 8 characters"
-                    className="w-full p-2.5 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl text-sm focus:border-[#2DA7B5] focus:bg-white focus:outline-none transition-all"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showDoctorPassword ? "text" : "password"}
+                      required
+                      value={doctorPassword}
+                      onChange={(e) => setDoctorPassword(e.target.value)}
+                      placeholder="Min. 8 characters"
+                      className="w-full p-2.5 pr-10 bg-[#F8FAFC] border border-[#E2EBF0] rounded-xl text-sm focus:border-[#2DA7B5] focus:bg-white focus:outline-none transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowDoctorPassword(!showDoctorPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer p-1"
+                      title={showDoctorPassword ? "Hide password" : "Show password"}
+                    >
+                      {showDoctorPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 text-slate-400" />}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="sm:col-span-2">
