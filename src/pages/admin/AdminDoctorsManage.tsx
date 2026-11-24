@@ -4,9 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 
 
 import {
-
-
-
+  Loader2,
   Stethoscope,
 
 
@@ -270,6 +268,21 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{
+    isOpen: boolean;
+    total: number;
+    current: number;
+    action: string;
+    statusText: string;
+    isCompleted: boolean;
+  }>({
+    isOpen: false,
+    total: 0,
+    current: 0,
+    action: '',
+    statusText: '',
+    isCompleted: false,
+  });
 
 
 
@@ -712,89 +725,89 @@ export const AdminDoctorsManage: React.FC = () => {
 
 
   const handleBulkAction = async (action: 'verify' | 'deactivate' | 'delete') => {
-
-
-
     if (selectedDoctorIds.length === 0) return;
 
-
-
-
-
-
-
     if (action === 'delete') {
-
-
-
       const confirmDelete = window.confirm(
-
-
-
         `Are you sure you want to permanently delete ${selectedDoctorIds.length} doctors? This action cannot be undone.`
-
-
-
       );
-
-
-
       if (!confirmDelete) return;
-
-
-
     }
-
-
-
-
-
-
 
     setIsBulkProcessing(true);
+    const totalCount = selectedDoctorIds.length;
+    const actionLabel = action === 'delete' ? 'Deleting' : (action === 'verify' ? 'Verifying' : 'Deactivating');
 
+    setBulkProgress({
+      isOpen: true,
+      total: totalCount,
+      current: 0,
+      action,
+      statusText: `Preparing to ${action} ${totalCount} doctors...`,
+      isCompleted: false,
+    });
 
-
-    try {
-
-
-
-      const res = await realAdminService.bulkDoctorAction(selectedDoctorIds, action);
-
-
-
-      showToast(res.message || `Bulk ${action} completed successfully.`, 'success');
-
-
-
-      setSelectedDoctorIds([]);
-
-
-
-      await loadData();
-
-
-
-    } catch (err: any) {
-
-
-
-      showToast(err.message || `Failed to perform bulk ${action}.`, 'error');
-
-
-
-    } finally {
-
-
-
-      setIsBulkProcessing(false);
-
-
-
+    // Chunk requests into batches of 15 for optimal speed and visual progress tracking
+    const CHUNK_SIZE = 15;
+    const chunks: string[][] = [];
+    for (let i = 0; i < selectedDoctorIds.length; i += CHUNK_SIZE) {
+      chunks.push(selectedDoctorIds.slice(i, i + CHUNK_SIZE));
     }
 
+    let processed = 0;
+    let failedCount = 0;
 
+    try {
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        setBulkProgress(prev => ({
+          ...prev,
+          current: processed,
+          statusText: `${actionLabel} doctors (${processed + 1} - ${Math.min(processed + chunk.length, totalCount)} of ${totalCount})...`,
+        }));
 
+        try {
+          await realAdminService.bulkDoctorAction(chunk, action);
+          processed += chunk.length;
+        } catch (chunkErr) {
+          console.error('Error processing bulk chunk:', chunkErr);
+          failedCount += chunk.length;
+        }
+
+        setBulkProgress(prev => ({
+          ...prev,
+          current: processed,
+          statusText: `${actionLabel} doctors: ${processed} of ${totalCount} completed...`,
+        }));
+      }
+
+      setBulkProgress(prev => ({
+        ...prev,
+        current: processed,
+        isCompleted: true,
+        statusText: failedCount > 0
+          ? `Finished with ${processed} succeeded, ${failedCount} failed.`
+          : `Successfully ${action === 'delete' ? 'deleted' : action + 'd'} all ${totalCount} doctors!`,
+      }));
+
+      // Short delay so user sees 100% completion bar
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      showToast(
+        failedCount > 0
+          ? `Processed ${processed} doctors (${failedCount} failed).`
+          : `Successfully ${action === 'delete' ? 'deleted' : action + 'd'} ${totalCount} doctors.`,
+        failedCount > 0 ? 'error' : 'success'
+      );
+
+      setSelectedDoctorIds([]);
+      await loadData();
+    } catch (err: any) {
+      showToast(err.message || `Failed to perform bulk ${action}.`, 'error');
+    } finally {
+      setIsBulkProcessing(false);
+      setBulkProgress(prev => ({ ...prev, isOpen: false }));
+    }
   };
 
 
@@ -3952,6 +3965,73 @@ export const AdminDoctorsManage: React.FC = () => {
         onSuccess={loadData}
         scope="admin"
       />
+
+      {/* Live Track Bar / Bulk Progress Modal */}
+      {bulkProgress.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full p-6 space-y-5">
+            <div className="flex items-center gap-3">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                bulkProgress.action === 'delete'
+                  ? 'bg-rose-50 text-rose-600'
+                  : 'bg-emerald-50 text-emerald-600'
+              }`}>
+                {bulkProgress.isCompleted ? (
+                  <CheckCircle className="w-6 h-6 text-emerald-600 animate-in zoom-in" />
+                ) : bulkProgress.action === 'delete' ? (
+                  <Trash2 className="w-6 h-6 animate-pulse" />
+                ) : (
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                )}
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-800">
+                  {bulkProgress.action === 'delete' ? 'Bulk Deleting Doctors' : 'Processing Bulk Action'}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {bulkProgress.isCompleted ? 'Operation completed' : 'Please keep this window open'}
+                </p>
+              </div>
+            </div>
+
+            {/* Progress Counter & Percentage */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-baseline text-sm">
+                <span className="font-semibold text-slate-700">
+                  {bulkProgress.statusText}
+                </span>
+                <span className="font-mono font-bold text-base text-slate-900">
+                  {bulkProgress.total > 0 ? Math.round((bulkProgress.current / bulkProgress.total) * 100) : 0}%
+                </span>
+              </div>
+
+              {/* Progress Bar Track */}
+              <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden p-0.5 shadow-inner">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ease-out ${
+                    bulkProgress.action === 'delete'
+                      ? 'bg-gradient-to-r from-rose-500 to-rose-600'
+                      : 'bg-gradient-to-r from-teal-500 to-emerald-600'
+                  }`}
+                  style={{
+                    width: `${bulkProgress.total > 0 ? Math.min(100, Math.round((bulkProgress.current / bulkProgress.total) * 100)) : 0}%`,
+                  }}
+                />
+              </div>
+
+              <div className="flex justify-between items-center text-xs text-slate-400 pt-1">
+                <span>Progress: {bulkProgress.current} of {bulkProgress.total}</span>
+                <span>Remaining: {Math.max(0, bulkProgress.total - bulkProgress.current)}</span>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 flex items-center gap-2 text-xs text-slate-500">
+              <Clock className="w-4 h-4 text-slate-400 shrink-0" />
+              <span>Processing practitioner records and affiliations safely...</span>
+            </div>
+          </div>
+        </div>
+      )}
 
 
 
