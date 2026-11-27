@@ -148,12 +148,24 @@ function normalizeError(response: Response, data: unknown): ApiError {
 
     if (payload.detail && typeof payload.detail === 'string') {
       message = payload.detail;
-      if (response.status === 401 || message.toLowerCase().includes('credentials were not provided')) {
+      const lower = message.toLowerCase();
+      if (
+        lower.includes('token_not_valid') ||
+        lower.includes('token is invalid') ||
+        lower.includes('token expired') ||
+        lower.includes('credentials were not provided')
+      ) {
         message = 'Your session has expired. Please log in again to continue.';
       }
     } else if (payload.message && typeof payload.message === 'string') {
       message = payload.message;
-      if (response.status === 401) {
+      const lower = message.toLowerCase();
+      if (
+        lower.includes('token_not_valid') ||
+        lower.includes('token is invalid') ||
+        lower.includes('token expired') ||
+        lower.includes('credentials were not provided')
+      ) {
         message = 'Your session has expired. Please log in again to continue.';
       }
     } else if (payload.error && typeof payload.error === 'string') {
