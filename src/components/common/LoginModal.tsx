@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
@@ -87,6 +87,75 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [quickLoading, setQuickLoading] = useState<UserRole | null>(null);
 
+  // Inactivity timeout: clear credentials after 60 seconds if login is not processed
+  const INACTIVITY_TIMEOUT_MS = 60 * 1000; // 60 seconds
+  const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const clearCredentialsDueToInactivity = useCallback(() => {
+    setLoginInput((prevLogin) => {
+      setPassword((prevPass) => {
+        if (prevLogin.trim() || prevPass.trim()) {
+          showToast('Login timed out: Credentials cleared due to inactivity for security.', 'info');
+        }
+        return '';
+      });
+      return '';
+    });
+  }, [showToast]);
+
+  const resetInactivityTimer = useCallback(() => {
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = null;
+    }
+
+    if (isOpen && (loginInput.trim() || password.trim())) {
+      inactivityTimerRef.current = setTimeout(() => {
+        clearCredentialsDueToInactivity();
+      }, INACTIVITY_TIMEOUT_MS);
+    }
+  }, [isOpen, loginInput, password, clearCredentialsDueToInactivity]);
+
+  // Restart timer whenever inputs change or modal opens
+  useEffect(() => {
+    resetInactivityTimer();
+    return () => {
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+      }
+    };
+  }, [loginInput, password, isOpen, resetInactivityTimer]);
+
+  // Reset inputs when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+      }
+      setLoginInput('');
+      setPassword('');
+    }
+  }, [isOpen]);
+
+  // Reset timer on user activity inside the modal
+  useEffect(() => {
+    if (!isOpen || (!loginInput.trim() && !password.trim())) return;
+
+    const handleActivity = () => {
+      resetInactivityTimer();
+    };
+
+    window.addEventListener('keydown', handleActivity, { passive: true });
+    window.addEventListener('mousemove', handleActivity, { passive: true });
+    window.addEventListener('touchstart', handleActivity, { passive: true });
+
+    return () => {
+      window.removeEventListener('keydown', handleActivity);
+      window.removeEventListener('mousemove', handleActivity);
+      window.removeEventListener('touchstart', handleActivity);
+    };
+  }, [isOpen, loginInput, password, resetInactivityTimer]);
+
   // Lock body scroll when modal is open
   useEffect(() => {
     if (isOpen) {
@@ -108,6 +177,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
   const activeRoleData = ROLES.find((r) => r.role === activeRole)!;
 
   const redirectAfterLogin = (role: UserRole) => {
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
     onClose();
     const from = (location.state as any)?.from?.pathname;
     if (from && from !== '/login') { navigate(from, { replace: true }); return; }
@@ -126,10 +196,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
     setIsLoading(true);
     try {
       const user = await login(loginInput.trim(), password);
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
       showToast(`Welcome back, ${user.name}!`, 'success');
       redirectAfterLogin(user.role);
     } catch (err: any) {
       showToast(err.message || 'Invalid credentials.', 'error');
+      setPassword(''); // Clear password immediately if login failed
     } finally {
       setIsLoading(false);
     }

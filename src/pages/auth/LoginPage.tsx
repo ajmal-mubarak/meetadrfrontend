@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
@@ -102,9 +102,68 @@ export const LoginPage: React.FC<LoginPageProps> = ({ forcedRole }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Inactivity timeout: clear credentials after 60 seconds if login is not processed
+  const INACTIVITY_TIMEOUT_MS = 60 * 1000; // 60 seconds
+  const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const clearCredentialsDueToInactivity = useCallback(() => {
+    setLoginInput((prevLogin) => {
+      setPassword((prevPass) => {
+        if (prevLogin.trim() || prevPass.trim()) {
+          showToast('Login timed out: Credentials cleared due to inactivity for security.', 'info');
+        }
+        return '';
+      });
+      return '';
+    });
+  }, [showToast]);
+
+  const resetInactivityTimer = useCallback(() => {
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = null;
+    }
+
+    if (loginInput.trim() || password.trim()) {
+      inactivityTimerRef.current = setTimeout(() => {
+        clearCredentialsDueToInactivity();
+      }, INACTIVITY_TIMEOUT_MS);
+    }
+  }, [loginInput, password, clearCredentialsDueToInactivity]);
+
+  // Restart timer whenever login inputs change
+  useEffect(() => {
+    resetInactivityTimer();
+    return () => {
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+      }
+    };
+  }, [loginInput, password, resetInactivityTimer]);
+
+  // Keep resetting timer on user activity (keypress/mousemove) while credentials exist
+  useEffect(() => {
+    if (!loginInput.trim() && !password.trim()) return;
+
+    const handleActivity = () => {
+      resetInactivityTimer();
+    };
+
+    window.addEventListener('keydown', handleActivity, { passive: true });
+    window.addEventListener('mousemove', handleActivity, { passive: true });
+    window.addEventListener('touchstart', handleActivity, { passive: true });
+
+    return () => {
+      window.removeEventListener('keydown', handleActivity);
+      window.removeEventListener('mousemove', handleActivity);
+      window.removeEventListener('touchstart', handleActivity);
+    };
+  }, [loginInput, password, resetInactivityTimer]);
+
   const role = ROLES.find((r) => r.role === activeRole)!;
 
   const redirectAfterLogin = (r: UserRole) => {
+    if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
     const searchParams = new URLSearchParams(location.search);
     const redirectParam = searchParams.get('redirect');
     if (redirectParam) {
@@ -125,10 +184,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ forcedRole }) => {
     setIsLoading(true);
     try {
       const user = await login(loginInput.trim(), password);
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
       showToast(`Welcome, ${user.name}!`, 'success');
       redirectAfterLogin(user.role);
     } catch (err: any) {
       showToast(err.message || 'Invalid credentials.', 'error');
+      setPassword(''); // Clear password immediately if login was not processed / failed
     } finally { setIsLoading(false); }
   };
 
@@ -254,9 +315,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ forcedRole }) => {
             </button>
 
             {/* Security */}
-            <div className="flex items-center justify-center gap-1.5 pb-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#2DA7B5] shrink-0" />
-              <span className="text-[10px] text-slate-500 font-medium">End-to-End Encrypted</span>
+            <div className="flex flex-col items-center justify-center gap-1 pb-1">
+              <div className="flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#2DA7B5] shrink-0" />
+                <span className="text-[10px] text-slate-500 font-medium">End-to-End Encrypted</span>
+              </div>
+              {(loginInput.trim() || password.trim()) && (
+                <span className="text-[10px] text-slate-400 font-medium">
+                  Credentials auto-clear after 60s of inactivity
+                </span>
+              )}
             </div>
 
           </div>
