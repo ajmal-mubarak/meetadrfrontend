@@ -224,6 +224,13 @@ function mapProvider(p: BackendProviderFacility): ProviderItem {
     : (p.default_standard_slots && p.default_standard_slots.length > 0)
     ? p.default_standard_slots
     : DEFAULT_PRESET_SLOTS;
+
+  const em = (p.emirate || p.city || p.location || 'Dubai').trim();
+  const rawArea = (p.area || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+  const formattedLocation = (em && rawArea && em.toLowerCase() !== rawArea.toLowerCase())
+    ? `${em} - ${rawArea}`
+    : (p.location || em || rawArea || 'Dubai');
+
   const common = {
     id: String(p.id),
     name: p.name,
@@ -231,7 +238,7 @@ function mapProvider(p: BackendProviderFacility): ProviderItem {
     photo: p.photo || (isClinic 
       ? 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&q=80&w=600'
       : 'https://images.unsplash.com/photo-1587351021759-3e566b6af7cc?auto=format&fit=crop&q=80&w=600'),
-    location: p.city || p.location || 'Dubai',
+    location: formattedLocation,
     address: p.address || 'Dubai Healthcare City, UAE',
     doctorIds: [],
     doctorCount: p.total_doctors || p.doctorCount || 0,

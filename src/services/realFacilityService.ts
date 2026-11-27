@@ -24,6 +24,9 @@ interface BackendHospital {
   name_ar?: string;
   photo?: string;
   location?: string;
+  emirate?: string;
+  area?: string;
+  country?: string;
   address?: string;
   address_ar?: string;
   phone?: string;
@@ -47,6 +50,9 @@ interface BackendClinic {
   name_ar?: string;
   photo?: string;
   location?: string;
+  emirate?: string;
+  area?: string;
+  country?: string;
   address?: string;
   address_ar?: string;
   primary_specialty?: string;
@@ -65,13 +71,38 @@ interface BackendClinic {
 
 // ─── Mapping helpers ──────────────────────────────────────────────────────────
 
+function cleanAreaName(area?: string): string {
+  if (!area) return '';
+  return area.replace(/\s*\([^)]*\)\s*$/, '').trim();
+}
+
+export function formatEmirateArea(emirate?: string, area?: string, fallbackLocation?: string): string {
+  const em = (emirate || fallbackLocation || '').trim();
+  const cleanArea = cleanAreaName(area);
+
+  // If fallbackLocation already contains a hyphen format, e.g. "Dubai - Jabel Ali", keep it
+  if (fallbackLocation && fallbackLocation.includes(' - ') && !cleanArea) {
+    return fallbackLocation.trim();
+  }
+
+  if (em && cleanArea && em.toLowerCase() !== cleanArea.toLowerCase()) {
+    return `${em} - ${cleanArea}`;
+  }
+
+  return fallbackLocation || em || cleanArea || '';
+}
+
 function mapHospital(b: BackendHospital): Hospital {
+  const formattedLocation = formatEmirateArea(b.emirate, b.area, b.location);
   return {
     id: String(b.id),
     name: b.name,
     nameAr: b.name_ar,
     photo: b.photo || 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&q=80&w=600',
-    location: b.location || '',
+    location: formattedLocation,
+    emirate: b.emirate || b.location || '',
+    area: b.area || '',
+    country: b.country || 'UAE',
     address: b.address || '',
     addressAr: b.address_ar,
     specialties: b.specialties || [],
@@ -92,11 +123,15 @@ function mapHospital(b: BackendHospital): Hospital {
 }
 
 function mapClinic(b: BackendClinic): Clinic {
+  const formattedLocation = formatEmirateArea(b.emirate, b.area, b.location);
   return {
     id: String(b.id),
     name: b.name,
     photo: b.photo || 'https://images.unsplash.com/photo-1581056771107-24ca5f033842?auto=format&fit=crop&q=80&w=600',
-    location: b.location || '',
+    location: formattedLocation,
+    emirate: b.emirate || b.location || '',
+    area: b.area || '',
+    country: b.country || 'UAE',
     address: b.address || '',
     specialty: b.primary_specialty || '',
     doctorIds: [],

@@ -360,7 +360,9 @@ export const AdminHospitalsManage: React.FC = () => {
         facility_category: addForm.facility_category,
         country: addForm.country.trim() || 'United Arab Emirates',
         emirate: addForm.emirate.trim() || 'Dubai',
-        location: addForm.emirate.trim() || 'Dubai',
+        location: (addForm.area.trim() && addForm.emirate.trim().toLowerCase() !== addForm.area.trim().replace(/\s*\([^)]*\)\s*$/, '').toLowerCase())
+          ? `${addForm.emirate.trim() || 'Dubai'} - ${addForm.area.trim().replace(/\s*\([^)]*\)\s*$/, '')}`
+          : (addForm.emirate.trim() || 'Dubai'),
         area: addForm.area.trim() || undefined,
         address: addForm.address.trim() || undefined,
         latitude: addForm.latitude ? parseFloat(addForm.latitude) : undefined,
@@ -395,7 +397,7 @@ export const AdminHospitalsManage: React.FC = () => {
     setHospitalToEdit(provider);
     const pType = ((provider as any).type || (provider.providerCategory === 'Clinic' ? 'clinic' : 'hospital')) as 'hospital' | 'clinic';
     const cat = ((provider as any).facility_category || (provider as any).providerCategory || (pType === 'clinic' ? 'Clinic' : 'Hospital')) as 'Hospital' | 'Clinic' | 'Wellness';
-    const em = (provider as any).emirate || provider.location || 'Dubai';
+    const em = (provider as any).emirate || (provider.location ? provider.location.split(' - ')[0] : 'Dubai');
     const rawIns = (provider as any).insurance_plans || (provider as any).insurancePlans || '';
     const parsedInsurances = typeof rawIns === 'string'
       ? rawIns.split(',').map((s: string) => s.trim()).filter(Boolean)
@@ -465,7 +467,9 @@ export const AdminHospitalsManage: React.FC = () => {
         facility_category: editForm.facility_category,
         country: editForm.country.trim() || 'United Arab Emirates',
         emirate: editForm.emirate.trim() || 'Dubai',
-        location: editForm.emirate.trim() || 'Dubai',
+        location: (editForm.area.trim() && editForm.emirate.trim().toLowerCase() !== editForm.area.trim().replace(/\s*\([^)]*\)\s*$/, '').toLowerCase())
+          ? `${editForm.emirate.trim() || 'Dubai'} - ${editForm.area.trim().replace(/\s*\([^)]*\)\s*$/, '')}`
+          : (editForm.emirate.trim() || 'Dubai'),
         area: editForm.area.trim() || undefined,
         address: editForm.address.trim() || undefined,
         latitude: editForm.latitude ? parseFloat(editForm.latitude) : undefined,
