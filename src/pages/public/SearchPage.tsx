@@ -17,7 +17,7 @@ import {
 import { realDoctorService } from '../../services/realDoctorService';
 import { realHospitalService, realClinicService } from '../../services/realFacilityService';
 import { Doctor, Hospital, Clinic } from '../../types';
-import { SPECIALTIES, LOCATIONS, EMIRATES, AREAS, matchesLocation } from '../../data/mockSpecialties';
+import { SPECIALTIES, LOCATIONS, EMIRATES, AREAS, EMIRATE_AREAS, getAreasForLocation, matchesLocation } from '../../data/mockSpecialties';
 import { HEALTH_CONDITIONS } from '../../data/mockConditions';
 import { UAE_EMIRATES } from '../../services/locationService';
 import { useTranslation } from '../../i18n';
@@ -253,12 +253,14 @@ export const SearchPage: React.FC = () => {
   const rawType = searchParams.get('type');
   const initialType = rawType ? (rawType === 'Hospital' ? 'Hospital' : 'Doctor') : (queryIsHospital ? 'Hospital' : 'Doctor');
   const initialInsurance = searchParams.get('insurance') || '';
+  const initialArea = searchParams.get('area') || 'All';
 
   const [searchTerm, setSearchTerm] = useState(initialQuery);
   const [specialty, setSpecialty] = useState(initialSpecialty);
   const [location, setLocation] = useState(initialLocation);
   const [providerType, setProviderType] = useState(initialType);
   const [insurance, setInsurance] = useState(initialInsurance);
+  const [area, setArea] = useState(initialArea);
 
   // Pagination states for each category
   const PAGE_SIZE = 6;
@@ -274,12 +276,14 @@ export const SearchPage: React.FC = () => {
     const rawTp = searchParams.get('type');
     const tp = rawTp === 'Hospital' ? 'Hospital' : 'Doctor';
     const ins = searchParams.get('insurance') || '';
+    const ar = searchParams.get('area') || 'All';
 
     setSearchTerm(q);
     setSpecialty(sp);
     setLocation(loc);
     setProviderType(tp);
     setInsurance(ins);
+    setArea(ar);
     setDoctorPage(1);
     setHospitalPage(1);
     setClinicPage(1);
@@ -380,6 +384,7 @@ export const SearchPage: React.FC = () => {
     if (searchTerm) params.append('q', searchTerm);
     if (specialty !== 'All') params.append('specialty', specialty);
     if (location !== 'All') params.append('location', location);
+    if (area && area !== 'All') params.append('area', area);
     if (providerType && providerType !== 'Doctor') params.append('type', providerType);
     if (insurance) params.append('insurance', insurance);
     setDoctorPage(1);
@@ -392,6 +397,7 @@ export const SearchPage: React.FC = () => {
     setSearchTerm('');
     setSpecialty('All');
     setLocation('All');
+    setArea('All');
     setProviderType('Doctor');
     setInsurance('');
     setDoctorPage(1);
@@ -415,6 +421,10 @@ export const SearchPage: React.FC = () => {
     );
     const effectiveLoc = d.location || docHosp?.location || docClinic?.location || '';
     if (!matchesLocation(effectiveLoc, location)) return false;
+    if (area && area !== 'All') {
+      const docAllLoc = `${effectiveLoc} ${docHosp?.area || ''} ${docClinic?.area || ''}`;
+      if (!matchesLocation(docAllLoc, area)) return false;
+    }
 
     if (insurance) {
       const insLower = insurance.toLowerCase();
@@ -434,6 +444,10 @@ export const SearchPage: React.FC = () => {
       if (!hasSpec) return false;
     }
     if (!matchesLocation(h.location, location)) return false;
+    if (area && area !== 'All') {
+      const hospLoc = `${h.location} ${h.area || ''}`;
+      if (!matchesLocation(hospLoc, area)) return false;
+    }
     if (insurance && (!h.insurancePlans || !h.insurancePlans.toLowerCase().includes(insurance.toLowerCase()))) {
       return false;
     }
@@ -446,6 +460,10 @@ export const SearchPage: React.FC = () => {
     if (searchTerm && !clinicMatchesQuery(c, searchTerm)) return false;
     if (!matchesSpecialty(c.specialty, specialty)) return false;
     if (!matchesLocation(c.location, location)) return false;
+    if (area && area !== 'All') {
+      const clinLoc = `${c.location} ${c.area || ''}`;
+      if (!matchesLocation(clinLoc, area)) return false;
+    }
     if (insurance && (!c.insurancePlans || !c.insurancePlans.toLowerCase().includes(insurance.toLowerCase()))) {
       return false;
     }
@@ -548,7 +566,7 @@ export const SearchPage: React.FC = () => {
         <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-[#E2EBF0] shadow-sm mb-6 sm:mb-8">
           <form onSubmit={handleApplyFilter} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
-              <div className="sm:col-span-2 lg:col-span-4 relative">
+              <div className="sm:col-span-2 lg:col-span-3 relative">
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   {t('search.searchKeyword')}
                 </label>
@@ -591,6 +609,7 @@ export const SearchPage: React.FC = () => {
                           handleAutoDetectLocation();
                         } else {
                           setLocation(val);
+                          setArea('All');
                         }
                       }}
                       options={locationOptions}
@@ -614,6 +633,20 @@ export const SearchPage: React.FC = () => {
                     )}
                   </button>
                 </div>
+              </div>
+
+              <div className="sm:col-span-1 lg:col-span-2">
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {t('doctors.allAreas') || (isArabic ? 'المنطقة' : 'Area')}
+                </label>
+                <CustomDropdown
+                  value={area}
+                  onChange={(val) => setArea(val)}
+                  options={areaOptions}
+                  placeholder={t('doctors.allAreas') || (isArabic ? 'كافة المناطق' : 'All Areas')}
+                  icon={<MapPin className="w-3.5 h-3.5 text-[#2DA7B5]" />}
+                  buttonClassName="rounded-xl border-[#CBD5E1] text-xs sm:text-sm font-semibold py-2 px-3 h-[42px]"
+                />
               </div>
 
               <div className="sm:col-span-1 lg:col-span-2">
@@ -642,7 +675,7 @@ export const SearchPage: React.FC = () => {
                 />
               </div>
 
-              <div className="sm:col-span-1 lg:col-span-2 flex items-end">
+              <div className="sm:col-span-1 lg:col-span-1 flex items-end">
                 <button
                   type="submit"
                   className="w-full h-[42px] px-4 bg-[#2DA7B5] hover:bg-[#23929F] text-white active:scale-[0.99] text-xs sm:text-sm font-bold rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"

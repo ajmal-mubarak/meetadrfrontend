@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import { Building2, MapPin, Star, Phone, Clock, Search, ShieldCheck, Activity, ArrowRight, ChevronDown } from 'lucide-react';
 import { realHospitalService } from '../../services/realFacilityService';
 import { Hospital } from '../../types';
-import { LOCATIONS, EMIRATES, AREAS, matchesLocation } from '../../data/mockSpecialties';
+import { LOCATIONS, EMIRATES, AREAS, EMIRATE_AREAS, getAreasForLocation, matchesLocation } from '../../data/mockSpecialties';
 import { UAE_EMIRATES } from '../../services/locationService';
 import { useTranslation } from '../../i18n';
 import { CustomDropdown, DropdownOption } from '../../components/common/CustomDropdown';
@@ -33,6 +33,7 @@ export const HospitalList: React.FC = () => {
   const [search, setSearch] = useState(searchParams.get('search') || searchParams.get('q') || '');
   const [location, setLocation] = useState(getUrlLocation());
   const [insurance, setInsurance] = useState(searchParams.get('insurance') || '');
+  const [area, setArea] = useState<string>(searchParams.get('area') || 'All');
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 6;
 
@@ -40,9 +41,11 @@ export const HospitalList: React.FC = () => {
     const qLoc = getUrlLocation();
     const qTerm = searchParams.get('search') || searchParams.get('q') || '';
     const qIns = searchParams.get('insurance') || '';
+    const qArea = searchParams.get('area') || 'All';
     setLocation(qLoc);
     setSearch(qTerm);
     setInsurance(qIns);
+    setArea(qArea);
     setCurrentPage(1);
   }, [searchParams]);
 
@@ -72,7 +75,9 @@ export const HospitalList: React.FC = () => {
 
   const updateLocation = (newLoc: string) => {
     setLocation(newLoc);
+    setArea('All');
     const params = new URLSearchParams(searchParams);
+    params.delete('area');
     if (newLoc && newLoc !== 'All') {
       params.set('location', newLoc);
       const em = UAE_EMIRATES.find((e) => e.name.toLowerCase() === newLoc.toLowerCase());
@@ -84,21 +89,37 @@ export const HospitalList: React.FC = () => {
     setSearchParams(params);
   };
 
+  const updateArea = (newArea: string) => {
+    setArea(newArea);
+    const params = new URLSearchParams(searchParams);
+    if (newArea && newArea !== 'All') {
+      params.set('area', newArea);
+    } else {
+      params.delete('area');
+    }
+    setSearchParams(params);
+  };
+
   const locationOptions: DropdownOption[] = useMemo(() => [
     { value: 'All', label: t('hospitals.allLocations') },
-    { value: 'divider-emirates', label: isArabic ? 'الإمارات' : 'Emirates', isDivider: true },
     ...EMIRATES.map((l) => ({
       value: l,
       label: translateLocation(l),
       icon: <MapPin className="w-3.5 h-3.5 text-[#2DA7B5]" />,
     })),
-    { value: 'divider-areas', label: isArabic ? 'المناطق الشهيرة' : 'Popular Areas', isDivider: true },
-    ...AREAS.map((l) => ({
-      value: l,
-      label: translateLocation(l),
-      icon: <MapPin className="w-3.5 h-3.5 text-slate-400" />,
-    })),
-  ], [t, translateLocation, isArabic]);
+  ], [t, translateLocation]);
+
+  const areaOptions: DropdownOption[] = useMemo(() => {
+    const list = getAreasForLocation(location, hospitals);
+    return [
+      { value: 'All', label: t('hospitals.allAreas') || (isArabic ? 'كافة المناطق' : 'All Areas') },
+      ...list.map((a) => ({
+        value: a,
+        label: translateLocation(a),
+        icon: <MapPin className="w-3.5 h-3.5 text-[#2DA7B5]" />,
+      })),
+    ];
+  }, [location, hospitals, isArabic, t, translateLocation]);
 
   useEffect(() => {
     async function load() {
@@ -117,6 +138,10 @@ export const HospitalList: React.FC = () => {
 
   const filtered = hospitals.filter((h) => {
     if (!matchesLocation(h.location, location)) return false;
+    if (area && area !== 'All') {
+      const hLoc = `${h.location} ${h.area || ''}`;
+      if (!matchesLocation(hLoc, area)) return false;
+    }
     if (insurance && (!h.insurancePlans || !h.insurancePlans.toLowerCase().includes(insurance.toLowerCase()))) {
       return false;
     }
@@ -152,7 +177,7 @@ export const HospitalList: React.FC = () => {
         </div>
 
         {/* Filters */}
-        <div className="bg-white p-4 rounded-3xl border border-[#E2EBF0] shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="bg-white p-4 rounded-3xl border border-[#E2EBF0] shadow-sm flex flex-col md:flex-row items-stretch md:items-center gap-3">
           <div className="flex-1 relative min-w-0">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
@@ -164,13 +189,24 @@ export const HospitalList: React.FC = () => {
             />
           </div>
 
-          <div className="w-full sm:w-60 min-w-0">
+          <div className="w-full md:w-52 min-w-0">
             <CustomDropdown
               value={location}
               onChange={(val) => updateLocation(val)}
               options={locationOptions}
               placeholder={t('hospitals.allLocations')}
               icon={<MapPin className="w-4 h-4 text-[#0D5C54]" />}
+              buttonClassName="rounded-2xl border-[#CBD5E1] py-2.5 sm:py-3 text-xs sm:text-sm font-semibold"
+            />
+          </div>
+
+          <div className="w-full md:w-52 min-w-0">
+            <CustomDropdown
+              value={area}
+              onChange={(val) => updateArea(val)}
+              options={areaOptions}
+              placeholder={t('hospitals.allAreas') || (isArabic ? 'كافة المناطق' : 'All Areas')}
+              icon={<MapPin className="w-4 h-4 text-[#2DA7B5]" />}
               buttonClassName="rounded-2xl border-[#CBD5E1] py-2.5 sm:py-3 text-xs sm:text-sm font-semibold"
             />
           </div>
