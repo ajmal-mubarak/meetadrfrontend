@@ -77,6 +77,11 @@ export const DoctorCard: React.FC<DoctorCardProps> = ({
                   ? translateHospitalName(doc.hospitalName || doc.clinicName || '')
                   : (isArabic ? 'مستقل' : 'Independent')}
               </span>
+              {doc.affiliatedHospitals && doc.affiliatedHospitals.length > 1 && (
+                <span className="text-[10px] font-bold text-[#0D5C54] bg-[#E8F6F8] px-1.5 py-0.5 rounded-md shrink-0">
+                  +{doc.affiliatedHospitals.length - 1} {isArabic ? 'فرع آخر' : 'more'}
+                </span>
+              )}
             </p>
           </div>
         </div>

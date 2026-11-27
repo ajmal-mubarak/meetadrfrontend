@@ -725,7 +725,7 @@ export const DoctorList: React.FC = () => {
 
             {/* Search Input */}
 
-            <div className="sm:col-span-6 lg:col-span-3 relative">
+            <div className="sm:col-span-12 lg:col-span-4 relative">
 
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 rtl:left-auto rtl:right-3.5 top-3.5" />
 
@@ -767,7 +767,7 @@ export const DoctorList: React.FC = () => {
 
             {/* Specialty Selector */}
 
-            <div className="sm:col-span-6 lg:col-span-3">
+            <div className="sm:col-span-6 lg:col-span-2">
 
               <CustomDropdown
 

@@ -55,6 +55,22 @@ interface BackendDoctor {
     name?: string;
     location?: string;
   } | null;
+  affiliated_hospitals?: Array<{
+    id: string;
+    name: string;
+    name_ar?: string;
+    location?: string;
+    photo?: string;
+    is_primary?: boolean;
+  }>;
+  affiliated_clinics?: Array<{
+    id: string;
+    name: string;
+    name_ar?: string;
+    location?: string;
+    photo?: string;
+    is_primary?: boolean;
+  }>;
 }
 
 export interface AvailabilityResponse {
@@ -83,6 +99,23 @@ function mapDoctor(b: BackendDoctor): Doctor {
   const hospitalName = b.hospital_name || undefined;
   const clinicName = b.clinic_name || undefined;
 
+  const affiliatedHospitals = (b.affiliated_hospitals || []).map((h) => ({
+    id: h.id,
+    name: h.name,
+    nameAr: h.name_ar,
+    location: h.location,
+    photo: h.photo,
+    isPrimary: h.is_primary,
+  }));
+  const affiliatedClinics = (b.affiliated_clinics || []).map((c) => ({
+    id: c.id,
+    name: c.name,
+    nameAr: c.name_ar,
+    location: c.location,
+    photo: c.photo,
+    isPrimary: c.is_primary,
+  }));
+
   return {
     id: String(b.id),
     name: b.name,
@@ -102,6 +135,8 @@ function mapDoctor(b: BackendDoctor): Doctor {
     hospitalNameAr: b.hospital_name_ar,
     clinicId,
     clinicName,
+    affiliatedHospitals,
+    affiliatedClinics,
     about: b.about || '',
     aboutAr: b.about_ar,
     education: b.education || '',

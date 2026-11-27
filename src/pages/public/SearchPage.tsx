@@ -378,6 +378,21 @@ export const SearchPage: React.FC = () => {
     return Array.from(set);
   }, [hospitals]);
 
+  const areaOptions: DropdownOption[] = useMemo(() => {
+    const list = getAreasForLocation(location, [...hospitals, ...doctors, ...clinics]);
+    return [
+      {
+        value: 'All',
+        label: t('doctors.allAreas') || (isArabic ? 'كافة المناطق' : 'All Areas'),
+      },
+      ...list.map((a) => ({
+        value: a,
+        label: translateLocation(a),
+        icon: <MapPin className="w-3.5 h-3.5 text-[#2DA7B5]" />,
+      })),
+    ];
+  }, [location, hospitals, doctors, clinics, isArabic, t, translateLocation]);
+
   const handleApplyFilter = (e: React.FormEvent) => {
     e.preventDefault();
     const params = new URLSearchParams();

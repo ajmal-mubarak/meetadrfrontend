@@ -164,21 +164,39 @@ export const DoctorDetails: React.FC = () => {
                 <Building2 className="w-5 h-5 text-[#2DA7B5]" />
                 <span>{t('doctorDetails.practicingAffiliation')}</span>
               </h3>
-              <div className="p-4 rounded-xl border border-[#E2EBF0] bg-[#F8FAFC] flex items-center justify-between">
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900">
-                    {translateHospitalName(doctor.hospitalName || doctor.clinicName || 'City Care Hospital')}
-                  </h4>
-                  <p className="text-xs text-slate-500 mt-0.5">{translateLocation(doctor.location)}</p>
-                </div>
-                {doctor.hospitalId && (
-                  <Link
-                    to={`/hospitals/${doctor.hospitalId}`}
-                    className="text-xs font-semibold text-[#2DA7B5] hover:text-[#23929F]"
+              <div className="space-y-2.5">
+                {(doctor.affiliatedHospitals && doctor.affiliatedHospitals.length > 0
+                  ? doctor.affiliatedHospitals
+                  : [
+                      {
+                        id: doctor.hospitalId || '',
+                        name: doctor.hospitalName || doctor.clinicName || 'City Care Hospital',
+                        location: doctor.location,
+                      },
+                    ]
+                ).map((fac) => (
+                  <div
+                    key={fac.id || fac.name}
+                    className="p-4 rounded-xl border border-[#E2EBF0] bg-[#F8FAFC] flex items-center justify-between hover:border-[#2DA7B5] transition-colors"
                   >
-                    {t('doctorDetails.viewFacility')}
-                  </Link>
-                )}
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">
+                        {translateHospitalName(fac.name)}
+                      </h4>
+                      {fac.location && (
+                        <p className="text-xs text-slate-500 mt-0.5">{translateLocation(fac.location)}</p>
+                      )}
+                    </div>
+                    {fac.id && (
+                      <Link
+                        to={`/hospitals/${fac.id}`}
+                        className="text-xs font-semibold text-[#2DA7B5] hover:text-[#23929F]"
+                      >
+                        {t('doctorDetails.viewFacility')}
+                      </Link>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           </div>

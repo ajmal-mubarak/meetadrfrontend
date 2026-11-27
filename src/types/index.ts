@@ -33,6 +33,22 @@ export interface Doctor {
   hospitalName?: string;
   hospitalNameAr?: string;
   clinicName?: string;
+  affiliatedHospitals?: Array<{
+    id: string;
+    name: string;
+    nameAr?: string;
+    location?: string;
+    photo?: string;
+    isPrimary?: boolean;
+  }>;
+  affiliatedClinics?: Array<{
+    id: string;
+    name: string;
+    nameAr?: string;
+    location?: string;
+    photo?: string;
+    isPrimary?: boolean;
+  }>;
   about: string;
   aboutAr?: string;
   education: string;
